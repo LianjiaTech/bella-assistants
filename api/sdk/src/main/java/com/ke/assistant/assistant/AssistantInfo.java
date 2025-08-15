@@ -1,9 +1,12 @@
 package com.ke.assistant.assistant;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.ke.assistant.common.LocalDateTimeToSecondsSerializer;
 import com.ke.assistant.common.Tool;
 import lombok.Data;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -18,7 +21,8 @@ public class AssistantInfo {
     private String object = "assistant";
 
     @JsonProperty("created_at")
-    private Integer createdAt;
+    @JsonSerialize(using = LocalDateTimeToSecondsSerializer.class)
+    private LocalDateTime createdAt;
 
     private String model;
 

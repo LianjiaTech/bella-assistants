@@ -1,9 +1,12 @@
 package com.ke.assistant.message;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.ke.assistant.common.Attachment;
+import com.ke.assistant.common.LocalDateTimeToSecondsSerializer;
 import lombok.Data;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -15,7 +18,8 @@ public class MessageInfo {
     private String id;
     private String object = "thread.message";
     @JsonProperty("created_at")
-    private Integer createdAt;
+    @JsonSerialize(using = LocalDateTimeToSecondsSerializer.class)
+    private LocalDateTime createdAt;
     @JsonProperty("thread_id")
     private String threadId;
     private String role;

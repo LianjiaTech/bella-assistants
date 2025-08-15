@@ -1,0 +1,7 @@
+{
+  "name": "Assistant with Files",
+  "description": "Testing files association",
+  "model": "gpt-4",
+  "instructions": "You have access to uploaded files.",
+  "file_ids": ["file_abc123", "file_def456"]
+}

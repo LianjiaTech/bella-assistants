@@ -1,0 +1,23 @@
+{
+  "name": "Assistant with Overlapping Files",
+  "description": "Testing file deduplication between file_ids and tool_resources",
+  "model": "gpt-4",
+  "instructions": "Testing overlapping files handling.",
+  "file_ids": [
+    "file_common1",
+    "file_common2"
+  ],
+  "tools": [
+    {
+      "type": "code_interpreter"
+    }
+  ],
+  "tool_resources": {
+    "code_interpreter": {
+      "file_ids": [
+        "file_common2",
+        "file_tool_only"
+      ]
+    }
+  }
+}

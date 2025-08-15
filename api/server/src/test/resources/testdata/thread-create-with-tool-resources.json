@@ -1,0 +1,10 @@
+{
+  "tool_resources": {
+    "code_interpreter": ["file_abc123", "file_def456"],
+    "file_search": ["file_def456", "file_ghi789"]
+  },
+  "metadata": {
+    "purpose": "tool_resources_test",
+    "has_files": true
+  }
+}

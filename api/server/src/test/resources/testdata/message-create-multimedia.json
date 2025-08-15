@@ -1,0 +1,18 @@
+{
+  "role": "user",
+  "content": [
+    {
+      "type": "text",
+      "text": "Please analyze this image:"
+    },
+    {
+      "type": "image_url",
+      "image_url": {
+        "url": "https://example.com/image.jpg"
+      }
+    }
+  ],
+  "metadata": {
+    "content_type": "multimedia"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "metadata": {
+    "updated": true,
+    "version": "2.0",
+    "last_modified": "2024-01-15T10:30:00Z"
+  },
+  "environment": {
+    "mode": "production",
+    "timeout": 30,
+    "logging": {
+      "level": "info",
+      "enabled": true
+    }
+  }
+}

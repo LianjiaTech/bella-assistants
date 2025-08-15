@@ -15,6 +15,8 @@ import java.util.Map;
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type", visible = true)
 @JsonSubTypes({
         @JsonSubTypes.Type(value = Tool.ToolFunction.class, name = "function"),
+        @JsonSubTypes.Type(value = Tool.ToolCodeInterpreter.class, name = "code_interpreter"),
+        @JsonSubTypes.Type(value = Tool.ToolFileSearch.class, name = "file_search"),
         @JsonSubTypes.Type(value = Tool.ToolRetrieval.class, name = "retrieval"),
         @JsonSubTypes.Type(value = Tool.ToolRag.class, name = "rag"),
         @JsonSubTypes.Type(value = Tool.ToolWebSearch.class, name = "web_search"),
@@ -49,6 +51,32 @@ public abstract class Tool {
         @Override
         public String getType() {
             return "function";
+        }
+    }
+
+    /**
+     * Code Interpreter Tool
+     */
+    @Data
+    public static class ToolCodeInterpreter extends Tool {
+        private String type = "code_interpreter";
+
+        @Override
+        public String getType() {
+            return "code_interpreter";
+        }
+    }
+
+    /**
+     * File Search Tool
+     */
+    @Data
+    public static class ToolFileSearch extends Tool {
+        private String type = "file_search";
+
+        @Override
+        public String getType() {
+            return "file_search";
         }
     }
 

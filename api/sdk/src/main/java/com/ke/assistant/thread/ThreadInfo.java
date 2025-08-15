@@ -1,8 +1,11 @@
 package com.ke.assistant.thread;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.ke.assistant.common.LocalDateTimeToSecondsSerializer;
 import lombok.Data;
 
+import java.time.LocalDateTime;
 import java.util.Map;
 
 /**
@@ -16,7 +19,8 @@ public class ThreadInfo {
     private String object = "thread";
 
     @JsonProperty("created_at")
-    private Integer createdAt;
+    @JsonSerialize(using = LocalDateTimeToSecondsSerializer.class)
+    private LocalDateTime createdAt;
 
     private String user;
 

@@ -1,0 +1,19 @@
+{
+  "role": "assistant",
+  "content": "Based on the data analysis, here are my findings:",
+  "metadata": {
+    "priority": "high",
+    "tags": ["analysis", "data", "report"],
+    "config": {
+      "temperature": 0.7,
+      "max_tokens": 1500
+    },
+    "nested": {
+      "level1": {
+        "level2": "deep_value"
+      }
+    },
+    "timestamp": 1234567890,
+    "boolean_flag": true
+  }
+}

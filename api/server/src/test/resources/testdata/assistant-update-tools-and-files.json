@@ -1,0 +1,15 @@
+{
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "new_function",
+        "description": "A newly updated function"
+      }
+    },
+    {
+      "type": "code_interpreter"
+    }
+  ],
+  "file_ids": ["file_update1", "file_update2", "file_update3"]
+}

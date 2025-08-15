@@ -1,0 +1,16 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "Hello, this is an initial message for the thread."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. This thread has been created with initial messages."
+    }
+  ],
+  "metadata": {
+    "purpose": "initial_messages_test",
+    "message_count": 2
+  }
+}

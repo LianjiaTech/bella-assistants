@@ -1,0 +1,7 @@
+{
+  "role": "user",
+  "content": "Hello, how can you help me today?",
+  "metadata": {
+    "source": "test"
+  }
+}

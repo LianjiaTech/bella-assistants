@@ -1,0 +1,21 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "This is a comprehensive thread with both messages and tool resources."
+    }
+  ],
+  "tool_resources": {
+    "code_interpreter": ["file_full_123", "file_full_456"],
+    "file_search": ["file_full_789"]
+  },
+  "metadata": {
+    "test": true,
+    "scenario": "full_creation",
+    "features": ["messages", "tool_resources", "metadata"]
+  },
+  "environment": {
+    "test_mode": true,
+    "full_features": true
+  }
+}

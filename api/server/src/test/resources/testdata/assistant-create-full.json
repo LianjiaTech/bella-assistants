@@ -1,0 +1,26 @@
+{
+  "name": "Full Config Assistant",
+  "description": "Assistant with full configuration for testing",
+  "model": "gpt-4",
+  "instructions": "You are a comprehensive test assistant with full configuration.",
+  "temperature": 0.7,
+  "top_p": 0.9,
+  "response_format": "text",
+  "reasoning_effort": "medium",
+  "user": "test_user",
+  "metadata": {
+    "version": "1.0",
+    "environment": "test",
+    "category": "full-config"
+  },
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "test_function",
+        "description": "A test function"
+      }
+    }
+  ],
+  "file_ids": ["file_123", "file_456"]
+}

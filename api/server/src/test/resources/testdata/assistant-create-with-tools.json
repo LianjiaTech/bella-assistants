@@ -1,0 +1,24 @@
+{
+  "name": "Assistant with Tools",
+  "description": "Testing tools association",
+  "model": "gpt-4",
+  "instructions": "You have access to web search tools.",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "search_web",
+        "description": "Search the web for information",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Search query"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

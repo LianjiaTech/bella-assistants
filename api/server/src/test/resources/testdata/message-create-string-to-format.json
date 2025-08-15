@@ -1,0 +1,7 @@
+{
+  "role": "user",
+  "content": "Hello world for format test",
+  "metadata": {
+    "test_scenario": "string_to_format_conversion"
+  }
+}

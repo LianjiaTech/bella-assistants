@@ -13,9 +13,9 @@ import com.ke.assistant.run.RunInfo;
 import com.ke.assistant.util.BeanUtils;
 import com.ke.bella.openapi.common.exception.ResourceNotFoundException;
 import com.ke.bella.openapi.utils.JacksonUtils;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,13 +28,15 @@ import java.util.Map;
  * Run Service
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class RunService {
 
-    private final RunRepo runRepo;
-    private final RunStepRepo runStepRepo;
-    private final RunToolRepo runToolRepo;
+    @Autowired
+    private RunRepo runRepo;
+    @Autowired
+    private RunStepRepo runStepRepo;
+    @Autowired
+    private RunToolRepo runToolRepo;
 
     /**
      * 根据ID获取Run

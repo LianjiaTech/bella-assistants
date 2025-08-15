@@ -1,0 +1,16 @@
+{
+  "name": "Assistant with Tool Resources",
+  "description": "Testing tool resources processing",
+  "model": "gpt-4",
+  "instructions": "You have tool resources configured.",
+  "tools": [
+    {
+      "type": "code_interpreter"
+    }
+  ],
+  "tool_resources": {
+    "code_interpreter": {
+      "file_ids": ["file_code1", "file_code2"]
+    }
+  }
+}

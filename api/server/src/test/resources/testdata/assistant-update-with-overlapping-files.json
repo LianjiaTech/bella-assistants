@@ -1,0 +1,19 @@
+{
+  "file_ids": [
+    "file_update1",
+    "file_update2"
+  ],
+  "tools": [
+    {
+      "type": "code_interpreter"
+    }
+  ],
+  "tool_resources": {
+    "code_interpreter": {
+      "file_ids": [
+        "file_update1",
+        "file_tool_unique"
+      ]
+    }
+  }
+}

@@ -1,0 +1,38 @@
+spring:
+  # Test database configuration using local MySQL
+  datasource:
+    url: jdbc:mysql://localhost:3306/bella_assistant?useSSL=false&serverTimezone=Asia/Shanghai&createDatabaseIfNotExist=true
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: 123456
+    
+  # Redis configuration for testing - use embedded or mock
+  redis:
+    redisson:
+      config: |
+        singleServerConfig:
+          address: "redis://localhost:6379"
+        codec: !<org.redisson.client.codec.StringCodec> {}
+    
+logging:
+  level:
+    com.ke.assistant: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.test: DEBUG
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# Test API configuration
+test:
+  api:
+    key: your-api-key
+
+# Management endpoints for testing
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always

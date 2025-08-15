@@ -10,10 +10,11 @@ import com.ke.assistant.db.repo.AssistantRepo;
 import com.ke.assistant.db.repo.AssistantToolRepo;
 import com.ke.assistant.db.repo.Page;
 import com.ke.assistant.util.BeanUtils;
+import com.ke.assistant.util.ToolResourceUtils;
 import com.ke.bella.openapi.utils.JacksonUtils;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,13 +27,15 @@ import java.util.Map;
  * Assistant Service
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class AssistantService {
 
-    private final AssistantRepo assistantRepo;
-    private final AssistantFileRelationRepo assistantFileRepo;
-    private final AssistantToolRepo assistantToolRepo;
+    @Autowired
+    private AssistantRepo assistantRepo;
+    @Autowired
+    private AssistantFileRelationRepo assistantFileRepo;
+    @Autowired
+    private AssistantToolRepo assistantToolRepo;
 
     /**
      * 创建 Assistant
@@ -216,6 +219,7 @@ public class AssistantService {
     /**
      * 将AssistantDb转换为AssistantInfo
      */
+    @SuppressWarnings("unchecked")
     private AssistantInfo convertToInfo(AssistantDb assistantDb) {
         if(assistantDb == null) {
             return null;
@@ -243,17 +247,17 @@ public class AssistantService {
         }
         info.setFileIds(fileIds);
 
-        // 计算tool_resources
-        Map<String, Object> toolResources = new HashMap<>();
+        // 计算tool_resources - 使用工具类构建正确的嵌套结构
+        List<Map<String, String>> toolFiles = new ArrayList<>();
         for (AssistantFileRelationDb file : files) {
             if(!"_all".equals(file.getToolName())) {
-                String toolName = file.getToolName();
-                if(!toolResources.containsKey(toolName)) {
-                    toolResources.put(toolName, new ArrayList<String>());
-                }
-                ((List<String>) toolResources.get(toolName)).add(file.getFileId());
+                Map<String, String> fileMap = new HashMap<>();
+                fileMap.put("file_id", file.getFileId());
+                fileMap.put("tool_name", file.getToolName());
+                toolFiles.add(fileMap);
             }
         }
+        Map<String, Object> toolResources = ToolResourceUtils.buildToolResourcesFromFiles(toolFiles);
         info.setToolResources(toolResources);
 
         // 计算tools

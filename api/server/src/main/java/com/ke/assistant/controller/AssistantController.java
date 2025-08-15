@@ -104,6 +104,8 @@ public class AssistantController {
             @PathVariable("assistant_id") String assistantId,
             @RequestBody AssistantOps.UpdateAssistantOp request) {
 
+        request.setOwner(BellaContext.getOwnerCode());
+
         // transfer请求到数据库对象
         AssistantDb updateData = new AssistantDb();
         BeanUtils.copyProperties(request, updateData);

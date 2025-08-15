@@ -1,0 +1,9 @@
+{
+  "tool_resources": {
+    "code_interpreter": ["file_new123"]
+  },
+  "metadata": {
+    "updated": true,
+    "update_type": "tool_resources_only"
+  }
+}

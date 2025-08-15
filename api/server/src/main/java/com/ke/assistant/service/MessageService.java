@@ -8,11 +8,12 @@ import com.ke.assistant.db.repo.Page;
 import com.ke.assistant.message.MessageInfo;
 import com.ke.assistant.message.MessageOps;
 import com.ke.assistant.util.BeanUtils;
+import com.ke.bella.openapi.common.exception.ResourceNotFoundException;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.completion.chat.MultiMediaContent;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,17 +26,25 @@ import java.util.Map;
  * Message Service
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class MessageService {
 
-    private final MessageRepo messageRepo;
+    @Autowired
+    private MessageRepo messageRepo;
+
+    @Autowired
+    private ThreadService threadService;
 
     /**
      * 创建 Message
      */
     @Transactional
     public MessageInfo createMessage(String threadId, MessageOps.CreateMessageOp request) {
+        // 验证Thread是否存在
+        if (!threadService.existsById(threadId)) {
+            throw new ResourceNotFoundException("Thread not found: " + threadId);
+        }
+        
         MessageDb message = new MessageDb();
         BeanUtils.copyProperties(request, message);
         message.setThreadId(threadId);
@@ -95,6 +104,10 @@ public class MessageService {
      * 分页查询Thread下的Message
      */
     public Page<MessageInfo> getMessagesByThreadIdWithPage(String threadId, int page, int pageSize) {
+        // 验证Thread是否存在
+        if (!threadService.existsById(threadId)) {
+            throw new ResourceNotFoundException("Thread not found: " + threadId);
+        }
         Page<MessageDb> dbPage = messageRepo.findByThreadIdWithPage(threadId, page, pageSize);
         List<MessageInfo> infoList = dbPage.getList().stream().map(this::convertToInfo).collect(java.util.stream.Collectors.toList());
         Page<MessageInfo> result = new Page<>();

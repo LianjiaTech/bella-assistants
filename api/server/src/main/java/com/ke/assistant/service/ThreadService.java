@@ -10,10 +10,11 @@ import com.ke.assistant.db.repo.ThreadRepo;
 import com.ke.assistant.message.MessageOps;
 import com.ke.assistant.thread.ThreadInfo;
 import com.ke.assistant.util.BeanUtils;
+import com.ke.assistant.util.MessageUtils;
 import com.ke.bella.openapi.utils.JacksonUtils;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,14 +29,17 @@ import java.util.Set;
  * Thread Service
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class ThreadService {
 
-    private final ThreadRepo threadRepo;
-    private final ThreadFileRelationRepo threadFileRepo;
-    private final MessageRepo messageRepo;
-    private final MessageService messageService;
+    @Autowired
+    private ThreadRepo threadRepo;
+    @Autowired
+    private ThreadFileRelationRepo threadFileRepo;
+    @Autowired
+    private MessageRepo messageRepo;
+    @Autowired
+    private MessageService messageService;
 
     /**
      * 创建 Thread
@@ -314,25 +318,12 @@ public class ThreadService {
      * 复制消息从一个Thread到另一个Thread
      */
     @Transactional
-    @SuppressWarnings("unchecked")
     public void copyMessagesFromThread(String fromThreadId, String toThreadId) {
         List<MessageDb> sourceMessages = messageService.getMessageDbsByThreadId(fromThreadId);
 
         for (MessageDb sourceMessage : sourceMessages) {
-            MessageDb newMessage = new MessageDb();
-            BeanUtils.copyProperties(sourceMessage, newMessage);
-            newMessage.setId(null); // 重新生成ID
-            newMessage.setThreadId(toThreadId);
-
-            // 在metadata中标记原消息ID
-            String metadata = sourceMessage.getMetadata();
-            Map<String, Object> metadataMap = new HashMap<>();
-            if(StringUtils.isNotBlank(metadata)) {
-                metadataMap = JacksonUtils.toMap(metadata);
-            }
-            metadataMap.put("copy_message_id", sourceMessage.getId());
-            newMessage.setMetadata(JacksonUtils.serialize(metadataMap));
-
+            // 使用MessageUtils复制消息
+            MessageDb newMessage = MessageUtils.copyMessageToThread(sourceMessage, toThreadId);
             messageService.createMessage(newMessage);
         }
     }
@@ -341,40 +332,19 @@ public class ThreadService {
      * 智能合并消息（避免重复）
      */
     @Transactional
-    @SuppressWarnings("unchecked")
     public void mergeMessagesFromThread(String fromThreadId, String toThreadId) {
         List<MessageDb> fromMessages = messageService.getMessageDbsByThreadId(fromThreadId);
         List<MessageDb> toMessages = messageService.getMessageDbsByThreadId(toThreadId);
 
-        // 获取目标线程中已存在的copy_message_id
-        Set<String> existingCopyIds = new HashSet<>();
-        for (MessageDb toMessage : toMessages) {
-            if(StringUtils.isNotBlank(toMessage.getMetadata())) {
-                Map<String, Object> metadata = JacksonUtils.toMap(toMessage.getMetadata());
-                String copyMessageId = (String) metadata.get("copy_message_id");
-                if(copyMessageId != null) {
-                    existingCopyIds.add(copyMessageId);
-                }
-            }
-        }
+        // 使用MessageUtils获取目标线程中已存在的源消息ID
+        Set<String> existingSourceIds = MessageUtils.getExistingSourceIds(toMessages);
 
         // 只复制不重复的消息
         for (MessageDb fromMessage : fromMessages) {
-            if(!existingCopyIds.contains(fromMessage.getId())) {
-                MessageDb newMessage = new MessageDb();
-                BeanUtils.copyProperties(fromMessage, newMessage);
-                newMessage.setId(null); // 重新生成ID
-                newMessage.setThreadId(toThreadId);
-
-                // 在metadata中标记原消息ID
-                String metadata = fromMessage.getMetadata();
-                Map<String, Object> metadataMap = new HashMap<>();
-                if(StringUtils.isNotBlank(metadata)) {
-                    metadataMap = JacksonUtils.toMap(metadata);
-                }
-                metadataMap.put("copy_message_id", fromMessage.getId());
-                newMessage.setMetadata(JacksonUtils.serialize(metadataMap));
-
+            // 使用MessageUtils检查消息是否已存在
+            if (!MessageUtils.isMessageExists(fromMessage, existingSourceIds)) {
+                // 使用MessageUtils复制消息
+                MessageDb newMessage = MessageUtils.copyMessageToThread(fromMessage, toThreadId);
                 messageService.createMessage(newMessage);
             }
         }

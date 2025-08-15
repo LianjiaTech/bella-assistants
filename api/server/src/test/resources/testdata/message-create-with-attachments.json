@@ -1,0 +1,17 @@
+{
+  "role": "user",
+  "content": "Please analyze this file and provide insights.",
+  "attachments": [
+    {
+      "file_id": "file_abc123",
+      "tools": [
+        {
+          "type": "code_interpreter"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "has_attachments": true
+  }
+}

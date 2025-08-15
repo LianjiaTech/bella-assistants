@@ -1,0 +1,9 @@
+{
+  "role": "assistant",
+  "content": "The answer is 42.",
+  "reasoning_content": "This is my reasoning process for the response...",
+  "metadata": {
+    "has_reasoning": true,
+    "reasoning_type": "logical"
+  }
+}

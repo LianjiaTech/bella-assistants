@@ -1,0 +1,25 @@
+{
+  "metadata": {
+    "priority": "high",
+    "tags": ["test", "complex", "metadata"],
+    "config": {
+      "max_messages": 100,
+      "auto_delete": false
+    },
+    "nested": {
+      "level1": {
+        "level2": "deep_value"
+      }
+    },
+    "created_by": "test_user",
+    "version": 1.5
+  },
+  "environment": {
+    "region": "us-west-1",
+    "debug": true,
+    "limits": {
+      "memory": "1GB",
+      "cpu": "2 cores"
+    }
+  }
+}

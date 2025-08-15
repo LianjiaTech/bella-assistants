@@ -1,12 +1,15 @@
 package com.ke.assistant.run;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.ke.assistant.common.LocalDateTimeToSecondsSerializer;
 import com.ke.assistant.common.Tool;
 import com.ke.bella.openapi.BaseDto;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 import javax.validation.constraints.NotBlank;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -23,7 +26,8 @@ public class RunInfo extends BaseDto {
     private String object = "thread.run";
 
     @JsonProperty("created_at")
-    private Long createdAt;
+    @JsonSerialize(using = LocalDateTimeToSecondsSerializer.class)
+    private LocalDateTime createdAt;
 
     @NotBlank
     @JsonProperty("thread_id")
