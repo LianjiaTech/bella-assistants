@@ -1,0 +1,66 @@
+server:
+  port: 8087
+  tomcat:
+    max-threads: 200
+  max-http-header-size: 10240
+
+spring:
+  application:
+    name: bella-assistant
+  datasource:
+    url: jdbc:mysql://localhost:3306/bella_assistant?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  redis:
+    redisson:
+      config: |
+        singleServerConfig:
+          address: "redis://localhost:6379"
+        codec: !<org.redisson.client.codec.StringCodec> {}
+
+# Swagger API Documentation
+springdoc:
+  swagger-ui:
+    path: /docs/index.html
+    enabled: true
+  api-docs:
+    path: /docs/api
+    enabled: true
+
+# Management endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: 'health,info,prometheus'
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: ${spring.application.name}
+
+# Logging
+logging:
+  level:
+    com.ke.assistant: INFO
+    org.jooq: DEBUG
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+bella:
+  openapi:
+    host: http://localhost:8080
+    service: assistant
+  # Assistant specific configuration
+  assistant:
+    # ID 生成配置
+    id-prefix: bella_assistant  # Redis key 前缀

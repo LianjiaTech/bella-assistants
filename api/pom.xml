@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>top.bella</groupId>
+    <artifactId>bella-assistant</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+    <name>bella-assistant</name>
+    <description>Bella Assistant API</description>
+
+    <modules>
+        <module>sdk</module>
+        <module>server</module>
+    </modules>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.3.12.RELEASE</version>
+        <relativePath/>
+    </parent>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <java.version>1.8</java.version>
+        <bella-openapi.version>1.1.47</bella-openapi.version>
+        <bella-openai.version>0.23.2</bella-openai.version>
+        <jooq.version>3.14.15</jooq.version>
+        <mysql.version>8.0.33</mysql.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Bella OpenAPI Dependencies -->
+            <dependency>
+                <groupId>top.bella</groupId>
+                <artifactId>openapi-sdk</artifactId>
+                <version>${bella-openapi.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>top.bella</groupId>
+                <artifactId>openapi-spi</artifactId>
+                <version>${bella-openapi.version}</version>
+            </dependency>
+
+            <!-- OpenAI Dependencies -->
+            <dependency>
+                <groupId>top.bella</groupId>
+                <artifactId>openai-api</artifactId>
+                <version>${bella-openai.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>top.bella</groupId>
+                <artifactId>openai-service</artifactId>
+                <version>${bella-openai.version}</version>
+            </dependency>
+
+            <!-- Database Dependencies -->
+            <dependency>
+                <groupId>org.jooq</groupId>
+                <artifactId>jooq</artifactId>
+                <version>${jooq.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.jooq</groupId>
+                <artifactId>jooq-meta</artifactId>
+                <version>${jooq.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>mysql</groupId>
+                <artifactId>mysql-connector-java</artifactId>
+                <version>${mysql.version}</version>
+            </dependency>
+
+            <!-- Cache Dependencies -->
+            <dependency>
+                <groupId>org.redisson</groupId>
+                <artifactId>redisson-spring-boot-starter</artifactId>
+                <version>3.18.0</version>
+            </dependency>
+
+            <!-- Common Dependencies -->
+            <dependency>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>1.18.24</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.8.1</version>
+                <configuration>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
+                    <encoding>${project.build.sourceEncoding}</encoding>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
