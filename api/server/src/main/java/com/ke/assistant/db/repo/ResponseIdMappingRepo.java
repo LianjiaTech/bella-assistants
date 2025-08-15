@@ -1,0 +1,111 @@
+package com.ke.assistant.db.repo;
+
+import com.ke.assistant.db.IdGenerator;
+import com.ke.assistant.db.generated.tables.pojos.ResponseIdMappingDb;
+import com.ke.assistant.db.generated.tables.records.ResponseIdMappingRecord;
+import lombok.RequiredArgsConstructor;
+import lombok.var;
+import org.apache.commons.lang3.StringUtils;
+import org.jooq.DSLContext;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+import static com.ke.assistant.db.generated.Tables.RESPONSE_ID_MAPPING;
+
+/**
+ * Response ID Mapping Repository 需要生成 Response ID
+ */
+@Repository
+@RequiredArgsConstructor
+public class ResponseIdMappingRepo implements BaseRepo {
+
+    private final DSLContext dsl;
+    private final IdGenerator idGenerator;
+
+    public ResponseIdMappingDb findByResponseId(String responseId) {
+        return dsl.selectFrom(RESPONSE_ID_MAPPING)
+                .where(RESPONSE_ID_MAPPING.RESPONSE_ID.eq(responseId))
+                .fetchOneInto(ResponseIdMappingDb.class);
+    }
+
+    public List<ResponseIdMappingDb> findByThreadId(String threadId) {
+        return dsl.selectFrom(RESPONSE_ID_MAPPING)
+                .where(RESPONSE_ID_MAPPING.THREAD_ID.eq(threadId))
+                .orderBy(RESPONSE_ID_MAPPING.CREATED_AT.desc())
+                .fetchInto(ResponseIdMappingDb.class);
+    }
+
+    public List<ResponseIdMappingDb> findByRunId(String runId) {
+        return dsl.selectFrom(RESPONSE_ID_MAPPING)
+                .where(RESPONSE_ID_MAPPING.RUN_ID.eq(runId))
+                .orderBy(RESPONSE_ID_MAPPING.CREATED_AT.desc())
+                .fetchInto(ResponseIdMappingDb.class);
+    }
+
+    public List<ResponseIdMappingDb> findByUser(String user) {
+        return dsl.selectFrom(RESPONSE_ID_MAPPING)
+                .where(RESPONSE_ID_MAPPING.USER.eq(user))
+                .and(RESPONSE_ID_MAPPING.STATUS.eq("active"))
+                .orderBy(RESPONSE_ID_MAPPING.CREATED_AT.desc())
+                .fetchInto(ResponseIdMappingDb.class);
+    }
+
+    public Page<ResponseIdMappingDb> findByUserWithPage(String user, int page, int pageSize) {
+        var query = dsl.selectFrom(RESPONSE_ID_MAPPING)
+                .where(RESPONSE_ID_MAPPING.USER.eq(user))
+                .and(RESPONSE_ID_MAPPING.STATUS.eq("active"))
+                .orderBy(RESPONSE_ID_MAPPING.CREATED_AT.desc());
+
+        return queryPage(dsl, query, page, pageSize, ResponseIdMappingDb.class);
+    }
+
+    public ResponseIdMappingDb insert(ResponseIdMappingDb mapping) {
+        if(StringUtils.isBlank(mapping.getResponseId())) {
+            mapping.setResponseId(idGenerator.generateResponseId());
+        }
+
+        fillCreateTime(mapping);
+
+        ResponseIdMappingRecord record = dsl.newRecord(RESPONSE_ID_MAPPING, mapping);
+        record.store();
+
+        return record.into(ResponseIdMappingDb.class);
+    }
+
+    public boolean update(ResponseIdMappingDb mapping) {
+        fillUpdateTime(mapping);
+
+        return dsl.update(RESPONSE_ID_MAPPING)
+                .set(dsl.newRecord(RESPONSE_ID_MAPPING, mapping))
+                .where(RESPONSE_ID_MAPPING.RESPONSE_ID.eq(mapping.getResponseId()))
+                .execute() > 0;
+    }
+
+    public boolean updateStatus(String responseId, String status) {
+        return dsl.update(RESPONSE_ID_MAPPING)
+                .set(RESPONSE_ID_MAPPING.STATUS, status)
+                .set(RESPONSE_ID_MAPPING.UPDATED_AT, java.time.LocalDateTime.now())
+                .where(RESPONSE_ID_MAPPING.RESPONSE_ID.eq(responseId))
+                .execute() > 0;
+    }
+
+    public boolean deleteByResponseId(String responseId) {
+        return dsl.deleteFrom(RESPONSE_ID_MAPPING)
+                .where(RESPONSE_ID_MAPPING.RESPONSE_ID.eq(responseId))
+                .execute() > 0;
+    }
+
+    public int deleteByThreadId(String threadId) {
+        return dsl.deleteFrom(RESPONSE_ID_MAPPING)
+                .where(RESPONSE_ID_MAPPING.THREAD_ID.eq(threadId))
+                .execute();
+    }
+
+    public boolean existsByResponseId(String responseId) {
+        return dsl.fetchExists(
+                dsl.selectFrom(RESPONSE_ID_MAPPING)
+                        .where(RESPONSE_ID_MAPPING.RESPONSE_ID.eq(responseId))
+        );
+    }
+}
