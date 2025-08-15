@@ -1,0 +1,115 @@
+package com.ke.assistant.controller;
+
+import com.ke.assistant.common.CommonPage;
+import com.ke.assistant.db.generated.tables.pojos.RunStepDb;
+import com.ke.assistant.db.repo.Page;
+import com.ke.assistant.run.RunInfo;
+import com.ke.assistant.run.RunOps;
+import com.ke.assistant.service.RunService;
+import com.ke.bella.openapi.common.exception.BizParamCheckException;
+import com.ke.bella.openapi.common.exception.ResourceNotFoundException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+/**
+ * Run Controller
+ */
+@RestController
+@RequestMapping("/v1/threads/{thread_id}/runs")
+@RequiredArgsConstructor
+@Slf4j
+public class RunController {
+
+    private final RunService runService;
+
+    /**
+     * 获取 Run 详情
+     */
+    @GetMapping("/{run_id}")
+    public RunInfo getRun(
+            @PathVariable("thread_id") String threadId,
+            @PathVariable("run_id") String runId) {
+
+        RunInfo run = runService.getRunById(runId);
+        if(run == null) {
+            throw new ResourceNotFoundException("Run not found");
+        }
+
+        // 验证run是否属于指定的thread
+        if(!threadId.equals(run.getThreadId())) {
+            throw new BizParamCheckException("Run does not belong to this thread");
+        }
+
+        return run;
+    }
+
+    /**
+     * 获取 Thread 的 Run 列表
+     */
+    @GetMapping
+    public CommonPage<RunInfo> listRuns(
+            @PathVariable("thread_id") String threadId,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "page_size", defaultValue = "20") int pageSize) {
+
+        Page<RunInfo> infoPage = runService.getRunsByThreadIdWithPage(threadId, page, pageSize);
+
+        List<RunInfo> infoList = infoPage.getList();
+
+        String firstId = infoList.isEmpty() ? null : infoList.get(0).getId();
+        String lastId = infoList.isEmpty() ? null : infoList.get(infoList.size() - 1).getId();
+        boolean hasMore = (long) infoPage.getPage() * infoPage.getPageSize() < infoPage.getTotal();
+
+        return new CommonPage<>(infoList, firstId, lastId, hasMore);
+    }
+
+    /**
+     * 更新 Run
+     */
+    @PostMapping("/{run_id}")
+    public RunInfo updateRun(
+            @PathVariable("thread_id") String threadId,
+            @PathVariable("run_id") String runId,
+            @RequestBody RunOps.UpdateRunOp request) {
+
+        // 验证run是否存在且属于指定的thread
+        RunInfo existing = runService.getRunById(runId);
+        if(existing == null) {
+            throw new ResourceNotFoundException("Run not found");
+        }
+        if(!threadId.equals(existing.getThreadId())) {
+            throw new BizParamCheckException("Run does not belong to this thread");
+        }
+
+        return runService.updateRun(runId, request.getMetadata());
+    }
+
+    /**
+     * 获取 Run 的 Steps 列表
+     */
+    @GetMapping("/{run_id}/steps")
+    public List<RunStepDb> getRunSteps(
+            @PathVariable("thread_id") String threadId,
+            @PathVariable("run_id") String runId) {
+
+        // 验证run是否存在且属于指定的thread
+        RunInfo existing = runService.getRunById(runId);
+        if(existing == null) {
+            throw new ResourceNotFoundException("Run not found");
+        }
+        if(!threadId.equals(existing.getThreadId())) {
+            throw new BizParamCheckException("Run does not belong to this thread");
+        }
+
+        return runService.getRunSteps(runId);
+    }
+}
