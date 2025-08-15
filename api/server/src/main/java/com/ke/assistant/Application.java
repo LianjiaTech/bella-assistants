@@ -1,15 +1,18 @@
 package com.ke.assistant;
 
+import com.ke.assistant.configuration.AssistantProperties;
 import com.ke.bella.openapi.server.BellaService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Bella Assistant Application
  */
+@EnableConfigurationProperties(AssistantProperties.class)
 @ComponentScan(basePackages = {"com.ke.assistant"})
 @BellaService
 @SpringBootApplication
