@@ -40,6 +40,8 @@ public class ThreadService {
     private MessageRepo messageRepo;
     @Autowired
     private MessageService messageService;
+    @Autowired
+    private ThreadLockService threadLockService;
 
     /**
      * 创建 Thread
@@ -319,13 +321,15 @@ public class ThreadService {
      */
     @Transactional
     public void copyMessagesFromThread(String fromThreadId, String toThreadId) {
-        List<MessageDb> sourceMessages = messageService.getMessageDbsByThreadId(fromThreadId);
+        threadLockService.executeWithWriteLock(toThreadId, () -> {
+            List<MessageDb> sourceMessages = messageService.getMessageDbsByThreadId(fromThreadId);
 
-        for (MessageDb sourceMessage : sourceMessages) {
-            // 使用MessageUtils复制消息
-            MessageDb newMessage = MessageUtils.copyMessageToThread(sourceMessage, toThreadId);
-            messageService.createMessage(newMessage);
-        }
+            for (MessageDb sourceMessage : sourceMessages) {
+                // 使用MessageUtils复制消息
+                MessageDb newMessage = MessageUtils.copyMessageToThread(sourceMessage, toThreadId);
+                messageService.createMessage(newMessage);
+            }
+        });
     }
 
     /**
@@ -333,20 +337,22 @@ public class ThreadService {
      */
     @Transactional
     public void mergeMessagesFromThread(String fromThreadId, String toThreadId) {
-        List<MessageDb> fromMessages = messageService.getMessageDbsByThreadId(fromThreadId);
-        List<MessageDb> toMessages = messageService.getMessageDbsByThreadId(toThreadId);
+        threadLockService.executeWithWriteLock(toThreadId, () -> {
+            List<MessageDb> fromMessages = messageService.getMessageDbsByThreadId(fromThreadId);
+            List<MessageDb> toMessages = messageService.getMessageDbsByThreadId(toThreadId);
 
-        // 使用MessageUtils获取目标线程中已存在的源消息ID
-        Set<String> existingSourceIds = MessageUtils.getExistingSourceIds(toMessages);
+            // 使用MessageUtils获取目标线程中已存在的源消息ID
+            Set<String> existingSourceIds = MessageUtils.getExistingSourceIds(toMessages);
 
-        // 只复制不重复的消息
-        for (MessageDb fromMessage : fromMessages) {
-            // 使用MessageUtils检查消息是否已存在
-            if (!MessageUtils.isMessageExists(fromMessage, existingSourceIds)) {
-                // 使用MessageUtils复制消息
-                MessageDb newMessage = MessageUtils.copyMessageToThread(fromMessage, toThreadId);
-                messageService.createMessage(newMessage);
+            // 只复制不重复的消息
+            for (MessageDb fromMessage : fromMessages) {
+                // 使用MessageUtils检查消息是否已存在
+                if (!MessageUtils.isMessageExists(fromMessage, existingSourceIds)) {
+                    // 使用MessageUtils复制消息
+                    MessageDb newMessage = MessageUtils.copyMessageToThread(fromMessage, toThreadId);
+                    messageService.createMessage(newMessage);
+                }
             }
-        }
+        });
     }
 }

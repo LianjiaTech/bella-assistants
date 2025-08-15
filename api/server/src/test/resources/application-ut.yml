@@ -25,7 +25,7 @@ logging:
 # Test API configuration
 test:
   api:
-    key: your-api-key
+    key: ${TEST_API_KEY:your-api-key}
 
 # Management endpoints for testing
 management:

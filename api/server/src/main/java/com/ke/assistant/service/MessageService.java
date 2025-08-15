@@ -34,9 +34,12 @@ public class MessageService {
 
     @Autowired
     private ThreadService threadService;
+    
+    @Autowired
+    private ThreadLockService threadLockService;
 
     /**
-     * 创建 Message
+     * 创建 Message（单条插入使用读锁，允许并发执行）
      */
     @Transactional
     public MessageInfo createMessage(String threadId, MessageOps.CreateMessageOp request) {
@@ -65,8 +68,11 @@ public class MessageService {
 
         // 设置默认值
         message.setObject("thread.message");
-        MessageDb saved = messageRepo.insert(message);
-        return convertToInfo(saved);
+
+        // 只有实际的数据库插入操作需要加读锁
+        MessageDb savedMessage = threadLockService.executeWithReadLock(threadId, () -> messageRepo.insert(message));
+        
+        return convertToInfo(savedMessage);
     }
 
     /**
@@ -214,14 +220,17 @@ public class MessageService {
     }
 
     /**
-     * 直接保存MessageDb，供ThreadService的复制操作使用
+     * 直接保存MessageDb，供ThreadService的复制操作使用（不加锁，用于批量操作内部调用）
      */
     @Transactional
     public void createMessage(MessageDb message) {
         // 设置默认值
         message.setObject("thread.message");
+        
+        // 批量操作已经持有写锁，这里不需要再加锁
         messageRepo.insert(message);
     }
+
 
     /**
      * 格式化消息内容，将内容转换为用于存储的Content格式
