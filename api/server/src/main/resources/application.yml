@@ -57,10 +57,12 @@ logging:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
 
 bella:
+  server:
+    initializer:
+      enabled: true
   openapi:
     host: http://localhost:8080
     service: assistant
   # Assistant specific configuration
   assistant:
-    # ID 生成配置
-    id-prefix: bella_assistant  # Redis key 前缀
+    key-prefix: bella_assistant  # Redis key 前缀

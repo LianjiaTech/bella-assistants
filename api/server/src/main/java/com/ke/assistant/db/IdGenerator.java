@@ -34,7 +34,7 @@ public class IdGenerator {
     public void init() {
         String[] activeProfiles = environment.getActiveProfiles();
         this.isProdProfile = Arrays.asList(activeProfiles).contains("prod");
-        this.idPrefix = assistantProperties.getIdPrefix();
+        this.idPrefix = assistantProperties.getKeyPrefix();
     }
 
     private String getIdKey(String prefix) {

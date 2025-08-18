@@ -6,5 +6,5 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @Data
 @ConfigurationProperties("bella.assistant")
 public class AssistantProperties {
-    public String idPrefix = "bella_assistant";
+    public String keyPrefix = "bella_assistant";
 }

@@ -42,6 +42,12 @@
             <artifactId>openapi-spi</artifactId>
         </dependency>
 
+        <!-- Openai sdk -->
+        <dependency>
+            <groupId>top.bella</groupId>
+            <artifactId>openai-service</artifactId>
+        </dependency>
+
         <!-- Spring Boot Web Starter -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
