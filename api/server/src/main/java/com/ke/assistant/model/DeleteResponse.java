@@ -1,4 +1,4 @@
-package com.ke.assistant.common;
+package com.ke.assistant.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

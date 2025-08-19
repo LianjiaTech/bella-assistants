@@ -5,7 +5,7 @@
   "instructions": "You are a comprehensive test assistant with full configuration.",
   "temperature": 0.7,
   "top_p": 0.9,
-  "response_format": "text",
+  "response_format": "auto",
   "reasoning_effort": "medium",
   "user": "test_user",
   "metadata": {

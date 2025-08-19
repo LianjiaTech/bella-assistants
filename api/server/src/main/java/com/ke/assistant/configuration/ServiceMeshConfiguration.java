@@ -10,6 +10,7 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 
 /**
  * Service Mesh配置类
@@ -20,11 +21,12 @@ import org.springframework.context.annotation.Configuration;
 public class ServiceMeshConfiguration implements ApplicationRunner {
     
     @Autowired
+    @Lazy
     private ServiceMesh serviceMesh;
 
     @Bean
     @ConditionalOnMissingBean
-    public ServiceMesh defaultServiceMesh(RedissonClient redissonClient, AssistantProperties assistantProperties) {
+    public ServiceMesh serviceMesh(RedissonClient redissonClient, AssistantProperties assistantProperties) {
         return new RedisMesh(redissonClient, assistantProperties);
     }
     

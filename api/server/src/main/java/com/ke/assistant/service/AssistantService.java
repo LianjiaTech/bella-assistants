@@ -1,7 +1,5 @@
 package com.ke.assistant.service;
 
-import com.ke.assistant.assistant.AssistantInfo;
-import com.ke.assistant.common.Tool;
 import com.ke.assistant.db.generated.tables.pojos.AssistantDb;
 import com.ke.assistant.db.generated.tables.pojos.AssistantFileRelationDb;
 import com.ke.assistant.db.generated.tables.pojos.AssistantToolDb;
@@ -12,16 +10,21 @@ import com.ke.assistant.db.repo.Page;
 import com.ke.assistant.util.BeanUtils;
 import com.ke.assistant.util.ToolResourceUtils;
 import com.ke.bella.openapi.utils.JacksonUtils;
+import com.theokanning.openai.assistants.assistant.Assistant;
+import com.theokanning.openai.assistants.assistant.Tool;
+import com.theokanning.openai.assistants.assistant.ToolResources;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Assistant Service
@@ -41,7 +44,7 @@ public class AssistantService {
      * 创建 Assistant
      */
     @Transactional
-    public AssistantInfo createAssistant(AssistantDb assistant, List<String> fileIds, List<Tool> tools,
+    public Assistant createAssistant(AssistantDb assistant, List<String> fileIds, List<Tool> tools,
             List<Map<String, String>> toolResourceFiles) {
         // 设置默认值
         assistant.setObject("assistant");
@@ -61,7 +64,7 @@ public class AssistantService {
     /**
      * 根据ID获取Assistant
      */
-    public AssistantInfo getAssistantById(String id) {
+    public Assistant getAssistantById(String id) {
         AssistantDb assistantDb = assistantRepo.findById(id);
         return assistantDb != null ? convertToInfo(assistantDb) : null;
     }
@@ -76,18 +79,18 @@ public class AssistantService {
     /**
      * 根据owner查询Assistant列表
      */
-    public List<AssistantInfo> getAssistantsByOwner(String owner) {
+    public List<Assistant> getAssistantsByOwner(String owner) {
         List<AssistantDb> assistants = assistantRepo.findByOwner(owner);
-        return assistants.stream().map(this::convertToInfo).collect(java.util.stream.Collectors.toList());
+        return assistants.stream().map(this::convertToInfo).collect(Collectors.toList());
     }
 
     /**
      * 分页查询Assistant
      */
-    public Page<AssistantInfo> getAssistantsByOwnerWithPage(String owner, int page, int pageSize) {
+    public Page<Assistant> getAssistantsByOwnerWithPage(String owner, int page, int pageSize) {
         Page<AssistantDb> dbPage = assistantRepo.findByOwnerWithPage(owner, page, pageSize);
-        List<AssistantInfo> infoList = dbPage.getList().stream().map(this::convertToInfo).collect(java.util.stream.Collectors.toList());
-        Page<AssistantInfo> result = new Page<>();
+        List<Assistant> infoList = dbPage.getList().stream().map(this::convertToInfo).collect(Collectors.toList());
+        Page<Assistant> result = new Page<>();
         result.setPage(dbPage.getPage());
         result.setPageSize(dbPage.getPageSize());
         result.setTotal(dbPage.getTotal());
@@ -99,7 +102,7 @@ public class AssistantService {
      * 更新Assistant
      */
     @Transactional
-    public AssistantInfo updateAssistant(String id, AssistantDb updateData, List<String> fileIds, List<Tool> tools,
+    public Assistant updateAssistant(String id, AssistantDb updateData, List<String> fileIds, List<Tool> tools,
             List<Map<String, String>> toolResourceFiles, String owner) {
         AssistantDb existing = assistantRepo.findById(id);
         if(existing == null) {
@@ -220,14 +223,16 @@ public class AssistantService {
      * 将AssistantDb转换为AssistantInfo
      */
     @SuppressWarnings("unchecked")
-    private AssistantInfo convertToInfo(AssistantDb assistantDb) {
+    private Assistant convertToInfo(AssistantDb assistantDb) {
         if(assistantDb == null) {
             return null;
         }
 
-        AssistantInfo info = new AssistantInfo();
+        Assistant info = new Assistant();
         // 进行基础字段拷贝
         BeanUtils.copyProperties(assistantDb, info);
+
+        info.setCreatedAt((int) assistantDb.getCreatedAt().toEpochSecond(ZoneOffset.ofHours(8)));
 
         // 转换metadata从JSON字符串到Map
         if(StringUtils.isNotBlank(assistantDb.getMetadata())) {
@@ -257,7 +262,7 @@ public class AssistantService {
                 toolFiles.add(fileMap);
             }
         }
-        Map<String, Object> toolResources = ToolResourceUtils.buildToolResourcesFromFiles(toolFiles);
+        ToolResources toolResources = ToolResourceUtils.buildToolResourcesFromFiles(toolFiles);
         info.setToolResources(toolResources);
 
         // 计算tools

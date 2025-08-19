@@ -25,13 +25,6 @@
     </properties>
 
     <dependencies>
-        <!-- Internal SDK dependency -->
-        <dependency>
-            <groupId>top.bella</groupId>
-            <artifactId>assistant-sdk</artifactId>
-            <version>${project.parent.version}</version>
-        </dependency>
-
         <!-- Bella OpenAPI dependencies for reusing infrastructure -->
         <dependency>
             <groupId>top.bella</groupId>

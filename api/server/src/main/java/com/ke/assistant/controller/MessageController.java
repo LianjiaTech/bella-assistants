@@ -1,15 +1,15 @@
 package com.ke.assistant.controller;
 
-import com.ke.assistant.common.CommonPage;
-import com.ke.assistant.common.DeleteResponse;
+import com.ke.assistant.model.CommonPage;
+import com.ke.assistant.model.DeleteResponse;
 import com.ke.assistant.db.repo.Page;
-import com.ke.assistant.message.MessageInfo;
-import com.ke.assistant.message.MessageOps;
 import com.ke.assistant.service.MessageService;
 import com.ke.bella.openapi.common.exception.BizParamCheckException;
 import com.ke.bella.openapi.common.exception.ResourceNotFoundException;
-import lombok.RequiredArgsConstructor;
+import com.theokanning.openai.assistants.message.Message;
+import com.theokanning.openai.assistants.message.MessageRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,19 +26,19 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/v1/threads/{thread_id}/messages")
-@RequiredArgsConstructor
 @Slf4j
 public class MessageController {
 
-    private final MessageService messageService;
+    @Autowired
+    private MessageService messageService;
 
     /**
      * 创建 Message
      */
     @PostMapping
-    public MessageInfo createMessage(
+    public Message createMessage(
             @PathVariable("thread_id") String threadId,
-            @RequestBody MessageOps.CreateMessageOp request) {
+            @RequestBody MessageRequest request) {
 
         return messageService.createMessage(threadId, request);
     }
@@ -47,11 +47,11 @@ public class MessageController {
      * 获取 Message 详情
      */
     @GetMapping("/{message_id}")
-    public MessageInfo getMessage(
+    public Message getMessage(
             @PathVariable("thread_id") String threadId,
             @PathVariable("message_id") String messageId) {
 
-        MessageInfo message = messageService.getMessageById(messageId);
+        Message message = messageService.getMessageById(messageId);
         if(message == null) {
             throw new ResourceNotFoundException("Message not found");
         }
@@ -68,14 +68,14 @@ public class MessageController {
      * 获取 Thread 的消息列表
      */
     @GetMapping
-    public CommonPage<MessageInfo> listMessages(
+    public CommonPage<Message> listMessages(
             @PathVariable("thread_id") String threadId,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "page_size", defaultValue = "20") int pageSize) {
 
-        Page<MessageInfo> infoPage = messageService.getMessagesByThreadIdWithPage(threadId, page, pageSize);
+        Page<Message> infoPage = messageService.getMessagesByThreadIdWithPage(threadId, page, pageSize);
 
-        List<MessageInfo> infoList = infoPage.getList();
+        List<Message> infoList = infoPage.getList();
 
         String firstId = infoList.isEmpty() ? null : infoList.get(0).getId();
         String lastId = infoList.isEmpty() ? null : infoList.get(infoList.size() - 1).getId();
@@ -88,13 +88,13 @@ public class MessageController {
      * 更新 Message
      */
     @PostMapping("/{message_id}")
-    public MessageInfo updateMessage(
+    public Message updateMessage(
             @PathVariable("thread_id") String threadId,
             @PathVariable("message_id") String messageId,
-            @RequestBody MessageOps.UpdateMessageOp request) {
+            @RequestBody MessageRequest request) {
 
         // 验证消息是否存在且属于指定的thread
-        MessageInfo existing = messageService.getMessageById(messageId);
+        Message existing = messageService.getMessageById(messageId);
         if(existing == null) {
             throw new ResourceNotFoundException("Message not found");
         }
@@ -114,7 +114,7 @@ public class MessageController {
             @PathVariable("message_id") String messageId) {
 
         // 验证消息是否存在且属于指定的thread
-        MessageInfo existing = messageService.getMessageById(messageId);
+        Message existing = messageService.getMessageById(messageId);
         if(existing == null) {
             throw new ResourceNotFoundException("Message not found");
         }

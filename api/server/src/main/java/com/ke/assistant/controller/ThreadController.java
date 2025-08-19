@@ -1,18 +1,19 @@
 package com.ke.assistant.controller;
 
-import com.ke.assistant.common.CommonPage;
-import com.ke.assistant.common.DeleteResponse;
+import com.ke.assistant.model.CommonPage;
+import com.ke.assistant.model.DeleteResponse;
 import com.ke.assistant.db.generated.tables.pojos.ThreadDb;
 import com.ke.assistant.db.repo.Page;
 import com.ke.assistant.service.ThreadService;
-import com.ke.assistant.thread.ThreadInfo;
-import com.ke.assistant.thread.ThreadOps;
 import com.ke.assistant.util.BeanUtils;
+import com.ke.assistant.util.ToolResourceUtils;
 import com.ke.bella.openapi.BellaContext;
 import com.ke.bella.openapi.common.exception.ResourceNotFoundException;
 import com.ke.bella.openapi.utils.JacksonUtils;
-import lombok.RequiredArgsConstructor;
+import com.theokanning.openai.assistants.thread.Thread;
+import com.theokanning.openai.assistants.thread.ThreadRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -29,17 +30,17 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/v1/threads")
-@RequiredArgsConstructor
 @Slf4j
 public class ThreadController {
 
-    private final ThreadService threadService;
+    @Autowired
+    private ThreadService threadService;
 
     /**
      * 创建 Thread
      */
     @PostMapping
-    public ThreadInfo createThread(@RequestBody ThreadOps.CreateThreadOp request) {
+    public Thread createThread(@RequestBody ThreadRequest request) {
 
         // transfer请求到数据库对象
         ThreadDb thread = new ThreadDb();
@@ -57,16 +58,16 @@ public class ThreadController {
             thread.setEnvironment(JacksonUtils.serialize(request.getEnvironment()));
         }
 
-        return threadService.createThread(thread, request.getToolResources(), request.getMessages());
+        return threadService.createThread(thread, ToolResourceUtils.toolResourceToFiles(request.getToolResources()), request.getMessages());
     }
 
     /**
      * 获取 Thread 详情
      */
     @GetMapping("/{thread_id}")
-    public ThreadInfo getThread(@PathVariable("thread_id") String threadId) {
+    public Thread getThread(@PathVariable("thread_id") String threadId) {
 
-        ThreadInfo info = threadService.getThreadById(threadId);
+        Thread info = threadService.getThreadById(threadId);
         if(info == null) {
             throw new ResourceNotFoundException("Thread not found");
         }
@@ -77,15 +78,15 @@ public class ThreadController {
      * 获取 Thread 列表
      */
     @GetMapping
-    public CommonPage<ThreadInfo> listThreads(
+    public CommonPage<Thread> listThreads(
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "page_size", defaultValue = "20") int pageSize) {
 
         String owner = BellaContext.getOwnerCode();
 
-        Page<ThreadInfo> infoPage = threadService.getThreadsByOwnerWithPage(owner, page, pageSize);
+        Page<Thread> infoPage = threadService.getThreadsByOwnerWithPage(owner, page, pageSize);
 
-        List<ThreadInfo> infoList = infoPage.getList();
+        List<Thread> infoList = infoPage.getList();
 
         String firstId = infoList.isEmpty() ? null : infoList.get(0).getId();
         String lastId = infoList.isEmpty() ? null : infoList.get(infoList.size() - 1).getId();
@@ -98,9 +99,9 @@ public class ThreadController {
      * 更新 Thread
      */
     @PostMapping("/{thread_id}")
-    public ThreadInfo updateThread(
+    public Thread updateThread(
             @PathVariable("thread_id") String threadId,
-            @RequestBody ThreadOps.UpdateThreadOp request) {
+            @RequestBody ThreadRequest request) {
 
         // transfer请求到数据库对象
         ThreadDb updateData = new ThreadDb();
@@ -118,7 +119,7 @@ public class ThreadController {
 
         String owner = BellaContext.getOwnerCode();
 
-        return threadService.updateThread(threadId, updateData, request.getToolResources(), owner);
+        return threadService.updateThread(threadId, updateData, ToolResourceUtils.toolResourceToFiles(request.getToolResources()), owner);
     }
 
     /**
@@ -137,7 +138,7 @@ public class ThreadController {
      * Fork Thread - 复制Thread及其消息
      */
     @PostMapping("/{thread_id}/fork")
-    public ThreadInfo forkThread(@PathVariable("thread_id") String threadId) {
+    public Thread forkThread(@PathVariable("thread_id") String threadId) {
 
         return threadService.forkThread(threadId);
     }
@@ -146,7 +147,7 @@ public class ThreadController {
      * 复制Thread消息到另一个Thread
      */
     @PostMapping("/{from_thread_id}/copy_to/{to_thread_id}")
-    public ThreadInfo copyThread(
+    public Thread copyThread(
             @PathVariable("from_thread_id") String fromThreadId,
             @PathVariable("to_thread_id") String toThreadId) {
 
@@ -157,7 +158,7 @@ public class ThreadController {
      * 合并Thread消息到另一个Thread
      */
     @PostMapping("/{from_thread_id}/merge_to/{to_thread_id}")
-    public ThreadInfo mergeThread(
+    public Thread mergeThread(
             @PathVariable("from_thread_id") String fromThreadId,
             @PathVariable("to_thread_id") String toThreadId) {
 

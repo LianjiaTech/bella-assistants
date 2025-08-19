@@ -6,13 +6,17 @@
     }
   ],
   "tool_resources": {
-    "code_interpreter": ["file_full_123", "file_full_456"],
-    "file_search": ["file_full_789"]
+    "code_interpreter": {
+      "file_ids": [
+        "file_full_123",
+        "file_full_456"
+      ]
+    }
   },
   "metadata": {
-    "test": true,
-    "scenario": "full_creation",
-    "features": ["messages", "tool_resources", "metadata"]
+    "version": "1.0",
+    "environment": "test",
+    "category": "full-config"
   },
   "environment": {
     "test_mode": true,

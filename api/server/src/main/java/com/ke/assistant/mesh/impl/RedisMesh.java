@@ -31,9 +31,9 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class RedisMesh implements ServiceMesh {
 
-    private RedissonClient redissonClient;
+    private final RedissonClient redissonClient;
 
-    private AssistantProperties assistantProperties;
+    private final AssistantProperties assistantProperties;
     
     private String instanceId;
     

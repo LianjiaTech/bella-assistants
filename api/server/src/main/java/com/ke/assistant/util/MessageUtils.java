@@ -1,10 +1,18 @@
 package com.ke.assistant.util;
 
 import com.ke.assistant.db.generated.tables.pojos.MessageDb;
-import com.ke.assistant.util.BeanUtils;
 import com.ke.bella.openapi.utils.JacksonUtils;
+import com.theokanning.openai.assistants.message.Message;
+import com.theokanning.openai.assistants.message.MessageContent;
+import com.theokanning.openai.completion.chat.AssistantMessage;
+import com.theokanning.openai.completion.chat.ChatMessage;
+import com.theokanning.openai.completion.chat.MultiMediaContent;
+import com.theokanning.openai.completion.chat.SystemMessage;
+import com.theokanning.openai.completion.chat.UserMessage;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -14,12 +22,14 @@ import java.util.Set;
 /**
  * Message 工具类
  */
+@Slf4j
 public class MessageUtils {
 
     /**
      * 获取消息的源ID
      * 如果消息有copy_message_id元数据，返回copy_message_id；否则返回消息本身的ID
      */
+    @SuppressWarnings("unchecked")
     public static String getSourceId(MessageDb message) {
         if (message == null) {
             return null;
@@ -102,4 +112,175 @@ public class MessageUtils {
 
         return newMessage;
     }
+
+    /**
+     * 格式化消息内容，将内容转换为用于存储的Content格式
+     */
+    public static List<Object> formatMessageContent(Object content) {
+        List<Object> result = new ArrayList<>();
+
+        if(content == null) {
+            return result;
+        }
+
+        if(content instanceof String) {
+            // 字符串内容转换为MessageContentText格式
+            Map<String, Object> textContent = new HashMap<>();
+            textContent.put("type", "text");
+
+            Map<String, Object> text = new HashMap<>();
+            text.put("value", content);
+            text.put("annotations", new ArrayList<>());
+            textContent.put("text", text);
+
+            result.add(textContent);
+        } else if(content instanceof List) {
+            // 列表内容，遍历每个元素
+            List<?> contentList = (List<?>) content;
+            for (Object item : contentList) {
+                if(item instanceof MultiMediaContent) {
+                    MultiMediaContent mmContent = (MultiMediaContent) item;
+
+                    if("text".equals(mmContent.getType())) {
+                        Map<String, Object> contentItem = new HashMap<>();
+                        contentItem.put("type", "text");
+                        Map<String, Object> text = new HashMap<>();
+                        if(mmContent.getText() != null) {
+                            text.put("value", mmContent.getText());
+                        }
+                        text.put("annotations", new ArrayList<>());
+                        contentItem.put("text", text);
+                        result.add(contentItem);
+                    } else {
+                        // 其他类型（image_file, image_url等）直接使用原类型
+                        result.add(item);
+                    }
+                } else {
+                    throw new IllegalArgumentException("Unsupported content type.");
+                }
+            }
+        } else {
+            throw new IllegalArgumentException("Unsupported content type.");
+        }
+
+        return result;
+    }
+
+    /**
+     * 格式化消息内容，将存储格式转换为用于chat completion的Content格式
+     */
+    public static Object formatChatCompletionContent(List<MessageContent> contents) {
+
+        if(contents == null || contents.isEmpty()) {
+            return "";
+        }
+
+        if(contents.size() == 1) {
+            if("text".equals(contents.get(0).getType())) {
+                return contents.get(0).getText().getValue();
+            }
+        }
+
+        List<MultiMediaContent> result = new ArrayList<>();
+
+        for(MessageContent content : contents) {
+            MultiMediaContent mmContent = new MultiMediaContent();
+            if("text".equals(content.getType())) {
+                mmContent.setType("text");
+                mmContent.setText(content.getText().getValue());
+            } else {
+                mmContent.setType(content.getType());
+                mmContent.setImageFile(content.getImageFile());
+                mmContent.setImageUrl(content.getImageUrl());
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * 格式化消息，将内容转换为用于chat completion的Message
+     */
+    public static ChatMessage formatChatCompletionMessage(Message messageInfo) {
+
+        if (messageInfo == null || messageInfo.getRole() == null) {
+            return null;
+        }
+        
+        Object content = formatChatCompletionContent(messageInfo.getContent());
+
+        switch (messageInfo.getRole()) {
+        case "user":
+            UserMessage userMessage = new UserMessage();
+            userMessage.setContent(content);
+            return userMessage;
+        case "assistant":
+            return new AssistantMessage((String) content);
+        case "system":
+            return new SystemMessage((String) content);
+        default:
+            log.warn("Unknown message role: {}", messageInfo.getRole());
+            return null;
+        }
+    }
+
+    /**
+     * 识别消息类型
+     * 基于内容类型判断消息的类别
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public static String recognizeMessageType(Object content) {
+        if (content == null) {
+            return "text";
+        }
+
+        if(content instanceof String) {
+            return "text";
+        }
+
+        if(content instanceof List) {
+            List<String> contentTypes = new ArrayList<>();
+            for (Object item : (List)content) {
+                if(item instanceof Map) {
+                    Map<String, Object> contentMap = (Map<String, Object>) item;
+                    String type = (String) contentMap.get("type");
+                    if(type != null) {
+                        contentTypes.add(type);
+                    }
+                } else if(item instanceof MultiMediaContent) {
+                    MultiMediaContent mmContent = (MultiMediaContent) item;
+                    contentTypes.add(mmContent.getType());
+                }
+            }
+
+            if(contentTypes.isEmpty()) {
+                return "text";
+            }
+
+            // 检查是否所有内容都是图片类型
+            if(contentTypes.stream().allMatch(type -> "image_file".equals(type) || "image_url".equals(type))) {
+                return "image";
+            }
+            // 检查是否所有内容都是文本类型
+            else if(contentTypes.stream().allMatch("text"::equals)) {
+                return "text";
+            }
+            // 检查是否所有内容都是音频类型
+            else if(contentTypes.stream().allMatch("audio_url"::equals)) {
+                return "audio";
+            }
+            // 检查是否所有内容都是命令类型
+            else if(contentTypes.stream().allMatch("clear"::equals)) {
+                return "command";
+            }
+            // 包含多种 content type
+            else {
+                return "mixed";
+            }
+        } else {
+            throw new IllegalArgumentException("Unsupported content type.");
+        }
+    }
+
+
 }

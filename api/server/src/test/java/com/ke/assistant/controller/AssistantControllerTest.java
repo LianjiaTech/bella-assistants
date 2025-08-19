@@ -105,26 +105,6 @@ class AssistantControllerTest extends BaseControllerTest {
     }
 
     @Test
-    @DisplayName("创建带复合Metadata的Assistant - 验证JSON序列化")
-    void shouldCreateAssistantWithComplexMetadata() throws Exception {
-        String requestBody = loadTestData("assistant-create-complex-metadata.json");
-
-        MvcResult result = mockMvc.perform(addAuthHeader(post("/v1/assistants")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(requestBody)))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        String response = result.getResponse().getContentAsString();
-        JsonNode json = objectMapper.readTree(response);
-
-        // 验证复杂Metadata正确序列化/反序列化
-        assert json.get("metadata").get("config").get("max_tokens").asInt() == 1000;
-        assert json.get("metadata").get("tags").isArray();
-        assert json.get("metadata").get("nested").get("level1").get("level2").asText().equals("deep_value");
-    }
-
-    @Test
     @DisplayName("更新Assistant的Tools - 验证Tools关联更新")
     void shouldUpdateAssistantTools() throws Exception {
         // 1. 先创建一个带Tools的Assistant

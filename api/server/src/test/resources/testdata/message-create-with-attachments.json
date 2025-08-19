@@ -12,6 +12,8 @@
     }
   ],
   "metadata": {
-    "has_attachments": true
+    "version": "1.0",
+    "environment": "test",
+    "category": "full-config"
   }
 }

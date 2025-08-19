@@ -38,7 +38,7 @@ public class MessageRepo implements BaseRepo {
     public List<MessageDb> findByThreadId(String threadId) {
         return dsl.selectFrom(MESSAGE)
                 .where(MESSAGE.THREAD_ID.eq(threadId))
-                .orderBy(MESSAGE.CREATED_AT.asc())
+                .orderBy(MESSAGE.ID.asc())
                 .fetchInto(MessageDb.class);
     }
 
@@ -48,7 +48,7 @@ public class MessageRepo implements BaseRepo {
     public List<MessageDb> findByRunId(String runId) {
         return dsl.selectFrom(MESSAGE)
                 .where(MESSAGE.RUN_ID.eq(runId))
-                .orderBy(MESSAGE.CREATED_AT.asc())
+                .orderBy(MESSAGE.ID.asc())
                 .fetchInto(MessageDb.class);
     }
 
@@ -58,7 +58,7 @@ public class MessageRepo implements BaseRepo {
     public Page<MessageDb> findByThreadIdWithPage(String threadId, int page, int pageSize) {
         var query = dsl.selectFrom(MESSAGE)
                 .where(MESSAGE.THREAD_ID.eq(threadId))
-                .orderBy(MESSAGE.CREATED_AT.asc());
+                .orderBy(MESSAGE.ID.asc());
 
         return queryPage(dsl, query, page, pageSize, MessageDb.class);
     }

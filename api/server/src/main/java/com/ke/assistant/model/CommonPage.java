@@ -1,4 +1,4 @@
-package com.ke.assistant.common;
+package com.ke.assistant.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;

@@ -1,9 +1,7 @@
 package com.ke.assistant.controller;
 
-import com.ke.assistant.assistant.AssistantInfo;
-import com.ke.assistant.assistant.AssistantOps;
-import com.ke.assistant.common.CommonPage;
-import com.ke.assistant.common.DeleteResponse;
+import com.ke.assistant.model.CommonPage;
+import com.ke.assistant.model.DeleteResponse;
 import com.ke.assistant.db.generated.tables.pojos.AssistantDb;
 import com.ke.assistant.db.repo.Page;
 import com.ke.assistant.service.AssistantService;
@@ -12,8 +10,10 @@ import com.ke.assistant.util.ToolResourceUtils;
 import com.ke.bella.openapi.BellaContext;
 import com.ke.bella.openapi.common.exception.ResourceNotFoundException;
 import com.ke.bella.openapi.utils.JacksonUtils;
-import lombok.RequiredArgsConstructor;
+import com.theokanning.openai.assistants.assistant.Assistant;
+import com.theokanning.openai.assistants.assistant.AssistantRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,18 +31,18 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/v1/assistants")
-@RequiredArgsConstructor
 @Slf4j
 public class AssistantController {
 
-    private final AssistantService assistantService;
+    @Autowired
+    private AssistantService assistantService;
 
     /**
      * 创建 Assistant
      */
     @PostMapping
-    public AssistantInfo createAssistant(
-            @RequestBody AssistantOps.CreateAssistantOp request) {
+    public Assistant createAssistant(
+            @RequestBody AssistantRequest request) {
 
         // transfer请求到数据库对象
         AssistantDb assistant = new AssistantDb();
@@ -65,10 +65,10 @@ public class AssistantController {
      * 获取 Assistant 详情
      */
     @GetMapping("/{assistant_id}")
-    public AssistantInfo getAssistant(
+    public Assistant getAssistant(
             @PathVariable("assistant_id") String assistantId) {
 
-        AssistantInfo info = assistantService.getAssistantById(assistantId);
+        Assistant info = assistantService.getAssistantById(assistantId);
         if(info == null) {
             throw new ResourceNotFoundException("Assistant not found");
         }
@@ -79,15 +79,15 @@ public class AssistantController {
      * 获取 Assistant 列表
      */
     @GetMapping
-    public CommonPage<AssistantInfo> listAssistants(
+    public CommonPage<Assistant> listAssistants(
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "page_size", defaultValue = "20") int pageSize) {
 
         String owner = BellaContext.getOwnerCode();
 
-        Page<AssistantInfo> infoPage = assistantService.getAssistantsByOwnerWithPage(owner, page, pageSize);
+        Page<Assistant> infoPage = assistantService.getAssistantsByOwnerWithPage(owner, page, pageSize);
 
-        List<AssistantInfo> infoList = infoPage.getList();
+        List<Assistant> infoList = infoPage.getList();
 
         String firstId = infoList.isEmpty() ? null : infoList.get(0).getId();
         String lastId = infoList.isEmpty() ? null : infoList.get(infoList.size() - 1).getId();
@@ -100,11 +100,9 @@ public class AssistantController {
      * 更新 Assistant
      */
     @PostMapping("/{assistant_id}")
-    public AssistantInfo updateAssistant(
+    public Assistant updateAssistant(
             @PathVariable("assistant_id") String assistantId,
-            @RequestBody AssistantOps.UpdateAssistantOp request) {
-
-        request.setOwner(BellaContext.getOwnerCode());
+            @RequestBody AssistantRequest request) {
 
         // transfer请求到数据库对象
         AssistantDb updateData = new AssistantDb();
@@ -120,7 +118,7 @@ public class AssistantController {
                 ToolResourceUtils.toolResourceToFiles(request.getToolResources()) : null;
 
         return assistantService.updateAssistant(assistantId, updateData, request.getFileIds(), request.getTools(), toolResourceFiles,
-                request.getOwner());
+                BellaContext.getOwnerCode());
     }
 
     /**

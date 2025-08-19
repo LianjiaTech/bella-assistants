@@ -1,15 +1,15 @@
 package com.ke.assistant.controller;
 
-import com.ke.assistant.common.CommonPage;
+import com.ke.assistant.model.CommonPage;
 import com.ke.assistant.db.generated.tables.pojos.RunStepDb;
 import com.ke.assistant.db.repo.Page;
-import com.ke.assistant.run.RunInfo;
-import com.ke.assistant.run.RunOps;
 import com.ke.assistant.service.RunService;
 import com.ke.bella.openapi.common.exception.BizParamCheckException;
 import com.ke.bella.openapi.common.exception.ResourceNotFoundException;
-import lombok.RequiredArgsConstructor;
+import com.theokanning.openai.assistants.run.ModifyRunRequest;
+import com.theokanning.openai.assistants.run.Run;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,21 +25,21 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/v1/threads/{thread_id}/runs")
-@RequiredArgsConstructor
 @Slf4j
 public class RunController {
 
-    private final RunService runService;
+    @Autowired
+    private RunService runService;
 
     /**
      * 获取 Run 详情
      */
     @GetMapping("/{run_id}")
-    public RunInfo getRun(
+    public Run getRun(
             @PathVariable("thread_id") String threadId,
             @PathVariable("run_id") String runId) {
 
-        RunInfo run = runService.getRunById(runId);
+        Run run = runService.getRunById(runId);
         if(run == null) {
             throw new ResourceNotFoundException("Run not found");
         }
@@ -56,14 +56,14 @@ public class RunController {
      * 获取 Thread 的 Run 列表
      */
     @GetMapping
-    public CommonPage<RunInfo> listRuns(
+    public CommonPage<Run> listRuns(
             @PathVariable("thread_id") String threadId,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "page_size", defaultValue = "20") int pageSize) {
 
-        Page<RunInfo> infoPage = runService.getRunsByThreadIdWithPage(threadId, page, pageSize);
+        Page<Run> infoPage = runService.getRunsByThreadIdWithPage(threadId, page, pageSize);
 
-        List<RunInfo> infoList = infoPage.getList();
+        List<Run> infoList = infoPage.getList();
 
         String firstId = infoList.isEmpty() ? null : infoList.get(0).getId();
         String lastId = infoList.isEmpty() ? null : infoList.get(infoList.size() - 1).getId();
@@ -76,13 +76,13 @@ public class RunController {
      * 更新 Run
      */
     @PostMapping("/{run_id}")
-    public RunInfo updateRun(
+    public Run updateRun(
             @PathVariable("thread_id") String threadId,
             @PathVariable("run_id") String runId,
-            @RequestBody RunOps.UpdateRunOp request) {
+            @RequestBody ModifyRunRequest request) {
 
         // 验证run是否存在且属于指定的thread
-        RunInfo existing = runService.getRunById(runId);
+        Run existing = runService.getRunById(runId);
         if(existing == null) {
             throw new ResourceNotFoundException("Run not found");
         }
@@ -102,7 +102,7 @@ public class RunController {
             @PathVariable("run_id") String runId) {
 
         // 验证run是否存在且属于指定的thread
-        RunInfo existing = runService.getRunById(runId);
+        Run existing = runService.getRunById(runId);
         if(existing == null) {
             throw new ResourceNotFoundException("Run not found");
         }

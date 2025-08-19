@@ -1,5 +1,12 @@
 package com.ke.assistant.util;
 
+import com.theokanning.openai.assistants.assistant.CodeInterpreterResources;
+import com.theokanning.openai.assistants.assistant.FileSearchResources;
+import com.theokanning.openai.assistants.assistant.FunctionResources;
+import com.theokanning.openai.assistants.assistant.ToolResources;
+import com.theokanning.openai.assistants.vector_store.VectorStore;
+import org.apache.commons.collections4.CollectionUtils;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -14,8 +21,7 @@ public class ToolResourceUtils {
      *
      * @return Map 列表，每个Map包含 file_id 和 tool_name
      */
-    @SuppressWarnings("unchecked")
-    public static List<Map<String, String>> toolResourceToFiles(Map<String, Object> toolResources) {
+    public static List<Map<String, String>> toolResourceToFiles(ToolResources toolResources) {
         List<Map<String, String>> fileList = new ArrayList<>();
 
         if(toolResources == null) {
@@ -23,11 +29,9 @@ public class ToolResourceUtils {
         }
 
         // 处理 code_interpreter
-        if(toolResources.containsKey("code_interpreter")) {
-            Map<String, Object> codeInterpreter = (Map<String, Object>) toolResources.get("code_interpreter");
-            if(codeInterpreter.containsKey("file_ids")) {
-                List<String> fileIds = (List<String>) codeInterpreter.get("file_ids");
-                for (String fileId : fileIds) {
+        if(toolResources.getCodeInterpreter() != null) {
+            if(CollectionUtils.isNotEmpty(toolResources.getCodeInterpreter().getFileIds())) {
+                for (String fileId : toolResources.getCodeInterpreter().getFileIds()) {
                     Map<String, String> fileMap = new HashMap<>();
                     fileMap.put("file_id", fileId);
                     fileMap.put("tool_name", "code_interpreter");
@@ -37,16 +41,13 @@ public class ToolResourceUtils {
         }
 
         // 处理 file_search
-        if(toolResources.containsKey("file_search")) {
-            Map<String, Object> fileSearch = (Map<String, Object>) toolResources.get("file_search");
+        if(toolResources.getFileSearch() != null) {
 
             // 处理 vector_stores（用于创建新的vector store）
-            if(fileSearch.containsKey("vector_stores")) {
-                List<Map<String, Object>> vectorStores = (List<Map<String, Object>>) fileSearch.get("vector_stores");
-                for (Map<String, Object> vectorStore : vectorStores) {
-                    if(vectorStore.containsKey("file_ids")) {
-                        List<String> fileIds = (List<String>) vectorStore.get("file_ids");
-                        for (String fileId : fileIds) {
+            if(toolResources.getFileSearch().getVectorStores() != null) {
+                for (VectorStore vectorStore : toolResources.getFileSearch().getVectorStores()) {
+                    if(CollectionUtils.isNotEmpty(vectorStore.getFileIds())) {
+                        for (String fileId : vectorStore.getFileIds()) {
                             Map<String, String> fileMap = new HashMap<>();
                             fileMap.put("file_id", fileId);
                             fileMap.put("tool_name", "file_search");
@@ -58,13 +59,11 @@ public class ToolResourceUtils {
         }
 
         // 处理 functions
-        if(toolResources.containsKey("functions")) {
-            List<Map<String, Object>> functions = (List<Map<String, Object>>) toolResources.get("functions");
-            for (Map<String, Object> function : functions) {
-                String functionName = (String) function.get("name");
-                if(function.containsKey("file_ids")) {
-                    List<String> fileIds = (List<String>) function.get("file_ids");
-                    for (String fileId : fileIds) {
+        if(toolResources.getFunctions() != null) {
+            for (FunctionResources functionResource : toolResources.getFunctions()) {
+                String functionName = functionResource.getName();
+                if(CollectionUtils.isNotEmpty(functionResource.getFileIds())) {
+                    for (String fileId : functionResource.getFileIds()) {
                         Map<String, String> fileMap = new HashMap<>();
                         fileMap.put("file_id", fileId);
                         fileMap.put("tool_name", functionName);
@@ -83,14 +82,13 @@ public class ToolResourceUtils {
      * @param files 文件关联列表
      * @return tool_resources 嵌套结构
      */
-    @SuppressWarnings("unchecked")
-    public static Map<String, Object> buildToolResourcesFromFiles(List<Map<String, String>> files) {
-        Map<String, Object> toolResources = new HashMap<>();
+    public static ToolResources buildToolResourcesFromFiles(List<Map<String, String>> files) {
         
         if(files == null || files.isEmpty()) {
-            return toolResources;
+            return null;
         }
-        
+        ToolResources toolResources = new ToolResources();
+
         // 按tool_name分组文件
         Map<String, List<String>> toolFileMap = new HashMap<>();
         for (Map<String, String> file : files) {
@@ -109,32 +107,33 @@ public class ToolResourceUtils {
             
             if("code_interpreter".equals(toolName)) {
                 // code_interpreter: { file_ids: [...] }
-                Map<String, Object> codeInterpreter = new HashMap<>();
-                codeInterpreter.put("file_ids", fileIds);
-                toolResources.put("code_interpreter", codeInterpreter);
+                CodeInterpreterResources codeInterpreter = new CodeInterpreterResources();
+                codeInterpreter.setFileIds(fileIds);
+
+                toolResources.setCodeInterpreter(codeInterpreter);
                 
             } else if("file_search".equals(toolName)) {
                 // file_search: { vector_stores: [{ file_ids: [...] }] }
-                Map<String, Object> vectorStore = new HashMap<>();
-                vectorStore.put("file_ids", fileIds);
+                VectorStore vectorStore = new VectorStore();
+                vectorStore.setFileIds(fileIds);
                 
-                List<Map<String, Object>> vectorStores = new ArrayList<>();
+                List<VectorStore> vectorStores = new ArrayList<>();
                 vectorStores.add(vectorStore);
                 
-                Map<String, Object> fileSearch = new HashMap<>();
-                fileSearch.put("vector_stores", vectorStores);
-                toolResources.put("file_search", fileSearch);
+                FileSearchResources fileSearch = new FileSearchResources();
+                fileSearch.setVectorStores(vectorStores);
+                toolResources.setFileSearch(fileSearch);
                 
             } else {
                 // functions: [{ name: toolName, file_ids: [...] }]
-                Map<String, Object> function = new HashMap<>();
-                function.put("name", toolName);
-                function.put("file_ids", fileIds);
+                FunctionResources function = new FunctionResources();
+                function.setName(toolName);
+                function.setFileIds(fileIds);
                 
-                List<Map<String, Object>> functions = (List<Map<String, Object>>) toolResources.get("functions");
+                List<FunctionResources> functions = toolResources.getFunctions();
                 if(functions == null) {
                     functions = new ArrayList<>();
-                    toolResources.put("functions", functions);
+                    toolResources.setFunctions(functions);
                 }
                 functions.add(function);
             }

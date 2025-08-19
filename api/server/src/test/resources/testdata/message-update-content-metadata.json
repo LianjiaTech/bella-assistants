@@ -1,8 +1,8 @@
 {
   "content": "This is the updated content for the message.",
   "metadata": {
-    "edited": true,
-    "edit_time": "2024-01-15T10:30:00Z",
-    "editor": "test_user"
+    "version": "1.0",
+    "environment": "test",
+    "category": "full-config"
   }
 }

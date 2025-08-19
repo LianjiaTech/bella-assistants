@@ -7,20 +7,21 @@ import com.ke.assistant.db.repo.MessageRepo;
 import com.ke.assistant.db.repo.Page;
 import com.ke.assistant.db.repo.ThreadFileRelationRepo;
 import com.ke.assistant.db.repo.ThreadRepo;
-import com.ke.assistant.message.MessageOps;
-import com.ke.assistant.thread.ThreadInfo;
 import com.ke.assistant.util.BeanUtils;
 import com.ke.assistant.util.MessageUtils;
+import com.ke.assistant.util.ToolResourceUtils;
 import com.ke.bella.openapi.utils.JacksonUtils;
+import com.theokanning.openai.assistants.message.MessageRequest;
+import com.theokanning.openai.assistants.thread.Thread;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -47,7 +48,7 @@ public class ThreadService {
      * 创建 Thread
      */
     @Transactional
-    public ThreadInfo createThread(ThreadDb thread, Map<String, Object> toolResources, List<MessageOps.CreateMessageOp> messageOps) {
+    public Thread createThread(ThreadDb thread, List<Map<String, String>> toolResources, List<MessageRequest> messageOps) {
         // 设置默认值
         thread.setObject("thread");
         if(StringUtils.isBlank(thread.getEnvironment())) {
@@ -64,7 +65,7 @@ public class ThreadService {
 
         // 处理初始消息
         if(messageOps != null && !messageOps.isEmpty()) {
-            for (MessageOps.CreateMessageOp messageOp : messageOps) {
+            for (MessageRequest messageOp : messageOps) {
                 messageService.createMessage(savedThread.getId(), messageOp);
             }
         }
@@ -75,7 +76,7 @@ public class ThreadService {
     /**
      * 根据ID获取Thread
      */
-    public ThreadInfo getThreadById(String id) {
+    public Thread getThreadById(String id) {
         ThreadDb threadDb = threadRepo.findById(id);
         return threadDb != null ? convertToInfo(threadDb) : null;
     }
@@ -90,7 +91,7 @@ public class ThreadService {
     /**
      * 根据owner查询Thread列表
      */
-    public List<ThreadInfo> getThreadsByOwner(String owner) {
+    public List<Thread> getThreadsByOwner(String owner) {
         List<ThreadDb> threads = threadRepo.findByOwner(owner);
         return threads.stream().map(this::convertToInfo).collect(java.util.stream.Collectors.toList());
     }
@@ -98,10 +99,10 @@ public class ThreadService {
     /**
      * 分页查询Thread
      */
-    public Page<ThreadInfo> getThreadsByOwnerWithPage(String owner, int page, int pageSize) {
+    public Page<Thread> getThreadsByOwnerWithPage(String owner, int page, int pageSize) {
         Page<ThreadDb> dbPage = threadRepo.findByOwnerWithPage(owner, page, pageSize);
-        List<ThreadInfo> infoList = dbPage.getList().stream().map(this::convertToInfo).collect(java.util.stream.Collectors.toList());
-        Page<ThreadInfo> result = new Page<>();
+        List<Thread> infoList = dbPage.getList().stream().map(this::convertToInfo).collect(java.util.stream.Collectors.toList());
+        Page<Thread> result = new Page<>();
         result.setPage(dbPage.getPage());
         result.setPageSize(dbPage.getPageSize());
         result.setTotal(dbPage.getTotal());
@@ -113,7 +114,7 @@ public class ThreadService {
      * 更新Thread
      */
     @Transactional
-    public ThreadInfo updateThread(String id, ThreadDb updateData, Map<String, Object> toolResources, String owner) {
+    public Thread updateThread(String id, ThreadDb updateData, List<Map<String, String>> toolResources, String owner) {
         ThreadDb existing = threadRepo.findById(id);
         if(existing == null) {
             throw new IllegalArgumentException("Thread not found: " + id);
@@ -180,7 +181,7 @@ public class ThreadService {
      * Fork一个Thread - 复制Thread及其消息
      */
     @Transactional
-    public ThreadInfo forkThread(String threadId) {
+    public Thread forkThread(String threadId) {
         ThreadDb originalThread = threadRepo.findById(threadId);
         if(originalThread == null) {
             throw new IllegalArgumentException("Thread not found: " + threadId);
@@ -213,7 +214,7 @@ public class ThreadService {
      * 复制Thread消息到另一个Thread
      */
     @Transactional
-    public ThreadInfo copyThread(String fromThreadId, String toThreadId) {
+    public Thread copyThread(String fromThreadId, String toThreadId) {
         ThreadDb fromThread = threadRepo.findById(fromThreadId);
         ThreadDb toThread = threadRepo.findById(toThreadId);
 
@@ -237,7 +238,7 @@ public class ThreadService {
      * 合并Thread消息到另一个Thread
      */
     @Transactional
-    public ThreadInfo mergeThread(String fromThreadId, String toThreadId) {
+    public Thread mergeThread(String fromThreadId, String toThreadId) {
         // 智能合并消息（避免重复）
         mergeMessagesFromThread(fromThreadId, toThreadId);
 
@@ -249,29 +250,18 @@ public class ThreadService {
      * 更新Thread的文件关联从tool_resources
      */
     @Transactional
-    public void updateThreadFilesFromToolResources(String threadId, Map<String, Object> toolResources) {
+    public void updateThreadFilesFromToolResources(String threadId, List<Map<String, String>> toolResources) {
         // 删除现有的文件关联
         threadFileRepo.deleteByThreadId(threadId);
 
-        if(toolResources != null && !toolResources.isEmpty()) {
-            for (Map.Entry<String, Object> entry : toolResources.entrySet()) {
-                String toolName = entry.getKey();
-                Object value = entry.getValue();
-
-                if(value instanceof List) {
-                    List<?> fileIds = (List<?>) value;
-                    for (Object fileIdObj : fileIds) {
-                        if(fileIdObj instanceof String) {
-                            String fileId = (String) fileIdObj;
-                            ThreadFileRelationDb threadFile = new ThreadFileRelationDb();
-                            threadFile.setFileId(fileId);
-                            threadFile.setThreadId(threadId);
-                            threadFile.setObject("thread.file");
-                            threadFile.setToolName(toolName);
-                            threadFileRepo.insert(threadFile);
-                        }
-                    }
-                }
+        if(toolResources != null) {
+            for (Map<String, String> toolResource : toolResources) {
+                ThreadFileRelationDb threadFile = new ThreadFileRelationDb();
+                threadFile.setFileId(toolResource.get("file_id"));
+                threadFile.setThreadId(threadId);
+                threadFile.setObject("thread.file");
+                threadFile.setToolName(toolResource.get("tool_name"));
+                threadFileRepo.insert(threadFile);
             }
         }
     }
@@ -280,14 +270,16 @@ public class ThreadService {
      * 将ThreadDb转换为ThreadInfo
      */
     @SuppressWarnings("unchecked")
-    private ThreadInfo convertToInfo(ThreadDb threadDb) {
+    private Thread convertToInfo(ThreadDb threadDb) {
         if(threadDb == null) {
             return null;
         }
 
-        ThreadInfo info = new ThreadInfo();
+        Thread info = new Thread();
         // 进行基础字段拷贝
         BeanUtils.copyProperties(threadDb, info);
+
+        info.setCreatedAt((int) threadDb.getCreatedAt().toEpochSecond(ZoneOffset.ofHours(8)));
 
         // 转换metadata从JSON字符串到Map
         if(StringUtils.isNotBlank(threadDb.getMetadata())) {
@@ -303,15 +295,14 @@ public class ThreadService {
         List<ThreadFileRelationDb> files = getThreadFiles(threadDb.getId());
 
         // 计算tool_resources
-        Map<String, Object> toolResources = new HashMap<>();
+        List<Map<String, String>> toolResources = new ArrayList<>();
         for (ThreadFileRelationDb file : files) {
-            String toolName = file.getToolName();
-            if(!toolResources.containsKey(toolName)) {
-                toolResources.put(toolName, new ArrayList<String>());
-            }
-            ((List<String>) toolResources.get(toolName)).add(file.getFileId());
+            Map<String, String> toolResource = new HashMap<>();
+            toolResource.put("file_id", file.getFileId());
+            toolResource.put("tool_name", file.getToolName());
+            toolResources.add(toolResource);
         }
-        info.setToolResources(toolResources);
+        info.setToolResources(ToolResourceUtils.buildToolResourcesFromFiles(toolResources));
 
         return info;
     }

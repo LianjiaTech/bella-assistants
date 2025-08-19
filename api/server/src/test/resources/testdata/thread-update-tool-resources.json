@@ -1,6 +1,10 @@
 {
   "tool_resources": {
-    "code_interpreter": ["file_new123"]
+    "code_interpreter": {
+      "file_ids": [
+        "file_new123"
+      ]
+    }
   },
   "metadata": {
     "updated": true,

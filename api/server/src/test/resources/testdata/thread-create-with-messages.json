@@ -10,7 +10,8 @@
     }
   ],
   "metadata": {
-    "purpose": "initial_messages_test",
-    "message_count": 2
+    "version": "1.0",
+    "environment": "test",
+    "category": "full-config"
   }
 }
