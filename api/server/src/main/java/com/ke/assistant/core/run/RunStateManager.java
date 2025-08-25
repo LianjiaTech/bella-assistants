@@ -305,7 +305,7 @@ public class RunStateManager {
                 Thread.currentThread().interrupt();
                 throw new RuntimeException(e);
             }
-            submitRequiredAction(runId, submitToolOutputs, expiredAt);
+            return submitRequiredAction(runId, submitToolOutputs, expiredAt);
         }
         RunStepDb runStepDb = runStepRepo.findActionRequiredForUpdate(runId);
 
