@@ -18,7 +18,7 @@ import org.jooq.ForeignKey;
 import org.jooq.Index;
 import org.jooq.Name;
 import org.jooq.Record;
-import org.jooq.Row17;
+import org.jooq.Row18;
 import org.jooq.Schema;
 import org.jooq.Table;
 import org.jooq.TableField;
@@ -71,6 +71,11 @@ public class Message extends TableImpl<MessageRecord> {
     public final TableField<MessageRecord, String> OBJECT = createField(DSL.name("object"), SQLDataType.VARCHAR(64).nullable(false).defaultValue(DSL.inline("", SQLDataType.VARCHAR)), this, "");
 
     /**
+     * The column <code>message.status</code>.
+     */
+    public final TableField<MessageRecord, String> STATUS = createField(DSL.name("status"), SQLDataType.VARCHAR(64).nullable(false).defaultValue(DSL.inline("in_progress", SQLDataType.VARCHAR)), this, "");
+
+    /**
      * The column <code>message.content</code>.
      */
     public final TableField<MessageRecord, String> CONTENT = createField(DSL.name("content"), SQLDataType.CLOB, this, "");
@@ -111,9 +116,9 @@ public class Message extends TableImpl<MessageRecord> {
     public final TableField<MessageRecord, String> NAME = createField(DSL.name("name"), SQLDataType.VARCHAR(100).nullable(false).defaultValue(DSL.inline("", SQLDataType.VARCHAR)), this, "名称");
 
     /**
-     * The column <code>message.message_type</code>. original or summarized
+     * The column <code>message.message_type</code>. 消息的类型
      */
-    public final TableField<MessageRecord, String> MESSAGE_TYPE = createField(DSL.name("message_type"), SQLDataType.VARCHAR(64).nullable(false).defaultValue(DSL.inline("original", SQLDataType.VARCHAR)), this, "original or summarized");
+    public final TableField<MessageRecord, String> MESSAGE_TYPE = createField(DSL.name("message_type"), SQLDataType.VARCHAR(64).nullable(false).defaultValue(DSL.inline("mixed", SQLDataType.VARCHAR)), this, "消息的类型");
 
     /**
      * The column <code>message.summarized_by</code>. 如果消息被压缩，此处标记压缩消息的message_id
@@ -215,11 +220,11 @@ public class Message extends TableImpl<MessageRecord> {
     }
 
     // -------------------------------------------------------------------------
-    // Row17 type methods
+    // Row18 type methods
     // -------------------------------------------------------------------------
 
     @Override
-    public Row17<String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, LocalDateTime, LocalDateTime> fieldsRow() {
-        return (Row17) super.fieldsRow();
+    public Row18<String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, LocalDateTime, LocalDateTime> fieldsRow() {
+        return (Row18) super.fieldsRow();
     }
 }

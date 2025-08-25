@@ -192,6 +192,10 @@ CREATE TABLE IF NOT EXISTS message
 (
     64
 ) NOT NULL DEFAULT '',
+    status VARCHAR
+(
+    64
+) NOT NULL DEFAULT 'in_progress',
     content MEDIUMTEXT NULL,
     reasoning_content TEXT NULL,
     attachments VARCHAR
@@ -221,7 +225,7 @@ CREATE TABLE IF NOT EXISTS message
     message_type VARCHAR
 (
     64
-) NOT NULL DEFAULT 'original' COMMENT 'original or summarized',
+) NOT NULL DEFAULT 'mixed' COMMENT '消息的类型',
     summarized_by VARCHAR
 (
     64

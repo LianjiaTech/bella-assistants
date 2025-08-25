@@ -43,10 +43,9 @@ public interface ServiceMesh {
     /**
      * 添加运行中的Run映射
      * @param runId Run ID
-     * @param instanceId 实例ID
      * @param timeoutSeconds 超时时间（秒）
      */
-    void addRunningRun(String runId, String instanceId, int timeoutSeconds);
+    void addRunningRun(String runId, int timeoutSeconds);
     
     /**
      * 移除运行中的Run映射
@@ -60,27 +59,6 @@ public interface ServiceMesh {
      * @return 实例ID，如果不存在返回null
      */
     String getRunningRunInstanceId(String runId);
-    
-    /**
-     * 添加等待中的Run映射
-     * @param runId Run ID
-     * @param instanceId 实例ID
-     * @param timeoutSeconds 超时时间（秒）
-     */
-    void addWaitingRun(String runId, String instanceId, int timeoutSeconds);
-    
-    /**
-     * 移除等待中的Run映射
-     * @param runId Run ID
-     */
-    void removeWaitingRun(String runId);
-    
-    /**
-     * 获取等待中Run的实例ID
-     * @param runId Run ID
-     * @return 实例ID，如果不存在返回null
-     */
-    String getWaitingRunInstanceId(String runId);
     
     /**
      * 获取所有在线实例ID

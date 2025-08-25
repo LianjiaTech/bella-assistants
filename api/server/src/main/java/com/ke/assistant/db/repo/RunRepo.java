@@ -9,6 +9,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.jooq.DSLContext;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static com.ke.assistant.db.generated.Tables.RUN;
@@ -29,6 +30,16 @@ public class RunRepo implements BaseRepo {
     public RunDb findById(String id) {
         return dsl.selectFrom(RUN)
                 .where(RUN.ID.eq(id))
+                .fetchOneInto(RunDb.class);
+    }
+
+    /**
+     * 根据 ID 查询 Run
+     */
+    public RunDb findByIdForUpdate(String id) {
+        return dsl.selectFrom(RUN)
+                .where(RUN.ID.eq(id))
+                .forUpdate()
                 .fetchOneInto(RunDb.class);
     }
 
@@ -98,6 +109,14 @@ public class RunRepo implements BaseRepo {
         return dsl.update(RUN)
                 .set(dsl.newRecord(RUN, run))
                 .where(RUN.ID.eq(run.getId()))
+                .execute() > 0;
+    }
+
+    public boolean updateRequireAction(String id, String requireAction) {
+        return dsl.update(RUN)
+                .set(RUN.REQUIRED_ACTION, requireAction)
+                .set(RUN.UPDATED_AT, LocalDateTime.now())
+                .where(RUN.ID.eq(id))
                 .execute() > 0;
     }
 

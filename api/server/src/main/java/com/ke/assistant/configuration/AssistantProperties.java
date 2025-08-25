@@ -7,4 +7,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties("bella.assistant")
 public class AssistantProperties {
     public String keyPrefix = "bella_assistant";
+    public Integer maxExecutionMinutes;
+    public Integer maxExecutionSteps;
 }

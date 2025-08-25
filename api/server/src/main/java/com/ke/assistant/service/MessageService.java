@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -114,8 +115,8 @@ public class MessageService {
      * 根据Thread ID查询MessageDb列表，用于run
      * 获取运行相关的消息列表，并可选择根据命令类型进行过滤
      */
-    public List<Message> getMessagesForRun(String threadId) {
-        List<MessageDb> messages = messageRepo.findByThreadId(threadId);
+    public List<Message> getMessagesForRun(String threadId, String currentAssistantMessage) {
+        List<MessageDb> messages = messageRepo.findByThreadIdWithLimit(threadId, currentAssistantMessage);
 
         // 从后向前查找第一个命令类型的消息
         for (int i = messages.size() - 1; i >= 0; i--) {
@@ -189,7 +190,51 @@ public class MessageService {
         BeanUtils.copyNonNullProperties(updateData, existing);
 
         messageRepo.update(existing);
-        return convertToInfo(messageRepo.findById(id));
+        return convertToInfo(existing);
+    }
+
+    /**
+     * 更新Message的内容 + reasoning
+     */
+    @Transactional
+    public Message addContent(String id, MessageContent content, String reasoning) {
+        MessageDb existing = messageRepo.findByIdForUpdate(id);
+        if(existing == null) {
+            throw new IllegalArgumentException("Message not found: " + id);
+        }
+
+        List<MessageContent> contents = JacksonUtils.deserialize(existing.getContent(), new TypeReference<List<MessageContent>>() {});
+
+        if(contents == null) {
+            contents = new ArrayList<>();
+        }
+
+        contents.add(content);
+
+        existing.setContent(JacksonUtils.serialize(contents));
+
+        if(StringUtils.isNotBlank(reasoning)) {
+            existing.setReasoningContent(reasoning);
+        }
+
+        // 修改内容可能会影响MessageType
+        existing.setMessageType(MessageUtils.recognizeMessageType(existing.getContent()));
+
+        messageRepo.update(existing);
+        return convertToInfo(existing);
+    }
+
+    @Transactional
+    public Message updateStatus(String id, String status) {
+        MessageDb existing = messageRepo.findByIdForUpdate(id);
+        if(existing == null) {
+            throw new IllegalArgumentException("Message not found: " + id);
+        }
+
+        existing.setStatus(status);
+
+        messageRepo.update(existing);
+        return convertToInfo(existing);
     }
 
     /**

@@ -1,0 +1,264 @@
+package com.ke.assistant.core.plan;
+
+import com.ke.assistant.core.run.ExecutionContext;
+import com.ke.assistant.core.tools.ToolFetcher;
+import com.ke.assistant.service.MessageService;
+import com.ke.assistant.service.RunService;
+import com.ke.assistant.util.MessageUtils;
+import com.theokanning.openai.assistants.assistant.Tool;
+import com.theokanning.openai.assistants.message.Message;
+import com.theokanning.openai.assistants.run_step.RunStep;
+import com.theokanning.openai.assistants.run_step.StepDetails;
+import com.theokanning.openai.completion.chat.ChatMessage;
+import com.theokanning.openai.completion.chat.ChatTool;
+import com.theokanning.openai.completion.chat.SystemMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+/**
+ * 提供规划决策逻辑
+ */
+@Component
+public class Planner {
+
+    @Autowired
+    private MessageService messageService;
+
+    @Autowired
+    private ToolFetcher toolFetcher;
+
+    @Autowired
+    private RunService runService;
+
+    private static final Logger logger = LoggerFactory.getLogger(Planner.class);
+
+
+    /**
+     * 规划下一步动作
+     *
+     * @param context 执行上下文（包含所有必要信息）
+     * @return 规划决策结果
+     */
+    public PlannerDecision nextStep(ExecutionContext context) {
+        try {
+            logger.debug("Planning next step for run: {}, step: {}",
+                    context.getRunId(), context.getCurrentStep());
+
+            // 检查是否被取消
+            if(context.isCanceled()) {
+                return PlannerDecision.canceled("Run has been canceled");
+            }
+
+            // 检查异常
+            if(context.isError()) {
+                return PlannerDecision.error(context.getLastError().getMessage());
+            }
+
+            // 检查完成条件
+            if (isCompleted(context)) {
+                return PlannerDecision.complete("All tasks completed");
+            }
+
+            // 检查等待外部输入
+            if (context.isRequiredAction()) {
+                return PlannerDecision.waitForInput("Wait for input");
+            }
+
+            // 检查超时
+            if(context.isTimeout()) {
+                return PlannerDecision.expired("Execute time out");
+            }
+
+            // 检查是否超过最大步数
+            if (context.exceedsMaxSteps()) {
+                context.setError("exceeded_max_steps", "Exceeded maximum steps: " + context.getMaxSteps());
+                return PlannerDecision.error("Exceeded maximum steps: " + context.getMaxSteps());
+            }
+
+            // 检查是否需要等待
+            if (needsWaiting(context)) {
+                return PlannerDecision.waitForTool("Waiting for tool call responses");
+            }
+
+            // 决策下一步动作
+            return planNextAction(context);
+
+        } catch (Exception e) {
+            logger.error("Failed to plan next step for run: {}", context.getRunId(), e);
+            context.setError("server_error", e.getMessage());
+            return PlannerDecision.error(e.getMessage());
+        }
+    }
+
+
+    /**
+     * 检查执行是否已完成
+     *
+     * @param context 执行上下文
+     * @return 是否已完成
+     */
+    public boolean isCompleted(ExecutionContext context) {
+        // 简单的完成条件检查
+        if (context.isCompleted()) {
+            return true;
+        }
+
+        RunStep lastStep = context.getCurrentRunStep();
+        if (lastStep == null) {
+            return false;
+        }
+        // 检查最后的RunStep是否是消息创建且已完成
+        return "message_creation".equals(lastStep.getType()) &&
+                "completed".equals(lastStep.getStatus());
+    }
+
+    /**
+     * 检查是否有等待中的工具调用
+     *
+     * @param context 执行上下文
+     * @return 是否有等待中的工具调用
+     */
+    public boolean needsWaiting(ExecutionContext context) {
+        return context.hasInProgressToolCalls();
+    }
+
+    /**
+     * 规划下一步动作
+     */
+    private PlannerDecision planNextAction(ExecutionContext context) {
+        // 构建聊天消息
+        buildChatMessages(context);
+        // 构建工具列表
+        buildChatTools(context);
+        // 获取当前消息
+        List<ChatMessage> messages = context.getChatMessages();
+
+        if (messages.isEmpty()) {
+            context.setError("bad_request", "No messages to process");
+            return PlannerDecision.error("No messages to process");
+        }
+
+        ChatMessage lastMessage = messages.get(messages.size() - 1);
+
+        // 如果最后一条消息是用户消息，需要生成assistant回复
+        if ("user".equals(lastMessage.getRole())) {
+            return planLLMCall();
+        }
+
+        // 如果最后一条消息是assistant消息，检查是否有工具调用
+        if ("assistant".equals(lastMessage.getRole())) {
+            // 检查是否有待执行的工具调用
+            if (hasUnexecutedToolCalls(context)) {
+                return PlannerDecision.waitForTool("Waiting for tool call responses");
+            } else {
+                // 没有工具调用，对话已完成
+                return PlannerDecision.complete("Conversation completed");
+            }
+        }
+
+        context.setError("bad_request", "No messages to process");
+        return PlannerDecision.error("No messages to process");
+    }
+
+    /**
+     * 规划LLM调用
+     */
+    private PlannerDecision planLLMCall() {
+        return PlannerDecision.builder().action(PlannerAction.LLM_CALL)
+                .reason("Generate assistant response")
+                .build();
+    }
+
+    /**
+     * 构建聊天消息列表
+     */
+    private void buildChatMessages(ExecutionContext context) {
+        // 如果不是第一次构建，只需要把工具相关的消息加入
+        if(!context.getChatMessages().isEmpty()) {
+            if(context.getCurrentToolResults() != null && !context.getCurrentToolResults().isEmpty()) {
+                MessageUtils.convertToolCallMessages(context.getCurrentToolResults(), null).forEach(context::addChatMessage);
+                context.clearToolCallsResult();
+            }
+            return;
+        }
+
+        // 添加系统指令
+        String instructions = context.getInstructions();
+        if (instructions != null && !instructions.trim().isEmpty()) {
+            context.addChatMessage(new SystemMessage(instructions));
+        }
+
+        // 消息历史，只返回小于当前assistantMessageId的消息
+        List<Message> messages = messageService.getMessagesForRun(context.getThreadId(), context.getAssistantMessageId());
+
+        // 线程下的所有RunSteps
+        Map<String, List<RunStep>> runStepMap = runService.getThreadSteps(context.getThreadId()).stream().collect(Collectors.groupingBy(RunStep::getRunId));
+
+        for(Message message : messages) {
+            if(message.getRole().equals("user")) {
+                ChatMessage chatMessage = MessageUtils.formatChatCompletionMessage(message);
+                if(chatMessage != null) {
+                    context.addChatMessage(chatMessage);
+                }
+            }
+            if(message.getRole().equals("assistant")) {
+                ChatMessage assistantMessage = MessageUtils.formatChatCompletionMessage(message);
+                if(message.getRunId() != null ) {
+                    List<RunStep> runSteps = runStepMap.get(message.getRunId());
+                    for(RunStep runStep : runSteps) {
+                        buildToolMessage(context, runStep);
+                    }
+                }
+                context.addChatMessage(assistantMessage);
+            }
+        }
+
+    }
+
+    private void buildToolMessage(ExecutionContext context, RunStep runStep) {
+        StepDetails stepDetails = runStep.getStepDetails();
+        if(stepDetails == null) {
+            return;
+        }
+        if("tool_calls".equals(stepDetails.getType())) {
+            MessageUtils.convertToolCallMessages(stepDetails.getToolCalls(), runStep.getLastError()).forEach(context::addChatMessage);
+        }
+    }
+
+    /**
+     * 构建工具列表
+     */
+    private void buildChatTools(ExecutionContext context) {
+        if(!context.getChatTools().isEmpty()) {
+            return;
+        }
+        if(context.getTools().isEmpty()) {
+            return;
+        }
+        for(Tool tool : context.getTools()) {
+            ChatTool chatTool;
+            if(tool instanceof Tool.Function) {
+                chatTool = new ChatTool();
+                Tool.Function function = (Tool.Function) tool;
+                chatTool.setFunction(function.getFunction());
+            } else {
+                chatTool = toolFetcher.fetchChatTool(tool.getType());
+            }
+            context.addChatTool(chatTool);
+        }
+    }
+
+    /**
+     * 检查是否有未执行的工具调用
+     */
+    private boolean hasUnexecutedToolCalls(ExecutionContext context) {
+        return context.hasInProgressToolCalls();
+    }
+
+}

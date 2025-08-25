@@ -22,6 +22,7 @@ public class MessageDb implements Timed, Serializable {
     private String        role;
     private String        threadId;
     private String        object;
+    private String        status;
     private String        content;
     private String        reasoningContent;
     private String        attachments;
@@ -43,6 +44,7 @@ public class MessageDb implements Timed, Serializable {
         this.role = value.role;
         this.threadId = value.threadId;
         this.object = value.object;
+        this.status = value.status;
         this.content = value.content;
         this.reasoningContent = value.reasoningContent;
         this.attachments = value.attachments;
@@ -63,6 +65,7 @@ public class MessageDb implements Timed, Serializable {
         String        role,
         String        threadId,
         String        object,
+        String        status,
         String        content,
         String        reasoningContent,
         String        attachments,
@@ -81,6 +84,7 @@ public class MessageDb implements Timed, Serializable {
         this.role = role;
         this.threadId = threadId;
         this.object = object;
+        this.status = status;
         this.content = content;
         this.reasoningContent = reasoningContent;
         this.attachments = attachments;
@@ -150,6 +154,20 @@ public class MessageDb implements Timed, Serializable {
      */
     public void setObject(String object) {
         this.object = object;
+    }
+
+    /**
+     * Getter for <code>message.status</code>.
+     */
+    public String getStatus() {
+        return this.status;
+    }
+
+    /**
+     * Setter for <code>message.status</code>.
+     */
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     /**
@@ -265,14 +283,14 @@ public class MessageDb implements Timed, Serializable {
     }
 
     /**
-     * Getter for <code>message.message_type</code>. original or summarized
+     * Getter for <code>message.message_type</code>. 消息的类型
      */
     public String getMessageType() {
         return this.messageType;
     }
 
     /**
-     * Setter for <code>message.message_type</code>. original or summarized
+     * Setter for <code>message.message_type</code>. 消息的类型
      */
     public void setMessageType(String messageType) {
         this.messageType = messageType;
@@ -342,6 +360,7 @@ public class MessageDb implements Timed, Serializable {
         sb.append(", ").append(role);
         sb.append(", ").append(threadId);
         sb.append(", ").append(object);
+        sb.append(", ").append(status);
         sb.append(", ").append(content);
         sb.append(", ").append(reasoningContent);
         sb.append(", ").append(attachments);

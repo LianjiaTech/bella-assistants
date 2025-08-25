@@ -1,11 +1,14 @@
 package com.ke.assistant.mesh;
 
+import com.ke.bella.openapi.utils.JacksonUtils;
+import com.theokanning.openai.assistants.run.SubmitToolOutputs;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -47,4 +50,12 @@ public class Event {
      * 目标实例ID（用于私有消息）
      */
     private String targetInstanceId;
+
+
+    public static Event cancelEvent(String runId) {
+        return Event.builder()
+                .name(EventConstants.EVENT_CANCEL_RUN)
+                .payload(runId)
+                .build();
+    }
 }

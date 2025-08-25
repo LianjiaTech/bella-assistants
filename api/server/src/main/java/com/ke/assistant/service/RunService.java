@@ -8,6 +8,7 @@ import com.ke.assistant.db.repo.RunRepo;
 import com.ke.assistant.db.repo.RunStepRepo;
 import com.ke.assistant.db.repo.RunToolRepo;
 import com.ke.assistant.util.BeanUtils;
+import com.ke.assistant.util.RunUtils;
 import com.ke.bella.openapi.common.exception.ResourceNotFoundException;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.Usage;
@@ -16,7 +17,10 @@ import com.theokanning.openai.assistants.message.IncompleteDetails;
 import com.theokanning.openai.assistants.run.RequiredAction;
 import com.theokanning.openai.assistants.run.Run;
 import com.theokanning.openai.assistants.run.ToolChoice;
+import com.theokanning.openai.assistants.run.ToolFiles;
 import com.theokanning.openai.assistants.run.TruncationStrategy;
+import com.theokanning.openai.assistants.run_step.RunStep;
+import com.theokanning.openai.assistants.run_step.StepDetails;
 import com.theokanning.openai.common.LastError;
 import com.theokanning.openai.completion.chat.ChatResponseFormat;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +34,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Run Service
@@ -58,7 +63,7 @@ public class RunService {
      */
     public List<Run> getRunsByThreadId(String threadId) {
         List<RunDb> runs = runRepo.findByThreadId(threadId);
-        return runs.stream().map(this::convertToInfo).collect(java.util.stream.Collectors.toList());
+        return runs.stream().map(this::convertToInfo).collect(Collectors.toList());
     }
 
     /**
@@ -80,7 +85,7 @@ public class RunService {
      */
     public Page<Run> getRunsByThreadIdWithPage(String threadId, int page, int pageSize) {
         Page<RunDb> dbPage = runRepo.findByThreadIdWithPage(threadId, page, pageSize);
-        List<Run> infoList = dbPage.getList().stream().map(this::convertToInfo).collect(java.util.stream.Collectors.toList());
+        List<Run> infoList = dbPage.getList().stream().map(this::convertToInfo).collect(Collectors.toList());
         Page<Run> result = new Page<>();
         result.setPage(dbPage.getPage());
         result.setPageSize(dbPage.getPageSize());
@@ -134,8 +139,17 @@ public class RunService {
     /**
      * 获取Run的Steps列表
      */
-    public List<RunStepDb> getRunSteps(String runId) {
-        return runStepRepo.findByRunId(runId);
+    public List<RunStep> getRunSteps(String runId) {
+        List<RunStepDb> runSteps = runStepRepo.findByRunId(runId);
+        return runSteps.stream().map(RunUtils::convertStepToInfo).collect(Collectors.toList());
+    }
+
+    /**
+     * 获取Thread的Steps列表
+     */
+    public List<RunStep> getThreadSteps(String threadId) {
+        List<RunStepDb> runSteps = runStepRepo.findByThreadId(threadId);
+        return runSteps.stream().map(RunUtils::convertStepToInfo).collect(Collectors.toList());
     }
 
     /**
@@ -158,6 +172,15 @@ public class RunService {
         BeanUtils.copyProperties(runDb, info);
 
         info.setCreatedAt((int) runDb.getCreatedAt().toEpochSecond(ZoneOffset.ofHours(8)));
+        if(runDb.getStartedAt() != null) {
+            info.setStartedAt((int) runDb.getStartedAt().toEpochSecond(ZoneOffset.ofHours(8)));
+        }
+        if(runDb.getCancelledAt() != null) {
+            info.setCancelledAt((int) runDb.getCancelledAt().toEpochSecond(ZoneOffset.ofHours(8)));
+        }
+        if(runDb.getExpiresAt() != null) {
+            info.setExpiresAt((int) runDb.getExpiresAt().toEpochSecond(ZoneOffset.ofHours(8)));
+        }
 
         // 转换metadata从JSON字符串到Map
         if(StringUtils.isNotBlank(runDb.getMetadata())) {
@@ -206,6 +229,10 @@ public class RunService {
             info.setIncompleteDetails(JacksonUtils.deserialize(runDb.getIncompleteDetails(), IncompleteDetails.class));
         }
 
+        if(StringUtils.isNotBlank(runDb.getFileIds())) {
+            info.setFileIds(JacksonUtils.deserialize(runDb.getFileIds(), ToolFiles.class));
+        }
+
         // 查询关联的RunTool数据获取tools
         List<RunToolDb> runTools = getRunTools(runDb.getId());
         if(!runTools.isEmpty()) {
@@ -223,4 +250,5 @@ public class RunService {
 
         return info;
     }
+
 }

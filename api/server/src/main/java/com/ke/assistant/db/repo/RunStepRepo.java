@@ -9,6 +9,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.jooq.DSLContext;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static com.ke.assistant.db.generated.Tables.RUN_STEP;
@@ -33,11 +34,43 @@ public class RunStepRepo implements BaseRepo {
     }
 
     /**
+     * 根据 ID 查询 Run Step forUpdate
+     */
+    public RunStepDb findByIdForUpdate(String id) {
+        return dsl.selectFrom(RUN_STEP)
+                .where(RUN_STEP.ID.eq(id))
+                .forUpdate()
+                .fetchOneInto(RunStepDb.class);
+    }
+
+
+    /**
+     * 根据 RunID 查询 正在等待工具结果的 Run Step forUpdate
+     */
+    public RunStepDb findActionRequiredForUpdate(String runId) {
+        return dsl.selectFrom(RUN_STEP)
+                .where(RUN_STEP.ID.eq(runId))
+                .and(RUN_STEP.STATUS.eq("requires_action"))
+                .forUpdate()
+                .fetchAnyInto(RunStepDb.class);
+    }
+
+    /**
      * 根据 Run ID 查询 Run Step 列表
      */
     public List<RunStepDb> findByRunId(String runId) {
         return dsl.selectFrom(RUN_STEP)
                 .where(RUN_STEP.RUN_ID.eq(runId))
+                .orderBy(RUN_STEP.CREATED_AT.asc())
+                .fetchInto(RunStepDb.class);
+    }
+
+    /**
+     * 根据 Thread ID 查询 Run Step 列表
+     */
+    public List<RunStepDb> findByThreadId(String threadId) {
+        return dsl.selectFrom(RUN_STEP)
+                .where(RUN_STEP.THREAD_ID.eq(threadId))
                 .orderBy(RUN_STEP.CREATED_AT.asc())
                 .fetchInto(RunStepDb.class);
     }
@@ -53,16 +86,6 @@ public class RunStepRepo implements BaseRepo {
                 .fetchInto(RunStepDb.class);
     }
 
-    /**
-     * 分页查询 Run 下的 Step
-     */
-    public Page<RunStepDb> findByRunIdWithPage(String runId, int page, int pageSize) {
-        var query = dsl.selectFrom(RUN_STEP)
-                .where(RUN_STEP.RUN_ID.eq(runId))
-                .orderBy(RUN_STEP.CREATED_AT.asc());
-
-        return queryPage(dsl, query, page, pageSize, RunStepDb.class);
-    }
 
     /**
      * 插入 Run Step
@@ -93,11 +116,11 @@ public class RunStepRepo implements BaseRepo {
     }
 
     /**
-     * 更新 Run Step 状态
+     * 更新 Step Details
      */
-    public boolean updateStatus(String id, String status) {
+    public boolean updateStepDetails(String id, String stepDetails) {
         return dsl.update(RUN_STEP)
-                .set(RUN_STEP.STATUS, status)
+                .set(RUN_STEP.STEP_DETAILS, stepDetails)
                 .set(RUN_STEP.UPDATED_AT, java.time.LocalDateTime.now())
                 .where(RUN_STEP.ID.eq(id))
                 .execute() > 0;

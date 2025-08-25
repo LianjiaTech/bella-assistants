@@ -1,13 +1,24 @@
 package com.ke.assistant.util;
 
+import com.fasterxml.jackson.databind.node.TextNode;
 import com.ke.assistant.db.generated.tables.pojos.MessageDb;
 import com.ke.bella.openapi.utils.JacksonUtils;
+import com.theokanning.openai.assistants.assistant.FileSearchRankingOptions;
 import com.theokanning.openai.assistants.message.Message;
 import com.theokanning.openai.assistants.message.MessageContent;
+import com.theokanning.openai.assistants.run.ToolCall;
+import com.theokanning.openai.assistants.run.ToolCallCodeInterpreter;
+import com.theokanning.openai.assistants.run.ToolCallFileSearch;
+import com.theokanning.openai.assistants.run.ToolCallFunction;
+import com.theokanning.openai.common.LastError;
 import com.theokanning.openai.completion.chat.AssistantMessage;
+import com.theokanning.openai.completion.chat.AssistantMultipleMessage;
+import com.theokanning.openai.completion.chat.ChatFunctionCall;
 import com.theokanning.openai.completion.chat.ChatMessage;
+import com.theokanning.openai.completion.chat.ChatToolCall;
 import com.theokanning.openai.completion.chat.MultiMediaContent;
 import com.theokanning.openai.completion.chat.SystemMessage;
+import com.theokanning.openai.completion.chat.ToolMessage;
 import com.theokanning.openai.completion.chat.UserMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -169,7 +180,7 @@ public class MessageUtils {
     /**
      * 格式化消息内容，将存储格式转换为用于chat completion的Content格式
      */
-    public static Object formatChatCompletionContent(List<MessageContent> contents) {
+    public static Object formatChatCompletionContent(List<MessageContent> contents, String role) {
 
         if(contents == null || contents.isEmpty()) {
             return "";
@@ -193,6 +204,13 @@ public class MessageUtils {
                 mmContent.setImageFile(content.getImageFile());
                 mmContent.setImageUrl(content.getImageUrl());
             }
+
+            // 目前的chat completion，只支持多模态输入，不支持多模态输出
+            if(mmContent.getType().equals("text")) {
+                result.add(mmContent);
+            } else if(role.equals("user")) {
+                result.add(mmContent);
+            }
         }
 
         return result;
@@ -207,7 +225,7 @@ public class MessageUtils {
             return null;
         }
         
-        Object content = formatChatCompletionContent(messageInfo.getContent());
+        Object content = formatChatCompletionContent(messageInfo.getContent(), messageInfo.getRole());
 
         switch (messageInfo.getRole()) {
         case "user":
@@ -215,7 +233,7 @@ public class MessageUtils {
             userMessage.setContent(content);
             return userMessage;
         case "assistant":
-            return new AssistantMessage((String) content);
+            return new AssistantMultipleMessage(content);
         case "system":
             return new SystemMessage((String) content);
         default:
@@ -250,6 +268,9 @@ public class MessageUtils {
                 } else if(item instanceof MultiMediaContent) {
                     MultiMediaContent mmContent = (MultiMediaContent) item;
                     contentTypes.add(mmContent.getType());
+                } else if(item instanceof MessageContent) {
+                    MessageContent messageContent = (MessageContent) item;
+                    contentTypes.add(messageContent.getType());
                 }
             }
 
@@ -280,6 +301,100 @@ public class MessageUtils {
         } else {
             throw new IllegalArgumentException("Unsupported content type.");
         }
+    }
+
+    public static ToolCall convertToolCall(ChatToolCall chatToolCall) {
+        if("code_interpreter".equals(chatToolCall.getFunction().getName())) {
+            return ToolCall.builder()
+                    .id(chatToolCall.getId())
+                    .type("code_interpreter")
+                    .codeInterpreter(ToolCallCodeInterpreter.builder()
+                            .input(chatToolCall.getFunction().getArguments().asText())
+                            .outputs(null) // 初始创建时不包含output
+                            .build())
+                    .build();
+        } else if("file_search".equals(chatToolCall.getFunction().getName())) {
+            return ToolCall.builder()
+                    .id(chatToolCall.getId())
+                    .type("file_search")
+                    .fileSearch(ToolCallFileSearch.builder()
+                            .rankingOptions(JacksonUtils.deserialize(chatToolCall.getFunction().getArguments().asText(), FileSearchRankingOptions.class))
+                            .results(null).build())
+                    .build();
+        } else {
+            return ToolCall.builder()
+                    .id(chatToolCall.getId())
+                    .type("function")
+                    .function(ToolCallFunction.builder()
+                            .name(chatToolCall.getFunction().getName())
+                            .arguments(chatToolCall.getFunction().getArguments())
+                            .output(null) // 初始创建时不包含output
+                            .build())
+                    .build();
+        }
+    }
+
+    public static ToolCall convertFunctionToolCall(ChatToolCall chatToolCall) {
+        return ToolCall.builder()
+                .id(chatToolCall.getId())
+                .type("function")
+                .function(ToolCallFunction.builder()
+                        .name(chatToolCall.getFunction().getName())
+                        .arguments(chatToolCall.getFunction().getArguments())
+                        .output(null) // 初始创建时不包含output
+                        .build())
+                .build();
+    }
+
+    public static List<ChatMessage> convertToolCallMessages(List<ToolCall> toolCalls, LastError lastError) {
+        List<ChatMessage> result = new ArrayList<>();
+        AssistantMessage toolCallMessage = new AssistantMessage();
+        List<ChatToolCall> chatToolCalls = new ArrayList<>();
+        List<ToolMessage> toolResultMessages = new ArrayList<>();
+        for(ToolCall toolCall : toolCalls) {
+            ToolMessage toolResultMessage = new ToolMessage();
+            ChatToolCall chatToolCall = new ChatToolCall();
+            chatToolCall.setId(toolCall.getId());
+            chatToolCall.setIndex(toolCall.getIndex());
+            chatToolCall.setType("function");
+            ChatFunctionCall function = new ChatFunctionCall();
+            toolResultMessage.setToolCallId(chatToolCall.getId());
+            if(toolCall.getCodeInterpreter() != null) {
+                function.setName("code_interpreter");
+                function.setArguments(new TextNode(toolCall.getCodeInterpreter().getInput()));
+                if(toolCall.getCodeInterpreter().getOutputs() != null) {
+                    toolResultMessage.setContent(JacksonUtils.serialize(toolCall.getCodeInterpreter().getOutputs()));
+                }
+            } else if(toolCall.getFileSearch() != null) {
+                if(toolCall.getCodeInterpreter() != null) {
+                    function.setName("file_search");
+                    function.setArguments(JacksonUtils.toJsonNode(toolCall.getFileSearch().getRankingOptions()));
+                    if(toolCall.getFileSearch().getResults() != null) {
+                        toolResultMessage.setContent(JacksonUtils.serialize(toolCall.getFileSearch().getResults()));
+                    }
+                }
+            } else {
+                function.setName(toolCall.getFunction().getName());
+                function.setArguments(toolCall.getFunction().getArguments());
+                if(toolCall.getFunction().getOutput() != null) {
+                    toolResultMessage.setContent(toolCall.getFunction().getOutput());
+                }
+            }
+            if(toolResultMessage.getContent() == null) {
+                if(lastError != null) {
+                    toolResultMessage.setContent(JacksonUtils.serialize(lastError));
+                } else {
+                    toolResultMessage.setContent("");
+                }
+            }
+            chatToolCall.setFunction(function);
+            chatToolCalls.add(chatToolCall);
+            toolResultMessages.add(toolResultMessage);
+        }
+        toolCallMessage.setToolCalls(chatToolCalls);
+        result.add(toolCallMessage);
+        result.addAll(toolResultMessages);
+        return result;
     }
 
 

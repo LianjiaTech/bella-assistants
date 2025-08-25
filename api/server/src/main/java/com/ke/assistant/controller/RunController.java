@@ -1,13 +1,13 @@
 package com.ke.assistant.controller;
 
-import com.ke.assistant.model.CommonPage;
-import com.ke.assistant.db.generated.tables.pojos.RunStepDb;
 import com.ke.assistant.db.repo.Page;
+import com.ke.assistant.model.CommonPage;
 import com.ke.assistant.service.RunService;
 import com.ke.bella.openapi.common.exception.BizParamCheckException;
 import com.ke.bella.openapi.common.exception.ResourceNotFoundException;
 import com.theokanning.openai.assistants.run.ModifyRunRequest;
 import com.theokanning.openai.assistants.run.Run;
+import com.theokanning.openai.assistants.run_step.RunStep;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -97,7 +97,7 @@ public class RunController {
      * 获取 Run 的 Steps 列表
      */
     @GetMapping("/{run_id}/steps")
-    public List<RunStepDb> getRunSteps(
+    public List<RunStep> getRunSteps(
             @PathVariable("thread_id") String threadId,
             @PathVariable("run_id") String runId) {
 

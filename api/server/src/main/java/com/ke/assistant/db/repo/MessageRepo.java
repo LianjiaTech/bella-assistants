@@ -9,6 +9,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.jooq.DSLContext;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static com.ke.assistant.db.generated.Tables.MESSAGE;
@@ -33,11 +34,32 @@ public class MessageRepo implements BaseRepo {
     }
 
     /**
+     * 根据 ID 查询 Message
+     */
+    public MessageDb findByIdForUpdate(String id) {
+        return dsl.selectFrom(MESSAGE)
+                .where(MESSAGE.ID.eq(id))
+                .forUpdate()
+                .fetchOneInto(MessageDb.class);
+    }
+
+    /**
      * 根据 Thread ID 查询 Message 列表
      */
     public List<MessageDb> findByThreadId(String threadId) {
         return dsl.selectFrom(MESSAGE)
                 .where(MESSAGE.THREAD_ID.eq(threadId))
+                .orderBy(MESSAGE.ID.asc())
+                .fetchInto(MessageDb.class);
+    }
+
+    /**
+     * 根据 Thread ID 和 最大消息ID(不包含) 查询 Message 列表
+     */
+    public List<MessageDb> findByThreadIdWithLimit(String threadId, String lessThanId) {
+        return dsl.selectFrom(MESSAGE)
+                .where(MESSAGE.THREAD_ID.eq(threadId))
+                .and(MESSAGE.ID.lt(lessThanId))
                 .orderBy(MESSAGE.ID.asc())
                 .fetchInto(MessageDb.class);
     }

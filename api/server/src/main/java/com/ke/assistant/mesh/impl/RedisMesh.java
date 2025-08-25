@@ -11,8 +11,6 @@ import org.redisson.api.RMapCache;
 import org.redisson.api.RSetCache;
 import org.redisson.api.RTopic;
 import org.redisson.api.RedissonClient;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 
 import javax.annotation.PostConstruct;
@@ -39,7 +37,6 @@ public class RedisMesh implements ServiceMesh {
     
     // Redis Key常量
     private static final String RUNNING_RUN_MAPPING = "assistant:running-runs";
-    private static final String WAITING_RUN_MAPPING = "assistant:waiting-runs";
     private static final String INSTANCE_REGISTRY = "assistant:instances";
     private static final String BROADCAST_TOPIC = "assistant:broadcast";
     private static final String PRIVATE_TOPIC_PREFIX = "assistant:private:";
@@ -111,7 +108,7 @@ public class RedisMesh implements ServiceMesh {
     }
     
     @Override
-    public void addRunningRun(String runId, String instanceId, int timeoutSeconds) {
+    public void addRunningRun(String runId, int timeoutSeconds) {
         RMapCache<String, String> runningRuns = redissonClient.getMapCache(buildKey(RUNNING_RUN_MAPPING));
         runningRuns.put(runId, instanceId, timeoutSeconds, TimeUnit.SECONDS);
         log.debug("Added running run mapping: {} -> {} (timeout: {}s)", runId, instanceId, timeoutSeconds);
@@ -128,26 +125,6 @@ public class RedisMesh implements ServiceMesh {
     public String getRunningRunInstanceId(String runId) {
         RMapCache<String, String> runningRuns = redissonClient.getMapCache(buildKey(RUNNING_RUN_MAPPING));
         return runningRuns.get(runId);
-    }
-    
-    @Override
-    public void addWaitingRun(String runId, String instanceId, int timeoutSeconds) {
-        RMapCache<String, String> waitingRuns = redissonClient.getMapCache(buildKey(WAITING_RUN_MAPPING));
-        waitingRuns.put(runId, instanceId, timeoutSeconds, TimeUnit.SECONDS);
-        log.debug("Added waiting run mapping: {} -> {} (timeout: {}s)", runId, instanceId, timeoutSeconds);
-    }
-    
-    @Override
-    public void removeWaitingRun(String runId) {
-        RMapCache<String, String> waitingRuns = redissonClient.getMapCache(buildKey(WAITING_RUN_MAPPING));
-        waitingRuns.remove(runId);
-        log.debug("Removed waiting run mapping: {}", runId);
-    }
-    
-    @Override
-    public String getWaitingRunInstanceId(String runId) {
-        RMapCache<String, String> waitingRuns = redissonClient.getMapCache(buildKey(WAITING_RUN_MAPPING));
-        return waitingRuns.get(runId);
     }
     
     @Override
