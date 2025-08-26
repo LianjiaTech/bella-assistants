@@ -1,8 +1,8 @@
 package com.ke.assistant.controller;
 
+import com.ke.assistant.db.repo.Page;
 import com.ke.assistant.model.CommonPage;
 import com.ke.assistant.model.DeleteResponse;
-import com.ke.assistant.db.repo.Page;
 import com.ke.assistant.service.MessageService;
 import com.ke.bella.openapi.common.exception.BizParamCheckException;
 import com.ke.bella.openapi.common.exception.ResourceNotFoundException;
@@ -51,7 +51,7 @@ public class MessageController {
             @PathVariable("thread_id") String threadId,
             @PathVariable("message_id") String messageId) {
 
-        Message message = messageService.getMessageById(messageId);
+        Message message = messageService.getMessageById(threadId, messageId);
         if(message == null) {
             throw new ResourceNotFoundException("Message not found");
         }
@@ -94,15 +94,16 @@ public class MessageController {
             @RequestBody MessageRequest request) {
 
         // 验证消息是否存在且属于指定的thread
-        Message existing = messageService.getMessageById(messageId);
+        Message existing = messageService.getMessageById(threadId, messageId);
         if(existing == null) {
             throw new ResourceNotFoundException("Message not found");
         }
+
         if(!threadId.equals(existing.getThreadId())) {
             throw new BizParamCheckException("Message does not belong to this thread");
         }
 
-        return messageService.updateMessage(messageId, request);
+        return messageService.updateMessage(threadId, messageId, request);
     }
 
     /**
@@ -114,15 +115,17 @@ public class MessageController {
             @PathVariable("message_id") String messageId) {
 
         // 验证消息是否存在且属于指定的thread
-        Message existing = messageService.getMessageById(messageId);
+        Message existing = messageService.getMessageById(threadId, messageId);
         if(existing == null) {
             throw new ResourceNotFoundException("Message not found");
         }
+
         if(!threadId.equals(existing.getThreadId())) {
             throw new BizParamCheckException("Message does not belong to this thread");
         }
 
-        boolean deleted = messageService.deleteMessage(messageId);
+
+        boolean deleted = messageService.deleteMessage(threadId, messageId);
         return new DeleteResponse(messageId, "thread.message", deleted);
     }
 

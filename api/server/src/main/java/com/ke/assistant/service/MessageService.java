@@ -83,25 +83,9 @@ public class MessageService {
     /**
      * 根据ID获取Message
      */
-    public Message getMessageById(String id) {
-        MessageDb messageDb = messageRepo.findById(id);
+    public Message getMessageById(String threadId, String id) {
+        MessageDb messageDb = messageRepo.findById(threadId, id);
         return messageDb != null ? convertToInfo(messageDb) : null;
-    }
-
-    /**
-     * 根据Thread ID查询Message列表
-     */
-    public List<Message> getMessagesByThreadId(String threadId) {
-        List<MessageDb> messages = messageRepo.findByThreadId(threadId);
-        return messages.stream().map(this::convertToInfo).collect(java.util.stream.Collectors.toList());
-    }
-
-    /**
-     * 根据Run ID查询Message列表
-     */
-    public List<Message> getMessagesByRunId(String runId) {
-        List<MessageDb> messages = messageRepo.findByRunId(runId);
-        return messages.stream().map(this::convertToInfo).collect(java.util.stream.Collectors.toList());
     }
 
     /**
@@ -167,8 +151,8 @@ public class MessageService {
      * 更新Message
      */
     @Transactional
-    public Message updateMessage(String id, MessageRequest request) {
-        MessageDb existing = messageRepo.findById(id);
+    public Message updateMessage(String threadId, String id, MessageRequest request) {
+        MessageDb existing = messageRepo.findById(threadId, id);
         if(existing == null) {
             throw new IllegalArgumentException("Message not found: " + id);
         }
@@ -197,8 +181,8 @@ public class MessageService {
      * 更新Message的内容 + reasoning
      */
     @Transactional
-    public Message addContent(String id, MessageContent content, String reasoning) {
-        MessageDb existing = messageRepo.findByIdForUpdate(id);
+    public Message addContent(String threadId, String id, MessageContent content, String reasoning) {
+        MessageDb existing = messageRepo.findByIdForUpdate(threadId, id);
         if(existing == null) {
             throw new IllegalArgumentException("Message not found: " + id);
         }
@@ -225,8 +209,8 @@ public class MessageService {
     }
 
     @Transactional
-    public Message updateStatus(String id, String status) {
-        MessageDb existing = messageRepo.findByIdForUpdate(id);
+    public Message updateStatus(String threadId, String id, String status) {
+        MessageDb existing = messageRepo.findByIdForUpdate(threadId, id);
         if(existing == null) {
             throw new IllegalArgumentException("Message not found: " + id);
         }
@@ -241,8 +225,8 @@ public class MessageService {
      * 删除Message
      */
     @Transactional
-    public boolean deleteMessage(String id) {
-        return messageRepo.deleteById(id);
+    public boolean deleteMessage(String threadId, String id) {
+        return messageRepo.deleteById(threadId, id);
     }
 
     /**
@@ -251,13 +235,6 @@ public class MessageService {
     @Transactional
     public int deleteMessagesByThreadId(String threadId) {
         return messageRepo.deleteByThreadId(threadId);
-    }
-
-    /**
-     * 检查Message是否存在
-     */
-    public boolean existsById(String id) {
-        return messageRepo.existsById(id);
     }
 
     /**

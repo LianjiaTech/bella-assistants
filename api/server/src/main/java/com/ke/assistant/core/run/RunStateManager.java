@@ -75,9 +75,9 @@ public class RunStateManager {
      * @return 是否更新成功
      */
     @Transactional
-    public boolean updateRunStatus(String runId, RunStatus newStatus, LastError lastError) {
+    public boolean updateRunStatus(String threadId, String runId, RunStatus newStatus, LastError lastError) {
         try {
-            RunDb run = runRepo.findByIdForUpdate(runId);
+            RunDb run = runRepo.findByIdForUpdate(runId, threadId);
             if (run == null) {
                 logger.error("Run not found: {}", runId);
                 return false;
@@ -121,7 +121,7 @@ public class RunStateManager {
             return true;
             
         } catch (Exception e) {
-            logger.error("Failed to update run status for {}: {} -> {}", runId, getCurrentStatus(runId), newStatus, e);
+            logger.error("Failed to update run status for {}", runId, e);
             return false;
         }
     }
@@ -130,8 +130,8 @@ public class RunStateManager {
      * 更新Run状态（无错误信息）
      */
     @Transactional
-    public boolean updateRunStatus(String runId, RunStatus newStatus) {
-        return updateRunStatus(runId, newStatus, null);
+    public boolean updateRunStatus(String threadId, String runId, RunStatus newStatus) {
+        return updateRunStatus(threadId, runId, newStatus, null);
     }
 
     /**
@@ -139,7 +139,7 @@ public class RunStateManager {
      */
     @Transactional
     public boolean updateRunStatus(ExecutionContext context, RunStatus newStatus, LastError lastError) {
-        boolean success = updateRunStatus(context.getRunId(), newStatus, lastError);;
+        boolean success = updateRunStatus(context.getThreadId(), context.getRunId(), newStatus, lastError);
         if(newStatus.getRunStreamEvent() != null) {
             context.getRun().setStatus(newStatus.getValue());
         }
@@ -154,23 +154,6 @@ public class RunStateManager {
     public boolean updateRunStatus(ExecutionContext context, RunStatus newStatus) {
         return updateRunStatus(context, newStatus, null);
     }
-    
-    /**
-     * 获取当前Run状态
-     */
-    public RunStatus getCurrentStatus(String runId) {
-        try {
-            RunDb run = runRepo.findById(runId);
-            if (run == null) {
-                logger.error("Run not found: {}", runId);
-                return null;
-            }
-            return RunStatus.valueOf(run.getStatus());
-        } catch (Exception e) {
-            logger.error("Failed to get run status for {}", runId, e);
-            return null;
-        }
-    }
 
 
     /**
@@ -179,7 +162,7 @@ public class RunStateManager {
     @Transactional
     public boolean toInProgress(ExecutionContext context) {
 
-        Message message = messageService.getMessageById(context.getAssistantMessageId());
+        Message message = messageService.getMessageById(context.getThreadId(), context.getAssistantMessageId());
 
         RunStep runStep = context.getLastToolCallStep();
 
@@ -191,7 +174,7 @@ public class RunStateManager {
             throw new IllegalStateException("invalid run step");
         }
 
-        boolean success = updateRunStatus(context.getRunId(), RunStatus.IN_PROGRESS);
+        boolean success = updateRunStatus(context.getThreadId(), context.getRunId(), RunStatus.IN_PROGRESS);
         if(success) {
             context.getRun().setStatus(RunStatus.IN_PROGRESS.getValue());
             context.publish(message);
@@ -210,7 +193,7 @@ public class RunStateManager {
     public boolean toRequiresAction(ExecutionContext context) {
         boolean success = updateRunStatus(context, RunStatus.REQUIRES_ACTION);
         if(success) {
-            runRepo.updateRequireAction(context.getRunId(), JacksonUtils.serialize(context.getRequiredAction()));
+            runRepo.updateRequireAction(context.getThreadId(), context.getRunId(), JacksonUtils.serialize(context.getRequiredAction()));
         }
         return success;
     }
@@ -232,9 +215,9 @@ public class RunStateManager {
     public boolean toFailed(ExecutionContext context) {
         LastError lastError = context.getLastError();
         if(context.getCurrentToolCallStepId() != null) {
-            updateRunStepStatus(context.getCurrentToolCallStepId(), RunStatus.FAILED, lastError, context);
+            updateRunStepStatus(context.getThreadId(), context.getCurrentToolCallStepId(), RunStatus.FAILED, lastError, context);
         }
-        updateRunStepStatus(context.getCurrentRunStep().getId(), RunStatus.FAILED, lastError, context);
+        updateRunStepStatus(context.getThreadId(), context.getCurrentRunStep().getId(), RunStatus.FAILED, lastError, context);
         boolean success = updateRunStatus(context, RunStatus.FAILED, lastError);
         if(success) {
             context.publish(context.getLastError());
@@ -248,9 +231,9 @@ public class RunStateManager {
     @Transactional
     public boolean toExpired(ExecutionContext context) {
         if(context.getCurrentToolCallStepId() != null) {
-            updateRunStepStatus(context.getCurrentToolCallStepId(), RunStatus.EXPIRED, null, context);
+            updateRunStepStatus(context.getThreadId(), context.getCurrentToolCallStepId(), RunStatus.EXPIRED, null, context);
         }
-        updateRunStepStatus(context.getCurrentRunStep().getId(), RunStatus.EXPIRED, null, context);
+        updateRunStepStatus(context.getThreadId(), context.getCurrentRunStep().getId(), RunStatus.EXPIRED, null, context);
         return updateRunStatus(context, RunStatus.EXPIRED, context.getLastError());
     }
     
@@ -258,8 +241,8 @@ public class RunStateManager {
      * 将Run状态转换为取消中
      */
     @Transactional
-    public boolean toCancelling(String runId) {
-        boolean success = updateRunStatus(runId, RunStatus.CANCELLING);
+    public boolean toCancelling(String threadId, String runId) {
+        boolean success = updateRunStatus(threadId, runId, RunStatus.CANCELLING);
         if(success) {
             String instantId = serviceMesh.getRunningRunInstanceId(runId);
             Event event = Event.cancelEvent(runId);
@@ -281,9 +264,9 @@ public class RunStateManager {
     @Transactional
     public boolean toCanceled(ExecutionContext context) {
         if(context.getCurrentToolCallStepId() != null) {
-            updateRunStepStatus(context.getCurrentToolCallStepId(), RunStatus.CANCELLED, null, context);
+            updateRunStepStatus(context.getThreadId(), context.getCurrentToolCallStepId(), RunStatus.CANCELLED, null, context);
         }
-        updateRunStepStatus(context.getCurrentRunStep().getId(), RunStatus.CANCELLED, null, context);
+        updateRunStepStatus(context.getThreadId(), context.getCurrentRunStep().getId(), RunStatus.CANCELLED, null, context);
         return updateRunStatus(context, RunStatus.CANCELLED);
     }
 
@@ -292,7 +275,7 @@ public class RunStateManager {
      * submit required_action数据，其他内部工具执行状态修改完毕后才可提交外部工具结果
      */
     @Transactional
-    public boolean submitRequiredAction(String runId, SubmitToolOutputs submitToolOutputs, LocalDateTime expiredAt) {
+    public boolean submitRequiredAction(String threadId, String runId, SubmitToolOutputs submitToolOutputs, LocalDateTime expiredAt) {
         // 需要确保执行实例已经退出，目的是确保一个run只能在一个实例上执行，且其他内部工具执行状态修改完毕
         String instantId = serviceMesh.getRunningRunInstanceId(runId);
         if(instantId != null) {
@@ -305,9 +288,9 @@ public class RunStateManager {
                 Thread.currentThread().interrupt();
                 throw new RuntimeException(e);
             }
-            return submitRequiredAction(runId, submitToolOutputs, expiredAt);
+            return submitRequiredAction(threadId, runId, submitToolOutputs, expiredAt);
         }
-        RunStepDb runStepDb = runStepRepo.findActionRequiredForUpdate(runId);
+        RunStepDb runStepDb = runStepRepo.findActionRequiredForUpdate(runId, threadId);
 
         RunStatus currentStatus = RunStatus.fromValue(runStepDb.getStatus());
         if(!currentStatus.canTransitionTo(RunStatus.COMPLETED)) {
@@ -331,8 +314,8 @@ public class RunStateManager {
         runStepDb.setCompletedAt(LocalDateTime.now());
         runStepDb.setStatus(RunStatus.COMPLETED.getValue());
         runStepRepo.update(runStepDb);
-        runRepo.updateRequireAction(runId, null);
-        return updateRunStatus(runId, RunStatus.QUEUED);
+        runRepo.updateRequireAction(threadId, runId, null);
+        return updateRunStatus(threadId, runId, RunStatus.QUEUED);
     }
 
     /**
@@ -397,7 +380,7 @@ public class RunStateManager {
      * 完成内部工具调用
      */
     @Transactional
-    public void finishToolCall(ExecutionContext context, ToolCall toolCall) {
+    public void finishToolCall(ExecutionContext context, ToolCall toolCall, String errorMessage) {
         if(context.getCurrentToolCallStepId() == null) {
             logger.warn("no current tool call step");
             return;
@@ -409,9 +392,15 @@ public class RunStateManager {
                 .toolCalls(context.getCurrentToolResults())  // 直接使用完整的ToolCall列表
                 .build();
         String stepDetailsJson = JacksonUtils.serialize(stepDetails);
-        runStepRepo.updateStepDetails(context.getCurrentToolCallStepId(), stepDetailsJson);
+        runStepRepo.updateStepDetails(context.getThreadId(), context.getCurrentToolCallStepId(), stepDetailsJson);
+        if(errorMessage != null) {
+            LastError lastError = new LastError("tool_execute_error", errorMessage);
+            updateRunStepStatus(context.getThreadId(), context.getCurrentToolCallStepId(), RunStatus.COMPLETED, lastError, context);
+        }
         if(!context.hasInProgressToolCalls()) {
-            updateRunStepStatus(context.getCurrentToolCallStepId(), RunStatus.COMPLETED, null, context);
+            if(errorMessage != null) {
+                updateRunStepStatus(context.getThreadId(), context.getCurrentToolCallStepId(), RunStatus.COMPLETED, null, context);
+            }
             context.setCurrentToolCallStepId(null);
             context.signalRunner();
         }
@@ -421,8 +410,8 @@ public class RunStateManager {
      * 修改runStep的状态
      */
     @Transactional
-    public boolean updateRunStepStatus(String runStepId, RunStatus newStatus, LastError lastError, ExecutionContext context) {
-        RunStepDb db = runStepRepo.findByIdForUpdate(runStepId);
+    public boolean updateRunStepStatus(String threadId, String runStepId, RunStatus newStatus, LastError lastError, ExecutionContext context) {
+        RunStepDb db = runStepRepo.findByIdForUpdate(runStepId, threadId);
 
         // 失败时先修改message的状态
         if(newStatus.isTerminal() && db.getType().equals("message_creation")) {
@@ -456,7 +445,7 @@ public class RunStateManager {
 
         boolean success = runStepRepo.update(db);
         if(newStatus.getRunStepStreamEvent() != null && db.getType().equals("message_creation")) {
-            // 发送创建消息失败
+            // 发送客户端消息
             RunStep runStep = RunUtils.convertStepToInfo(db);
             context.publish(runStep);
         }
@@ -480,14 +469,14 @@ public class RunStateManager {
     @Transactional
     public void finishMessageCreation(ExecutionContext context, MessageContent content, String reasoning) {
         addContent(context, content, reasoning);
-        updateRunStepStatus(context.getCurrentRunStep().getId(), RunStatus.COMPLETED, null, context);
+        updateRunStepStatus(context.getThreadId(), context.getCurrentRunStep().getId(), RunStatus.COMPLETED, null, context);
         // 创建助手消息，意味着llm处理结束，开启下一轮planning
         context.signalRunner();
     }
 
     @Transactional
     public Message updateMessageStatus(ExecutionContext context, String status) {
-       Message message = messageService.updateStatus(context.getAssistantMessageId(), status);
+       Message message = messageService.updateStatus(context.getThreadId(), context.getAssistantMessageId(), status);
        context.publish(message);
        return message;
     }
@@ -495,7 +484,7 @@ public class RunStateManager {
 
     @Transactional
     public Message addContent(ExecutionContext context, MessageContent content, String reasoning) {
-        return messageService.addContent(context.getAssistantMessageId(), content, reasoning);
+        return messageService.addContent(context.getThreadId(), context.getAssistantMessageId(), content, reasoning);
     }
 
 
@@ -508,10 +497,8 @@ public class RunStateManager {
             logger.warn("no current tool call step");
             return false;
         }
-        boolean success = updateRunStepStatus(context.getCurrentToolCallStepId(), RunStatus.REQUIRES_ACTION, null, context);
-        if(success) {
-            context.requiredAction(requiredAction);
-        }
-        return success;
+        updateRunStepStatus(context.getThreadId(), context.getCurrentToolCallStepId(), RunStatus.REQUIRES_ACTION, null, context);
+        context.requiredAction(requiredAction);
+        return true;
     }
 }

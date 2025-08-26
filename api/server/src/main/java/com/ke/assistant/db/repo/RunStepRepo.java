@@ -16,6 +16,7 @@ import static com.ke.assistant.db.generated.Tables.RUN_STEP;
 
 /**
  * Run Step Repository 运行步骤数据访问层
+ * todo: threadId 用于分表
  */
 @Repository
 @RequiredArgsConstructor
@@ -27,7 +28,7 @@ public class RunStepRepo implements BaseRepo {
     /**
      * 根据 ID 查询 Run Step
      */
-    public RunStepDb findById(String id) {
+    public RunStepDb findById(String id, String threadId) {
         return dsl.selectFrom(RUN_STEP)
                 .where(RUN_STEP.ID.eq(id))
                 .fetchOneInto(RunStepDb.class);
@@ -36,7 +37,7 @@ public class RunStepRepo implements BaseRepo {
     /**
      * 根据 ID 查询 Run Step forUpdate
      */
-    public RunStepDb findByIdForUpdate(String id) {
+    public RunStepDb findByIdForUpdate(String threadId, String id) {
         return dsl.selectFrom(RUN_STEP)
                 .where(RUN_STEP.ID.eq(id))
                 .forUpdate()
@@ -47,9 +48,9 @@ public class RunStepRepo implements BaseRepo {
     /**
      * 根据 RunID 查询 正在等待工具结果的 Run Step forUpdate
      */
-    public RunStepDb findActionRequiredForUpdate(String runId) {
+    public RunStepDb findActionRequiredForUpdate(String threadId, String id) {
         return dsl.selectFrom(RUN_STEP)
-                .where(RUN_STEP.ID.eq(runId))
+                .where(RUN_STEP.ID.eq(id))
                 .and(RUN_STEP.STATUS.eq("requires_action"))
                 .forUpdate()
                 .fetchAnyInto(RunStepDb.class);
@@ -58,7 +59,7 @@ public class RunStepRepo implements BaseRepo {
     /**
      * 根据 Run ID 查询 Run Step 列表
      */
-    public List<RunStepDb> findByRunId(String runId) {
+    public List<RunStepDb> findByRunId(String threadId, String runId) {
         return dsl.selectFrom(RUN_STEP)
                 .where(RUN_STEP.RUN_ID.eq(runId))
                 .orderBy(RUN_STEP.CREATED_AT.asc())
@@ -71,17 +72,6 @@ public class RunStepRepo implements BaseRepo {
     public List<RunStepDb> findByThreadId(String threadId) {
         return dsl.selectFrom(RUN_STEP)
                 .where(RUN_STEP.THREAD_ID.eq(threadId))
-                .orderBy(RUN_STEP.CREATED_AT.asc())
-                .fetchInto(RunStepDb.class);
-    }
-
-    /**
-     * 根据 Run ID 和 Type 查询 Run Step 列表
-     */
-    public List<RunStepDb> findByRunIdAndType(String runId, String type) {
-        return dsl.selectFrom(RUN_STEP)
-                .where(RUN_STEP.RUN_ID.eq(runId))
-                .and(RUN_STEP.TYPE.eq(type))
                 .orderBy(RUN_STEP.CREATED_AT.asc())
                 .fetchInto(RunStepDb.class);
     }
@@ -118,30 +108,11 @@ public class RunStepRepo implements BaseRepo {
     /**
      * 更新 Step Details
      */
-    public boolean updateStepDetails(String id, String stepDetails) {
+    public boolean updateStepDetails(String threadId, String id, String stepDetails) {
         return dsl.update(RUN_STEP)
                 .set(RUN_STEP.STEP_DETAILS, stepDetails)
                 .set(RUN_STEP.UPDATED_AT, java.time.LocalDateTime.now())
                 .where(RUN_STEP.ID.eq(id))
                 .execute() > 0;
-    }
-
-    /**
-     * 删除 Run Step
-     */
-    public boolean deleteById(String id) {
-        return dsl.deleteFrom(RUN_STEP)
-                .where(RUN_STEP.ID.eq(id))
-                .execute() > 0;
-    }
-
-    /**
-     * 检查 Run Step 是否存在
-     */
-    public boolean existsById(String id) {
-        return dsl.fetchExists(
-                dsl.selectFrom(RUN_STEP)
-                        .where(RUN_STEP.ID.eq(id))
-        );
     }
 }

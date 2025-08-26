@@ -92,10 +92,7 @@ public class ToolExecutor implements Runnable {
                     }
                     ToolOutputChannel finalChannel = channel;
                     CompletableFuture<Void> future = TaskExecutor.supplyCaller(() -> handler.execute(tool, task.getFunction().getArguments(), finalChannel))
-                            .exceptionally(throwable -> {
-                                context.setError("tool_error", throwable.getMessage());
-                                return "";
-                            })
+                            .exceptionally(throwable -> ToolResult.builder().error(throwable.getMessage()).build())
                             .thenAccept(output -> processResult(handler, output, toolCall, context));
                     futures.add(future);
                 } else {
@@ -129,13 +126,25 @@ public class ToolExecutor implements Runnable {
 
 
     @SuppressWarnings("unchecked")
-    private void processResult(ToolHandler handler, Object output, ToolCall toolCall, ExecutionContext context) {
-        if(output == null) {
-            context.setError("tool_execution_error", toolCall.getType() + " output is null");
-            log.error(toolCall.getType() + " output is null");
+    private void processResult(ToolHandler handler, ToolResult result, ToolCall toolCall, ExecutionContext context) {
+        if(result == null || result.isNull()) {
+            if(toolCall.getFunction() != null) {
+                toolCall.getFunction().setOutput("tool call output is null");
+            }
+            log.warn("{} output is null", toolCall.getType());
+            runStateManager.finishToolCall(context, toolCall, "tool call output is null");
+            return;
+        }
+        if(result.getError() != null) {
+            if(toolCall.getFunction() != null) {
+                toolCall.getFunction().setOutput(result.getError());
+            }
+            log.warn(result.getError());
+            runStateManager.finishToolCall(context, toolCall, result.getError());
+            return;
         }
         try {
-            Object processed = handler.processOutputMessage(output);
+            Object processed = handler.processOutputMessage(result.getOutput());
             if(toolCall.getCodeInterpreter() != null) {
                 toolCall.getCodeInterpreter().setOutputs((List<ToolCallCodeInterpreterOutput>) processed);
             } else if(toolCall.getFileSearch() != null) {
@@ -143,10 +152,13 @@ public class ToolExecutor implements Runnable {
             } else if(toolCall.getFunction() != null) {
                 toolCall.getFunction().setOutput((String) processed);
             }
-            runStateManager.finishToolCall(context, toolCall);
+            runStateManager.finishToolCall(context, toolCall, null);
         } catch (Exception e) {
-            context.setError("tool_execution_error", e.getMessage());
-            log.error(e.getMessage(), e);
+            log.warn(e.getMessage(), e);
+            if(toolCall.getFunction() != null) {
+                toolCall.getFunction().setOutput(e.getMessage());
+            }
+            runStateManager.finishToolCall(context, toolCall, e.getMessage());
         }
     }
 

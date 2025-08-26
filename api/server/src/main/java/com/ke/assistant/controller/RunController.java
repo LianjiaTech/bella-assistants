@@ -39,10 +39,15 @@ public class RunController {
             @PathVariable("thread_id") String threadId,
             @PathVariable("run_id") String runId) {
 
-        Run run = runService.getRunById(runId);
+        Run run = runService.getRunById(threadId, runId);
         if(run == null) {
             throw new ResourceNotFoundException("Run not found");
         }
+
+        if(!threadId.equals(run.getThreadId())) {
+            throw new BizParamCheckException("Message does not belong to this thread");
+        }
+
 
         // 验证run是否属于指定的thread
         if(!threadId.equals(run.getThreadId())) {
@@ -82,15 +87,17 @@ public class RunController {
             @RequestBody ModifyRunRequest request) {
 
         // 验证run是否存在且属于指定的thread
-        Run existing = runService.getRunById(runId);
+        Run existing = runService.getRunById(threadId, runId);
         if(existing == null) {
             throw new ResourceNotFoundException("Run not found");
         }
+
         if(!threadId.equals(existing.getThreadId())) {
-            throw new BizParamCheckException("Run does not belong to this thread");
+            throw new BizParamCheckException("Message does not belong to this thread");
         }
 
-        return runService.updateRun(runId, request.getMetadata());
+
+        return runService.updateRun(threadId, runId, request.getMetadata());
     }
 
     /**
@@ -102,14 +109,16 @@ public class RunController {
             @PathVariable("run_id") String runId) {
 
         // 验证run是否存在且属于指定的thread
-        Run existing = runService.getRunById(runId);
+        Run existing = runService.getRunById(threadId, runId);
         if(existing == null) {
             throw new ResourceNotFoundException("Run not found");
         }
+
         if(!threadId.equals(existing.getThreadId())) {
-            throw new BizParamCheckException("Run does not belong to this thread");
+            throw new BizParamCheckException("Message does not belong to this thread");
         }
 
-        return runService.getRunSteps(runId);
+
+        return runService.getRunSteps(threadId, runId);
     }
 }

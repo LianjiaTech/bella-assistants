@@ -16,6 +16,7 @@ import static com.ke.assistant.db.generated.Tables.RUN;
 
 /**
  * Run Repository 运行记录数据访问层
+ * todo: threadId 用于分表
  */
 @Repository
 @RequiredArgsConstructor
@@ -27,7 +28,7 @@ public class RunRepo implements BaseRepo {
     /**
      * 根据 ID 查询 Run
      */
-    public RunDb findById(String id) {
+    public RunDb findById(String threadId, String id) {
         return dsl.selectFrom(RUN)
                 .where(RUN.ID.eq(id))
                 .fetchOneInto(RunDb.class);
@@ -36,7 +37,7 @@ public class RunRepo implements BaseRepo {
     /**
      * 根据 ID 查询 Run
      */
-    public RunDb findByIdForUpdate(String id) {
+    public RunDb findByIdForUpdate(String threadId, String id) {
         return dsl.selectFrom(RUN)
                 .where(RUN.ID.eq(id))
                 .forUpdate()
@@ -49,26 +50,6 @@ public class RunRepo implements BaseRepo {
     public List<RunDb> findByThreadId(String threadId) {
         return dsl.selectFrom(RUN)
                 .where(RUN.THREAD_ID.eq(threadId))
-                .orderBy(RUN.CREATED_AT.desc())
-                .fetchInto(RunDb.class);
-    }
-
-    /**
-     * 根据 Assistant ID 查询 Run 列表
-     */
-    public List<RunDb> findByAssistantId(String assistantId) {
-        return dsl.selectFrom(RUN)
-                .where(RUN.ASSISTANT_ID.eq(assistantId))
-                .orderBy(RUN.CREATED_AT.desc())
-                .fetchInto(RunDb.class);
-    }
-
-    /**
-     * 根据状态查询 Run 列表
-     */
-    public List<RunDb> findByStatus(String status) {
-        return dsl.selectFrom(RUN)
-                .where(RUN.STATUS.eq(status))
                 .orderBy(RUN.CREATED_AT.desc())
                 .fetchInto(RunDb.class);
     }
@@ -112,41 +93,11 @@ public class RunRepo implements BaseRepo {
                 .execute() > 0;
     }
 
-    public boolean updateRequireAction(String id, String requireAction) {
+    public boolean updateRequireAction(String threadId, String id, String requireAction) {
         return dsl.update(RUN)
                 .set(RUN.REQUIRED_ACTION, requireAction)
                 .set(RUN.UPDATED_AT, LocalDateTime.now())
                 .where(RUN.ID.eq(id))
                 .execute() > 0;
-    }
-
-    /**
-     * 更新 Run 状态
-     */
-    public boolean updateStatus(String id, String status) {
-        return dsl.update(RUN)
-                .set(RUN.STATUS, status)
-                .set(RUN.UPDATED_AT, java.time.LocalDateTime.now())
-                .where(RUN.ID.eq(id))
-                .execute() > 0;
-    }
-
-    /**
-     * 根据 Task ID 查询 Run
-     */
-    public RunDb findByTaskId(String taskId) {
-        return dsl.selectFrom(RUN)
-                .where(RUN.TASK_ID.eq(taskId))
-                .fetchOneInto(RunDb.class);
-    }
-
-    /**
-     * 检查 Run 是否存在
-     */
-    public boolean existsById(String id) {
-        return dsl.fetchExists(
-                dsl.selectFrom(RUN)
-                        .where(RUN.ID.eq(id))
-        );
     }
 }

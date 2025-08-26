@@ -20,7 +20,6 @@ import com.theokanning.openai.assistants.run.ToolChoice;
 import com.theokanning.openai.assistants.run.ToolFiles;
 import com.theokanning.openai.assistants.run.TruncationStrategy;
 import com.theokanning.openai.assistants.run_step.RunStep;
-import com.theokanning.openai.assistants.run_step.StepDetails;
 import com.theokanning.openai.common.LastError;
 import com.theokanning.openai.completion.chat.ChatResponseFormat;
 import lombok.extern.slf4j.Slf4j;
@@ -53,8 +52,8 @@ public class RunService {
     /**
      * 根据ID获取Run
      */
-    public Run getRunById(String id) {
-        RunDb runDb = runRepo.findById(id);
+    public Run getRunById(String threadId, String id) {
+        RunDb runDb = runRepo.findById(threadId, id);
         return runDb != null ? convertToInfo(runDb) : null;
     }
 
@@ -64,20 +63,6 @@ public class RunService {
     public List<Run> getRunsByThreadId(String threadId) {
         List<RunDb> runs = runRepo.findByThreadId(threadId);
         return runs.stream().map(this::convertToInfo).collect(Collectors.toList());
-    }
-
-    /**
-     * 根据Assistant ID查询Run列表
-     */
-    public List<RunDb> getRunsByAssistantId(String assistantId) {
-        return runRepo.findByAssistantId(assistantId);
-    }
-
-    /**
-     * 根据状态查询Run列表
-     */
-    public List<RunDb> getRunsByStatus(String status) {
-        return runRepo.findByStatus(status);
     }
 
     /**
@@ -98,8 +83,8 @@ public class RunService {
      * 更新Run
      */
     @Transactional
-    public Run updateRun(String id, Map<String, String> metaData) {
-        RunDb existing = runRepo.findById(id);
+    public Run updateRun(String threadId, String id, Map<String, String> metaData) {
+        RunDb existing = runRepo.findById(threadId, id);
         if(existing == null) {
             throw new ResourceNotFoundException("Run not found: " + id);
         }
@@ -115,32 +100,10 @@ public class RunService {
     }
 
     /**
-     * 更新Run状态
-     */
-    @Transactional
-    public boolean updateRunStatus(String id, String status) {
-        return runRepo.updateStatus(id, status);
-    }
-
-    /**
-     * 根据Task ID查询Run
-     */
-    public RunDb getRunByTaskId(String taskId) {
-        return runRepo.findByTaskId(taskId);
-    }
-
-    /**
-     * 检查Run是否存在
-     */
-    public boolean existsById(String id) {
-        return runRepo.existsById(id);
-    }
-
-    /**
      * 获取Run的Steps列表
      */
-    public List<RunStep> getRunSteps(String runId) {
-        List<RunStepDb> runSteps = runStepRepo.findByRunId(runId);
+    public List<RunStep> getRunSteps(String threadId, String runId) {
+        List<RunStepDb> runSteps = runStepRepo.findByRunId(threadId, runId);
         return runSteps.stream().map(RunUtils::convertStepToInfo).collect(Collectors.toList());
     }
 

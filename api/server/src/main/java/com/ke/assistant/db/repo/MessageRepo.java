@@ -16,6 +16,7 @@ import static com.ke.assistant.db.generated.Tables.MESSAGE;
 
 /**
  * Message Repository
+ * todo: threadId 用于分表
  */
 @Repository
 @RequiredArgsConstructor
@@ -27,7 +28,7 @@ public class MessageRepo implements BaseRepo {
     /**
      * 根据 ID 查询 Message
      */
-    public MessageDb findById(String id) {
+    public MessageDb findById(String threadId, String id) {
         return dsl.selectFrom(MESSAGE)
                 .where(MESSAGE.ID.eq(id))
                 .fetchOneInto(MessageDb.class);
@@ -36,7 +37,7 @@ public class MessageRepo implements BaseRepo {
     /**
      * 根据 ID 查询 Message
      */
-    public MessageDb findByIdForUpdate(String id) {
+    public MessageDb findByIdForUpdate(String threadId, String id) {
         return dsl.selectFrom(MESSAGE)
                 .where(MESSAGE.ID.eq(id))
                 .forUpdate()
@@ -67,7 +68,7 @@ public class MessageRepo implements BaseRepo {
     /**
      * 根据 Run ID 查询 Message 列表
      */
-    public List<MessageDb> findByRunId(String runId) {
+    public List<MessageDb> findByRunId(String threadId, String runId) {
         return dsl.selectFrom(MESSAGE)
                 .where(MESSAGE.RUN_ID.eq(runId))
                 .orderBy(MESSAGE.ID.asc())
@@ -116,7 +117,7 @@ public class MessageRepo implements BaseRepo {
     /**
      * 删除 Message
      */
-    public boolean deleteById(String id) {
+    public boolean deleteById(String threadId, String id) {
         return dsl.deleteFrom(MESSAGE)
                 .where(MESSAGE.ID.eq(id))
                 .execute() > 0;

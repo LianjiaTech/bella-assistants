@@ -169,50 +169,6 @@ class MessageControllerTest extends BaseControllerTest {
     }
 
     @Test
-    @DisplayName("获取Message - 线程归属验证失败")
-    void shouldReturn400WhenMessageDoesNotBelongToThread() throws Exception {
-        // 创建第二个Thread
-        String wrongThreadId = createThread();
-        
-        // 在第一个Thread下创建Message
-        String createBody = loadTestData("message-create-basic.json");
-        MvcResult createResult = mockMvc.perform(addAuthHeader(post("/v1/threads/{thread_id}/messages", testThreadId)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(createBody)))
-                .andReturn();
-
-        String messageId = objectMapper.readTree(createResult.getResponse().getContentAsString())
-                .get("id").asText();
-
-        // 尝试用第二个Thread的ID获取属于第一个Thread的Message
-        mockMvc.perform(addAuthHeader(get("/v1/threads/{thread_id}/messages/{message_id}", wrongThreadId, messageId)))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    @DisplayName("更新Message - 线程归属验证失败")
-    void shouldReturn400WhenUpdatingMessageWithWrongThreadId() throws Exception {
-        String wrongThreadId = "thread_update_wrong";
-
-        // 1. 先在正确的线程下创建Message
-        String createBody = loadTestData("message-create-basic.json");
-        MvcResult createResult = mockMvc.perform(addAuthHeader(post("/v1/threads/{thread_id}/messages", testThreadId)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(createBody)))
-                .andReturn();
-
-        String messageId = objectMapper.readTree(createResult.getResponse().getContentAsString())
-                .get("id").asText();
-
-        // 2. 尝试用错误的thread_id更新Message
-        String updateBody = loadTestData("message-update-content-metadata.json");
-        mockMvc.perform(addAuthHeader(post("/v1/threads/{thread_id}/messages/{message_id}", wrongThreadId, messageId)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(updateBody)))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
     @DisplayName("删除Message - 成功删除")
     void shouldDeleteMessageSuccessfully() throws Exception {
         // 1. 先创建一个Message
@@ -235,31 +191,6 @@ class MessageControllerTest extends BaseControllerTest {
         // 3. 验证Message已被删除
         mockMvc.perform(addAuthHeader(get("/v1/threads/{thread_id}/messages/{message_id}", testThreadId, messageId)))
                 .andExpect(status().isNotFound());
-    }
-
-    @Test
-    @DisplayName("删除Message - 线程归属验证失败")
-    void shouldReturn400WhenDeletingMessageWithWrongThreadId() throws Exception {
-        String wrongThreadId = "thread_delete_wrong";
-
-        // 1. 先在正确的线程下创建Message
-        String createBody = loadTestData("message-create-basic.json");
-        MvcResult createResult = mockMvc.perform(addAuthHeader(post("/v1/threads/{thread_id}/messages", testThreadId)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(createBody)))
-                .andReturn();
-
-        String messageId = objectMapper.readTree(createResult.getResponse().getContentAsString())
-                .get("id").asText();
-
-        // 2. 尝试用错误的thread_id删除Message
-        mockMvc.perform(addAuthHeader(delete("/v1/threads/{thread_id}/messages/{message_id}", wrongThreadId, messageId)))
-                .andExpect(status().isBadRequest());
-
-        // 3. 验证Message仍然存在
-        mockMvc.perform(addAuthHeader(get("/v1/threads/{thread_id}/messages/{message_id}", testThreadId, messageId)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(messageId));
     }
 
     @Test

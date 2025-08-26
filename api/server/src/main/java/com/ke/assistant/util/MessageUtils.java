@@ -380,11 +380,11 @@ public class MessageUtils {
                     toolResultMessage.setContent(toolCall.getFunction().getOutput());
                 }
             }
-            if(toolResultMessage.getContent() == null) {
+            if(StringUtils.isBlank(toolResultMessage.getContent())) {
                 if(lastError != null) {
                     toolResultMessage.setContent(JacksonUtils.serialize(lastError));
                 } else {
-                    toolResultMessage.setContent("");
+                    toolResultMessage.setContent("tool call output is null");
                 }
             }
             chatToolCall.setFunction(function);

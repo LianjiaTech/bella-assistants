@@ -17,9 +17,9 @@ public interface ToolHandler {
      * @param tool 工具定义
      * @param arguments 工具入参
      * @param channel 用于结果输出
-     * @return 工具执行结果 -  除CodeInterpreter和FileSearch外，都返回String
+     * @return 工具执行结果 -  除CodeInterpreter和FileSearch外，ToolResult的output都为String
      */
-    Object execute(Tool tool, JsonNode arguments, ToolOutputChannel channel);
+    ToolResult execute(Tool tool, JsonNode arguments, ToolOutputChannel channel);
     
     /**
      * 获取工具名称

@@ -55,16 +55,16 @@ public class RunExecutor {
     /**
      * 开启run
      */
-    public void startRun(String runId, String assistantMessageId, boolean withThreadCreation, SseEmitter sseEmitter) {
-        ExecutionContext context = buildExecutionContext(runId, assistantMessageId, withThreadCreation ? RunType.CREATE_THREAD_AND_RUN : RunType.CREATE_RUN);
+    public void startRun(String threadId, String runId, String assistantMessageId, boolean withThreadCreation, SseEmitter sseEmitter) {
+        ExecutionContext context = buildExecutionContext(threadId, runId, assistantMessageId, withThreadCreation ? RunType.CREATE_THREAD_AND_RUN : RunType.CREATE_RUN);
         TaskExecutor.addRunner(()->executeRun(context, sseEmitter));
     }
 
     /**
      * 重启run
      */
-    public void resumeRun(String runId, String assistantMessageId, SseEmitter sseEmitter) {
-        ExecutionContext context = buildExecutionContext(runId, assistantMessageId, RunType.SUBMIT_TOOL_CALLS);
+    public void resumeRun(String threadId, String runId, String assistantMessageId, SseEmitter sseEmitter) {
+        ExecutionContext context = buildExecutionContext(threadId, runId, assistantMessageId, RunType.SUBMIT_TOOL_CALLS);
         TaskExecutor.addRunner(()->executeRun(context, sseEmitter));
     }
 
@@ -174,7 +174,7 @@ public class RunExecutor {
     /**
      * 构建执行上下文
      */
-    private ExecutionContext buildExecutionContext(String runId, String assistantMessageId, RunType type) {
+    private ExecutionContext buildExecutionContext(String threadId, String runId, String assistantMessageId, RunType type) {
 
         ExecutionContext context = new ExecutionContext();
 
@@ -189,7 +189,7 @@ public class RunExecutor {
             context.setMaxSteps(assistantProperties.getMaxExecutionSteps() == null ? 50 : assistantProperties.getMaxExecutionSteps());
 
             // 获取Run信息
-            Run run = runService.getRunById(runId);
+            Run run = runService.getRunById(threadId, runId);
             if (run == null) {
                 context.setError("not_found", "Run not found");
                 logger.error("Run not found: {}", runId);
@@ -203,7 +203,7 @@ public class RunExecutor {
             context.setToolFiles(run.getFileIds());
 
             // 获取当前的runStep，时间从小到大
-            List<RunStep> runSteps = runService.getRunSteps(runId);
+            List<RunStep> runSteps = runService.getRunSteps(threadId, runId);
 
             RunStep currentStep = null;
 
