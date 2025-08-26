@@ -19,6 +19,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
@@ -99,8 +100,8 @@ public class MessageService {
      * 根据Thread ID查询MessageDb列表，用于run
      * 获取运行相关的消息列表，并可选择根据命令类型进行过滤
      */
-    public List<Message> getMessagesForRun(String threadId, String currentAssistantMessage) {
-        List<MessageDb> messages = messageRepo.findByThreadIdWithLimit(threadId, currentAssistantMessage);
+    public List<Message> getMessagesForRun(String threadId, LocalDateTime runCreateAt) {
+        List<MessageDb> messages = messageRepo.findByThreadIdWithLimit(threadId, runCreateAt);
 
         // 从后向前查找第一个命令类型的消息
         for (int i = messages.size() - 1; i >= 0; i--) {

@@ -7,6 +7,7 @@ package com.ke.assistant.db.generated;
 import com.ke.assistant.db.generated.tables.Assistant;
 import com.ke.assistant.db.generated.tables.AssistantFileRelation;
 import com.ke.assistant.db.generated.tables.AssistantTool;
+import com.ke.assistant.db.generated.tables.IdSequence;
 import com.ke.assistant.db.generated.tables.Message;
 import com.ke.assistant.db.generated.tables.ResponseIdMapping;
 import com.ke.assistant.db.generated.tables.Run;
@@ -36,6 +37,11 @@ public class Tables {
      * The table <code>assistant_tool</code>.
      */
     public static final AssistantTool ASSISTANT_TOOL = AssistantTool.ASSISTANT_TOOL;
+
+    /**
+     * ID序列生成表
+     */
+    public static final IdSequence ID_SEQUENCE = IdSequence.ID_SEQUENCE;
 
     /**
      * The table <code>message</code>.

@@ -7,6 +7,7 @@ package com.ke.assistant.db.generated;
 import com.ke.assistant.db.generated.tables.Assistant;
 import com.ke.assistant.db.generated.tables.AssistantFileRelation;
 import com.ke.assistant.db.generated.tables.AssistantTool;
+import com.ke.assistant.db.generated.tables.IdSequence;
 import com.ke.assistant.db.generated.tables.Message;
 import com.ke.assistant.db.generated.tables.ResponseIdMapping;
 import com.ke.assistant.db.generated.tables.Run;
@@ -50,6 +51,11 @@ public class DefaultSchema extends SchemaImpl {
      * The table <code>assistant_tool</code>.
      */
     public final AssistantTool ASSISTANT_TOOL = AssistantTool.ASSISTANT_TOOL;
+
+    /**
+     * ID序列生成表
+     */
+    public final IdSequence ID_SEQUENCE = IdSequence.ID_SEQUENCE;
 
     /**
      * The table <code>message</code>.
@@ -105,6 +111,7 @@ public class DefaultSchema extends SchemaImpl {
             Assistant.ASSISTANT,
             AssistantFileRelation.ASSISTANT_FILE_RELATION,
             AssistantTool.ASSISTANT_TOOL,
+            IdSequence.ID_SEQUENCE,
             Message.MESSAGE,
             ResponseIdMapping.RESPONSE_ID_MAPPING,
             Run.RUN,

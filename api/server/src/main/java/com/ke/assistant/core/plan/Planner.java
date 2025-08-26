@@ -17,6 +17,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -195,7 +197,7 @@ public class Planner {
         }
 
         // 消息历史，只返回小于当前assistantMessageId的消息
-        List<Message> messages = messageService.getMessagesForRun(context.getThreadId(), context.getAssistantMessageId());
+        List<Message> messages = messageService.getMessagesForRun(context.getThreadId(), LocalDateTime.ofEpochSecond(context.getRun().getCreatedAt(), 0, ZoneOffset.ofHours(8)));
 
         // 线程下的所有RunSteps
         Map<String, List<RunStep>> runStepMap = runService.getThreadSteps(context.getThreadId()).stream().collect(Collectors.groupingBy(RunStep::getRunId));

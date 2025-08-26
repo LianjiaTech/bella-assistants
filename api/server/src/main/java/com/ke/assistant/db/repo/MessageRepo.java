@@ -50,18 +50,18 @@ public class MessageRepo implements BaseRepo {
     public List<MessageDb> findByThreadId(String threadId) {
         return dsl.selectFrom(MESSAGE)
                 .where(MESSAGE.THREAD_ID.eq(threadId))
-                .orderBy(MESSAGE.ID.asc())
+                .orderBy(MESSAGE.CREATED_AT.asc())
                 .fetchInto(MessageDb.class);
     }
 
     /**
-     * 根据 Thread ID 和 最大消息ID(不包含) 查询 Message 列表
+     * 根据 Thread ID 和 最大创建时间 查询 Message 列表
      */
-    public List<MessageDb> findByThreadIdWithLimit(String threadId, String lessThanId) {
+    public List<MessageDb> findByThreadIdWithLimit(String threadId, LocalDateTime lessThanCreateAt) {
         return dsl.selectFrom(MESSAGE)
                 .where(MESSAGE.THREAD_ID.eq(threadId))
-                .and(MESSAGE.ID.lt(lessThanId))
-                .orderBy(MESSAGE.ID.asc())
+                .and(MESSAGE.CREATED_AT.lt(lessThanCreateAt))
+                .orderBy(MESSAGE.CREATED_AT.asc())
                 .fetchInto(MessageDb.class);
     }
 
@@ -71,7 +71,7 @@ public class MessageRepo implements BaseRepo {
     public List<MessageDb> findByRunId(String threadId, String runId) {
         return dsl.selectFrom(MESSAGE)
                 .where(MESSAGE.RUN_ID.eq(runId))
-                .orderBy(MESSAGE.ID.asc())
+                .orderBy(MESSAGE.CREATED_AT.asc())
                 .fetchInto(MessageDb.class);
     }
 
@@ -81,7 +81,7 @@ public class MessageRepo implements BaseRepo {
     public Page<MessageDb> findByThreadIdWithPage(String threadId, int page, int pageSize) {
         var query = dsl.selectFrom(MESSAGE)
                 .where(MESSAGE.THREAD_ID.eq(threadId))
-                .orderBy(MESSAGE.ID.asc());
+                .orderBy(MESSAGE.CREATED_AT.asc());
 
         return queryPage(dsl, query, page, pageSize, MessageDb.class);
     }
@@ -130,15 +130,5 @@ public class MessageRepo implements BaseRepo {
         return dsl.deleteFrom(MESSAGE)
                 .where(MESSAGE.THREAD_ID.eq(threadId))
                 .execute();
-    }
-
-    /**
-     * 检查 Message 是否存在
-     */
-    public boolean existsById(String id) {
-        return dsl.fetchExists(
-                dsl.selectFrom(MESSAGE)
-                        .where(MESSAGE.ID.eq(id))
-        );
     }
 }
