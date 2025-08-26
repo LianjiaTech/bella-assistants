@@ -9,13 +9,19 @@ import com.ke.assistant.db.repo.RunStepRepo;
 import com.ke.assistant.db.repo.RunToolRepo;
 import com.ke.assistant.util.BeanUtils;
 import com.ke.assistant.util.RunUtils;
+import com.ke.assistant.util.ToolResourceUtils;
+import com.ke.bella.openapi.common.exception.BizParamCheckException;
 import com.ke.bella.openapi.common.exception.ResourceNotFoundException;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.Usage;
+import com.theokanning.openai.assistants.assistant.Assistant;
 import com.theokanning.openai.assistants.assistant.Tool;
 import com.theokanning.openai.assistants.message.IncompleteDetails;
+import com.theokanning.openai.assistants.message.Message;
+import com.theokanning.openai.assistants.message.MessageRequest;
 import com.theokanning.openai.assistants.run.RequiredAction;
 import com.theokanning.openai.assistants.run.Run;
+import com.theokanning.openai.assistants.run.RunCreateRequest;
 import com.theokanning.openai.assistants.run.ToolChoice;
 import com.theokanning.openai.assistants.run.ToolFiles;
 import com.theokanning.openai.assistants.run.TruncationStrategy;
@@ -24,7 +30,9 @@ import com.theokanning.openai.common.LastError;
 import com.theokanning.openai.completion.chat.ChatResponseFormat;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,6 +56,14 @@ public class RunService {
     private RunStepRepo runStepRepo;
     @Autowired
     private RunToolRepo runToolRepo;
+    @Autowired
+    @Lazy
+    private ThreadService threadService;
+    @Autowired
+    private AssistantService assistantService;
+    @Autowired
+    @Lazy
+    private MessageService messageService;
 
     /**
      * 根据ID获取Run
@@ -212,6 +228,133 @@ public class RunService {
         }
 
         return info;
+    }
+
+    /**
+     * 创建Run
+     */
+    @Transactional
+    public Pair<Run, String> createRun(String threadId, RunCreateRequest request) {
+        // 验证thread是否存在
+        if(threadService.getThreadById(threadId) == null) {
+            throw new ResourceNotFoundException("Thread not found: " + threadId);
+        }
+
+        Assistant assistant = assistantService.getAssistantById(request.getAssistantId());
+
+        // 验证assistant是否存在
+        if(assistant == null) {
+            throw new ResourceNotFoundException("Assistant not found: " + request.getAssistantId());
+        }
+        
+        // 创建run记录
+        RunDb runDb = new RunDb();
+        BeanUtils.copyProperties(request, runDb);
+        if(runDb.getModel() == null) {
+            runDb.setModel(assistant.getModel());
+        }
+        if(runDb.getModel() == null) {
+            throw new BizParamCheckException("model is null");
+        }
+        if(runDb.getInstructions() == null) {
+            runDb.setInstructions(assistant.getInstructions());
+        }
+        if(runDb.getReasoningEffort() == null) {
+            runDb.setReasoningEffort(assistant.getReasoningEffort());
+        }
+        if(request.getAdditionalInstructions() != null) {
+            if(runDb.getInstructions() != null) {
+                runDb.setInstructions(runDb.getInstructions() + request.getAdditionalInstructions());
+            } else {
+                runDb.setInstructions(request.getAdditionalInstructions());
+            }
+        }
+        runDb.setStatus("queued");
+
+        if(runDb.getTemperature() == null) {
+            runDb.setTemperature(assistant.getTemperature());
+        }
+
+        if(runDb.getTopP() == null) {
+            runDb.setTopP(assistant.getTopP());
+        }
+
+        if(request.getResponseFormat() != null) {
+            runDb.setResponseFormat(JacksonUtils.serialize(request.getResponseFormat()));
+        } else if(assistant.getResponseFormat() != null) {
+            runDb.setResponseFormat(JacksonUtils.serialize(assistant.getResponseFormat()));
+        }
+        
+        // 设置其他参数
+        if(request.getMetadata() != null) {
+            runDb.setMetadata(JacksonUtils.serialize(request.getMetadata()));
+        }
+        if(request.getTruncationStrategy() != null) {
+            runDb.setTruncationStrategy(JacksonUtils.serialize(request.getTruncationStrategy()));
+        }
+        if(request.getToolChoice() != null) {
+            runDb.setToolChoice(JacksonUtils.serialize(request.getToolChoice()));
+        }
+
+        // 保存file
+        Map<String, List<String>> toolFilesMap = new HashMap<>();
+
+        if(assistant.getToolResources() != null) {
+            toolFilesMap = ToolResourceUtils.toolResourcesToToolFiles(assistant.getToolResources());
+        }
+
+        if(assistant.getFileIds() != null) {
+            toolFilesMap.put("_all", assistant.getFileIds());
+        }
+
+        if(!toolFilesMap.isEmpty()) {
+            ToolFiles toolFiles = new ToolFiles();
+            toolFiles.setTools(toolFilesMap);
+            runDb.setFileIds(JacksonUtils.serialize(toolFiles));
+        }
+        
+        // 保存run
+        runDb = runRepo.insert(runDb);
+        
+        // 保存tools
+        if(request.getTools() != null && !request.getTools().isEmpty()) {
+            createRunTool(request.getTools(), runDb.getId());
+        } else if(assistant.getTools() != null && !request.getTools().isEmpty()){
+            createRunTool(assistant.getTools(), runDb.getId());
+        }
+        
+        // 创建初始的assistant消息
+        MessageRequest messageRequest = MessageRequest.builder()
+                .role("assistant")
+                .textMessage("")
+                .build();
+        
+        // 使用MessageService创建消息
+        Message assistantMessage = messageService.createMessage(threadId, messageRequest);
+
+        
+        // 处理additional_messages
+        if(request.getAdditionalMessages() != null && !request.getAdditionalMessages().isEmpty()) {
+            for(MessageRequest additionalMsg : request.getAdditionalMessages()) {
+                additionalMsg.setRunId(runDb.getId());
+                messageService.createMessage(threadId, additionalMsg);
+            }
+        }
+        
+        return Pair.of(convertToInfo(runDb), assistantMessage.getId());
+    }
+
+
+    private void createRunTool(List<Tool> tools, String runId) {
+        if(tools == null) {
+            return;
+        }
+        for(Tool tool : tools) {
+            RunToolDb runTool = new RunToolDb();
+            runTool.setRunId(runId);
+            runTool.setTool(JacksonUtils.serialize(tool));
+            runToolRepo.insert(runTool);
+        }
     }
 
 }

@@ -4,6 +4,7 @@ import com.theokanning.openai.assistants.assistant.CodeInterpreterResources;
 import com.theokanning.openai.assistants.assistant.FileSearchResources;
 import com.theokanning.openai.assistants.assistant.FunctionResources;
 import com.theokanning.openai.assistants.assistant.ToolResources;
+import com.theokanning.openai.assistants.run.ToolFiles;
 import com.theokanning.openai.assistants.vector_store.VectorStore;
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -140,5 +141,55 @@ public class ToolResourceUtils {
         }
         
         return toolResources;
+    }
+    
+    /**
+     * 将 ToolResources 转换为 ToolFiles
+     * 
+     * @param toolResources ToolResources 对象
+     * @return 格式为 {"toolName": ["file_id1", "file_id2"]}
+     */
+    public static Map<String, List<String>> toolResourcesToToolFiles(ToolResources toolResources) {
+        if (toolResources == null) {
+            return new HashMap<>();
+        }
+
+        Map<String, List<String>> toolsMap = new HashMap<>();
+        
+        // 处理 code_interpreter
+        if (toolResources.getCodeInterpreter() != null && 
+            CollectionUtils.isNotEmpty(toolResources.getCodeInterpreter().getFileIds())) {
+            toolsMap.put("code_interpreter", new ArrayList<>(toolResources.getCodeInterpreter().getFileIds()));
+        }
+        
+        // 处理 file_search
+        if (toolResources.getFileSearch() != null) {
+            List<String> fileSearchFiles = new ArrayList<>();
+            
+            // 从 vector_stores 中收集文件ID
+            if (toolResources.getFileSearch().getVectorStores() != null) {
+                for (VectorStore vectorStore : toolResources.getFileSearch().getVectorStores()) {
+                    if (CollectionUtils.isNotEmpty(vectorStore.getFileIds())) {
+                        fileSearchFiles.addAll(vectorStore.getFileIds());
+                    }
+                }
+            }
+            
+            if (!fileSearchFiles.isEmpty()) {
+                toolsMap.put("file_search", fileSearchFiles);
+            }
+        }
+        
+        // 处理 functions
+        if (toolResources.getFunctions() != null) {
+            for (FunctionResources functionResource : toolResources.getFunctions()) {
+                String functionName = functionResource.getName();
+                if (functionName != null && CollectionUtils.isNotEmpty(functionResource.getFileIds())) {
+                    toolsMap.put(functionName, new ArrayList<>(functionResource.getFileIds()));
+                }
+            }
+        }
+
+        return toolsMap;
     }
 }

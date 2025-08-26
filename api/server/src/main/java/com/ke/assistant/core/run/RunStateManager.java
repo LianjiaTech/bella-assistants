@@ -301,11 +301,7 @@ public class RunStateManager {
         Map<String, ToolCall> outputMap = submitToolOutputs.getToolCalls().stream().collect(Collectors.toMap(ToolCall::getId, toolCall -> toolCall));
         for(ToolCall toolCall : stepDetails.getToolCalls()) {
             if(outputMap.containsKey(toolCall.getId())) {
-                if(toolCall.getCodeInterpreter() != null) {
-                    toolCall.getCodeInterpreter().setOutputs(outputMap.get(toolCall.getId()).getCodeInterpreter().getOutputs());
-                } else if(toolCall.getFileSearch() != null) {
-                    toolCall.getFileSearch().setResults(outputMap.get(toolCall.getId()).getFileSearch().getResults());
-                } else if(toolCall.getFunction() != null) {
+                 if(toolCall.getFunction() != null) {
                     toolCall.getFunction().setOutput(outputMap.get(toolCall.getId()).getFunction().getOutput());
                 }
             }

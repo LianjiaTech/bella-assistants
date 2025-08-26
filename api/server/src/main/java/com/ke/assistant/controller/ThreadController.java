@@ -1,18 +1,24 @@
 package com.ke.assistant.controller;
 
-import com.ke.assistant.model.CommonPage;
-import com.ke.assistant.model.DeleteResponse;
+import com.ke.assistant.core.run.RunExecutor;
 import com.ke.assistant.db.generated.tables.pojos.ThreadDb;
 import com.ke.assistant.db.repo.Page;
+import com.ke.assistant.model.CommonPage;
+import com.ke.assistant.model.DeleteResponse;
+import com.ke.assistant.service.RunService;
 import com.ke.assistant.service.ThreadService;
 import com.ke.assistant.util.BeanUtils;
 import com.ke.assistant.util.ToolResourceUtils;
 import com.ke.bella.openapi.BellaContext;
 import com.ke.bella.openapi.common.exception.ResourceNotFoundException;
 import com.ke.bella.openapi.utils.JacksonUtils;
+import com.theokanning.openai.assistants.run.CreateThreadAndRunRequest;
+import com.theokanning.openai.assistants.run.Run;
+import com.theokanning.openai.assistants.run.RunCreateRequest;
 import com.theokanning.openai.assistants.thread.Thread;
 import com.theokanning.openai.assistants.thread.ThreadRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 
@@ -35,6 +42,10 @@ public class ThreadController {
 
     @Autowired
     private ThreadService threadService;
+    @Autowired
+    private RunService runService;
+    @Autowired
+    private RunExecutor runExecutor;
 
     /**
      * 创建 Thread
@@ -163,5 +174,29 @@ public class ThreadController {
             @PathVariable("to_thread_id") String toThreadId) {
 
         return threadService.mergeThread(fromThreadId, toThreadId);
+    }
+
+    /**
+     * 创建 Thread 和 Run
+     */
+    @PostMapping("/runs")
+    public Object createThreadAndRun(@RequestBody CreateThreadAndRunRequest request) {
+
+        Thread thread = createThread(request.getThread());
+
+        RunCreateRequest runCreateRequest = new RunCreateRequest();
+
+        BeanUtils.copyProperties(request, runCreateRequest);
+
+        // 创建Thread和Run
+        Pair<Run, String> pair = runService.createRun(thread.getId(), runCreateRequest);
+
+        SseEmitter emitter = null;
+        // 如果是流式请求，返回SseEmitter
+        if(Boolean.TRUE.equals(request.getStream())) {
+            emitter = new SseEmitter(300000L); // 5分钟超时
+        }
+        runExecutor.startRun(thread.getId(), pair.getLeft().getId(), pair.getRight(), true, emitter);
+        return Boolean.TRUE.equals(request.getStream()) ? emitter : pair.getLeft();
     }
 }
