@@ -75,15 +75,23 @@ public class MessageRepo implements BaseRepo {
                 .fetchInto(MessageDb.class);
     }
 
-    /**
-     * 分页查询 Thread 下的 Message
-     */
-    public Page<MessageDb> findByThreadIdWithPage(String threadId, int page, int pageSize) {
-        var query = dsl.selectFrom(MESSAGE)
-                .where(MESSAGE.THREAD_ID.eq(threadId))
-                .orderBy(MESSAGE.CREATED_AT.asc());
 
-        return queryPage(dsl, query, page, pageSize, MessageDb.class);
+    /**
+     * 基于游标的分页查询 Thread 下的 Message
+     */
+    public List<MessageDb> findByThreadIdWithCursor(String threadId, String after, String before, int limit, String order) {
+        return findWithCursor(
+                dsl,
+                MESSAGE,
+                MESSAGE.THREAD_ID.eq(threadId),
+                MESSAGE.CREATED_AT,
+                after,
+                before,
+                limit,
+                order,
+                id -> findById(threadId, id),
+                MessageDb.class
+        );
     }
 
     /**

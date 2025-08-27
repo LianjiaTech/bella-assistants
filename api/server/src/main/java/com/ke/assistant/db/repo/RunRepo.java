@@ -4,7 +4,6 @@ import com.ke.assistant.db.IdGenerator;
 import com.ke.assistant.db.generated.tables.pojos.RunDb;
 import com.ke.assistant.db.generated.tables.records.RunRecord;
 import lombok.RequiredArgsConstructor;
-import lombok.var;
 import org.apache.commons.lang3.StringUtils;
 import org.jooq.DSLContext;
 import org.springframework.stereotype.Repository;
@@ -54,15 +53,23 @@ public class RunRepo implements BaseRepo {
                 .fetchInto(RunDb.class);
     }
 
-    /**
-     * 分页查询 Thread 下的 Run
-     */
-    public Page<RunDb> findByThreadIdWithPage(String threadId, int page, int pageSize) {
-        var query = dsl.selectFrom(RUN)
-                .where(RUN.THREAD_ID.eq(threadId))
-                .orderBy(RUN.CREATED_AT.desc());
 
-        return queryPage(dsl, query, page, pageSize, RunDb.class);
+    /**
+     * 基于游标的分页查询 Thread 下的 Run
+     */
+    public List<RunDb> findByThreadIdWithCursor(String threadId, String after, String before, int limit, String order) {
+        return findWithCursor(
+                dsl,
+                RUN,
+                RUN.THREAD_ID.eq(threadId),
+                RUN.CREATED_AT,
+                after,
+                before,
+                limit,
+                order,
+                id -> findById(threadId, id),
+                RunDb.class
+        );
     }
 
     /**

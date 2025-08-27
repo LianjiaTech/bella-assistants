@@ -3,7 +3,6 @@ package com.ke.assistant.service;
 import com.ke.assistant.db.generated.tables.pojos.RunDb;
 import com.ke.assistant.db.generated.tables.pojos.RunStepDb;
 import com.ke.assistant.db.generated.tables.pojos.RunToolDb;
-import com.ke.assistant.db.repo.Page;
 import com.ke.assistant.db.repo.RunRepo;
 import com.ke.assistant.db.repo.RunStepRepo;
 import com.ke.assistant.db.repo.RunToolRepo;
@@ -81,18 +80,13 @@ public class RunService {
         return runs.stream().map(this::convertToInfo).collect(Collectors.toList());
     }
 
+
     /**
-     * 分页查询Thread下的Run
+     * 基于游标的分页查询Thread下的Run
      */
-    public Page<Run> getRunsByThreadIdWithPage(String threadId, int page, int pageSize) {
-        Page<RunDb> dbPage = runRepo.findByThreadIdWithPage(threadId, page, pageSize);
-        List<Run> infoList = dbPage.getList().stream().map(this::convertToInfo).collect(Collectors.toList());
-        Page<Run> result = new Page<>();
-        result.setPage(dbPage.getPage());
-        result.setPageSize(dbPage.getPageSize());
-        result.setTotal(dbPage.getTotal());
-        result.setList(infoList);
-        return result;
+    public List<Run> getRunsByCursor(String threadId, String after, String before, int limit, String order) {
+        List<RunDb> runs = runRepo.findByThreadIdWithCursor(threadId, after, before, limit, order);
+        return runs.stream().map(this::convertToInfo).collect(Collectors.toList());
     }
 
     /**
@@ -235,10 +229,6 @@ public class RunService {
      */
     @Transactional
     public Pair<Run, String> createRun(String threadId, RunCreateRequest request) {
-        // 验证thread是否存在
-        if(threadService.getThreadById(threadId) == null) {
-            throw new ResourceNotFoundException("Thread not found: " + threadId);
-        }
 
         Assistant assistant = assistantService.getAssistantById(request.getAssistantId());
 
@@ -322,6 +312,13 @@ public class RunService {
         } else if(assistant.getTools() != null && !request.getTools().isEmpty()){
             createRunTool(assistant.getTools(), runDb.getId());
         }
+
+        // 处理additional_messages
+        if(request.getAdditionalMessages() != null && !request.getAdditionalMessages().isEmpty()) {
+            for(MessageRequest additionalMsg : request.getAdditionalMessages()) {
+                messageService.createMessage(threadId, additionalMsg);
+            }
+        }
         
         // 创建初始的assistant消息
         MessageRequest messageRequest = MessageRequest.builder()
@@ -331,15 +328,6 @@ public class RunService {
         
         // 使用MessageService创建消息
         Message assistantMessage = messageService.createMessage(threadId, messageRequest);
-
-        
-        // 处理additional_messages
-        if(request.getAdditionalMessages() != null && !request.getAdditionalMessages().isEmpty()) {
-            for(MessageRequest additionalMsg : request.getAdditionalMessages()) {
-                additionalMsg.setRunId(runDb.getId());
-                messageService.createMessage(threadId, additionalMsg);
-            }
-        }
         
         return Pair.of(convertToInfo(runDb), assistantMessage.getId());
     }

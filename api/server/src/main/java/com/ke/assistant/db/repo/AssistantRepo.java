@@ -42,15 +42,23 @@ public class AssistantRepo implements BaseRepo {
                 .fetchInto(AssistantDb.class);
     }
 
-    /**
-     * 分页查询 Assistant
-     */
-    public Page<AssistantDb> findByOwnerWithPage(String owner, int page, int pageSize) {
-        var query = dsl.selectFrom(ASSISTANT)
-                .where(ASSISTANT.OWNER.eq(owner))
-                .orderBy(ASSISTANT.CREATED_AT.desc());
 
-        return queryPage(dsl, query, page, pageSize, AssistantDb.class);
+    /**
+     * 基于游标的分页查询 Assistant
+     */
+    public List<AssistantDb> findByOwnerWithCursor(String owner, String after, String before, int limit, String order) {
+        return findWithCursor(
+                dsl,
+                ASSISTANT,
+                ASSISTANT.OWNER.eq(owner),
+                ASSISTANT.CREATED_AT,
+                after,
+                before,
+                limit,
+                order,
+                this::findById,
+                AssistantDb.class
+        );
     }
 
     /**

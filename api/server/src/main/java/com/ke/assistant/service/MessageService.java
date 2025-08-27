@@ -3,7 +3,6 @@ package com.ke.assistant.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.ke.assistant.db.generated.tables.pojos.MessageDb;
 import com.ke.assistant.db.repo.MessageRepo;
-import com.ke.assistant.db.repo.Page;
 import com.ke.assistant.util.BeanUtils;
 import com.ke.assistant.util.MessageUtils;
 import com.ke.bella.openapi.common.exception.ResourceNotFoundException;
@@ -130,22 +129,17 @@ public class MessageService {
         return messages.stream().map(this::convertToInfo).collect(Collectors.toList());
     }
 
+
     /**
-     * 分页查询Thread下的Message
+     * 基于游标的分页查询Thread下的Message
      */
-    public Page<Message> getMessagesByThreadIdWithPage(String threadId, int page, int pageSize) {
+    public List<Message> getMessagesByCursor(String threadId, String after, String before, int limit, String order) {
         // 验证Thread是否存在
         if (!threadService.existsById(threadId)) {
             throw new ResourceNotFoundException("Thread not found: " + threadId);
         }
-        Page<MessageDb> dbPage = messageRepo.findByThreadIdWithPage(threadId, page, pageSize);
-        List<Message> infoList = dbPage.getList().stream().map(this::convertToInfo).collect(java.util.stream.Collectors.toList());
-        Page<Message> result = new Page<>();
-        result.setPage(dbPage.getPage());
-        result.setPageSize(dbPage.getPageSize());
-        result.setTotal(dbPage.getTotal());
-        result.setList(infoList);
-        return result;
+        List<MessageDb> messages = messageRepo.findByThreadIdWithCursor(threadId, after, before, limit, order);
+        return messages.stream().map(this::convertToInfo).collect(Collectors.toList());
     }
 
     /**

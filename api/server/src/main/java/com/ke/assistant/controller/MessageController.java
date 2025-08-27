@@ -1,6 +1,5 @@
 package com.ke.assistant.controller;
 
-import com.ke.assistant.db.repo.Page;
 import com.ke.assistant.model.CommonPage;
 import com.ke.assistant.model.DeleteResponse;
 import com.ke.assistant.service.MessageService;
@@ -70,16 +69,20 @@ public class MessageController {
     @GetMapping
     public CommonPage<Message> listMessages(
             @PathVariable("thread_id") String threadId,
-            @RequestParam(value = "page", defaultValue = "1") int page,
-            @RequestParam(value = "page_size", defaultValue = "20") int pageSize) {
+            @RequestParam(value = "after", required = false) String after,
+            @RequestParam(value = "before", required = false) String before,
+            @RequestParam(value = "limit", defaultValue = "20") int limit,
+            @RequestParam(value = "order", defaultValue = "desc") String order) {
 
-        Page<Message> infoPage = messageService.getMessagesByThreadIdWithPage(threadId, page, pageSize);
+        List<Message> infoList = messageService.getMessagesByCursor(threadId, after, before, limit + 1, order);
 
-        List<Message> infoList = infoPage.getList();
+        boolean hasMore = infoList.size() > limit;
+        if (hasMore) {
+            infoList.remove(infoList.size() - 1);
+        }
 
         String firstId = infoList.isEmpty() ? null : infoList.get(0).getId();
         String lastId = infoList.isEmpty() ? null : infoList.get(infoList.size() - 1).getId();
-        boolean hasMore = (long) infoPage.getPage() * infoPage.getPageSize() < infoPage.getTotal();
 
         return new CommonPage<>(infoList, firstId, lastId, hasMore);
     }

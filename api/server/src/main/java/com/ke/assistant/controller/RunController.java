@@ -2,7 +2,6 @@ package com.ke.assistant.controller;
 
 import com.ke.assistant.core.run.RunExecutor;
 import com.ke.assistant.core.run.RunStateManager;
-import com.ke.assistant.db.repo.Page;
 import com.ke.assistant.model.CommonPage;
 import com.ke.assistant.service.RunService;
 import com.ke.assistant.service.ThreadService;
@@ -182,16 +181,20 @@ public class RunController {
     @GetMapping
     public CommonPage<Run> listRuns(
             @PathVariable("thread_id") String threadId,
-            @RequestParam(value = "page", defaultValue = "1") int page,
-            @RequestParam(value = "page_size", defaultValue = "20") int pageSize) {
+            @RequestParam(value = "after", required = false) String after,
+            @RequestParam(value = "before", required = false) String before,
+            @RequestParam(value = "limit", defaultValue = "20") int limit,
+            @RequestParam(value = "order", defaultValue = "desc") String order) {
 
-        Page<Run> infoPage = runService.getRunsByThreadIdWithPage(threadId, page, pageSize);
+        List<Run> infoList = runService.getRunsByCursor(threadId, after, before, limit + 1, order);
 
-        List<Run> infoList = infoPage.getList();
+        boolean hasMore = infoList.size() > limit;
+        if (hasMore) {
+            infoList.remove(infoList.size() - 1);
+        }
 
         String firstId = infoList.isEmpty() ? null : infoList.get(0).getId();
         String lastId = infoList.isEmpty() ? null : infoList.get(infoList.size() - 1).getId();
-        boolean hasMore = (long) infoPage.getPage() * infoPage.getPageSize() < infoPage.getTotal();
 
         return new CommonPage<>(infoList, firstId, lastId, hasMore);
     }

@@ -4,7 +4,6 @@ import com.ke.assistant.db.generated.tables.pojos.MessageDb;
 import com.ke.assistant.db.generated.tables.pojos.ThreadDb;
 import com.ke.assistant.db.generated.tables.pojos.ThreadFileRelationDb;
 import com.ke.assistant.db.repo.MessageRepo;
-import com.ke.assistant.db.repo.Page;
 import com.ke.assistant.db.repo.ThreadFileRelationRepo;
 import com.ke.assistant.db.repo.ThreadRepo;
 import com.ke.assistant.util.BeanUtils;
@@ -96,18 +95,13 @@ public class ThreadService {
         return threads.stream().map(this::convertToInfo).collect(java.util.stream.Collectors.toList());
     }
 
+
     /**
-     * 分页查询Thread
+     * 基于游标的分页查询Thread
      */
-    public Page<Thread> getThreadsByOwnerWithPage(String owner, int page, int pageSize) {
-        Page<ThreadDb> dbPage = threadRepo.findByOwnerWithPage(owner, page, pageSize);
-        List<Thread> infoList = dbPage.getList().stream().map(this::convertToInfo).collect(java.util.stream.Collectors.toList());
-        Page<Thread> result = new Page<>();
-        result.setPage(dbPage.getPage());
-        result.setPageSize(dbPage.getPageSize());
-        result.setTotal(dbPage.getTotal());
-        result.setList(infoList);
-        return result;
+    public List<Thread> getThreadsByCursor(String owner, String after, String before, int limit, String order) {
+        List<ThreadDb> threads = threadRepo.findByOwnerWithCursor(owner, after, before, limit, order);
+        return threads.stream().map(this::convertToInfo).collect(java.util.stream.Collectors.toList());
     }
 
     /**

@@ -4,7 +4,6 @@ import com.ke.assistant.db.IdGenerator;
 import com.ke.assistant.db.generated.tables.pojos.ResponseIdMappingDb;
 import com.ke.assistant.db.generated.tables.records.ResponseIdMappingRecord;
 import lombok.RequiredArgsConstructor;
-import lombok.var;
 import org.apache.commons.lang3.StringUtils;
 import org.jooq.DSLContext;
 import org.springframework.stereotype.Repository;
@@ -49,15 +48,6 @@ public class ResponseIdMappingRepo implements BaseRepo {
                 .and(RESPONSE_ID_MAPPING.STATUS.eq("active"))
                 .orderBy(RESPONSE_ID_MAPPING.CREATED_AT.desc())
                 .fetchInto(ResponseIdMappingDb.class);
-    }
-
-    public Page<ResponseIdMappingDb> findByUserWithPage(String user, int page, int pageSize) {
-        var query = dsl.selectFrom(RESPONSE_ID_MAPPING)
-                .where(RESPONSE_ID_MAPPING.USER.eq(user))
-                .and(RESPONSE_ID_MAPPING.STATUS.eq("active"))
-                .orderBy(RESPONSE_ID_MAPPING.CREATED_AT.desc());
-
-        return queryPage(dsl, query, page, pageSize, ResponseIdMappingDb.class);
     }
 
     public ResponseIdMappingDb insert(ResponseIdMappingDb mapping) {

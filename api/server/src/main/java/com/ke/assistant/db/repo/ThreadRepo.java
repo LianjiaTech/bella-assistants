@@ -42,15 +42,23 @@ public class ThreadRepo implements BaseRepo {
                 .fetchInto(ThreadDb.class);
     }
 
-    /**
-     * 分页查询 Thread
-     */
-    public Page<ThreadDb> findByOwnerWithPage(String owner, int page, int pageSize) {
-        var query = dsl.selectFrom(THREAD)
-                .where(THREAD.OWNER.eq(owner))
-                .orderBy(THREAD.CREATED_AT.desc());
 
-        return queryPage(dsl, query, page, pageSize, ThreadDb.class);
+    /**
+     * 基于游标的分页查询 Thread
+     */
+    public List<ThreadDb> findByOwnerWithCursor(String owner, String after, String before, int limit, String order) {
+        return findWithCursor(
+                dsl,
+                THREAD,
+                THREAD.OWNER.eq(owner),
+                THREAD.CREATED_AT,
+                after,
+                before,
+                limit,
+                order,
+                this::findById,
+                ThreadDb.class
+        );
     }
 
     /**

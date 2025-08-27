@@ -1,13 +1,17 @@
 package com.ke.assistant.db.repo;
 
+import lombok.var;
+import org.apache.commons.lang3.StringUtils;
+import org.jooq.Condition;
 import org.jooq.DSLContext;
-import org.jooq.Query;
-import org.jooq.SelectLimitStep;
-import org.jooq.UpdatableRecord;
+import org.jooq.Field;
+import org.jooq.Record;
+import org.jooq.Table;
+import org.jooq.TableField;
 
 import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.Collection;
+import java.util.List;
+import java.util.function.Function;
 
 /**
  * 基础 Repository 接口
@@ -37,41 +41,70 @@ public interface BaseRepo {
     }
 
     /**
-     * 批量执行查询
+     * 通用的基于游标的分页查询
+     * 
+     * @param dsl DSL上下文
+     * @param table 查询的表
+     * @param baseCondition 基础查询条件
+     * @param createdAtField 创建时间字段
+     * @param after 游标after参数
+     * @param before 游标before参数
+     * @param limit 限制条数
+     * @param order 排序方式 (asc/desc)
+     * @param findByIdFunc 根据ID查找实体的函数
+     * @param resultClass 结果类型
+     * @return 查询结果列表
      */
-    default int batchExecuteQuery(DSLContext db, Collection<Query> queries) {
-        int[] rows = db.batch(queries).execute();
-        int sum = Arrays.stream(rows).sum();
-        if(sum < queries.size()) {
-            throw new IllegalStateException("批处理失败");
-        }
-        return sum;
-    }
+    default <R extends Record, T> List<T> findWithCursor(
+            DSLContext dsl,
+            Table<R> table,
+            Condition baseCondition,
+            TableField<R, LocalDateTime> createdAtField,
+            String after,
+            String before,
+            int limit,
+            String order,
+            Function<String, ? extends Timed> findByIdFunc,
+            Class<T> resultClass) {
+        
+        var condition = baseCondition;
 
-    /**
-     * 批量插入
-     */
-    default int batchInsert(DSLContext db, Collection<? extends UpdatableRecord<?>> records) {
-        int[] rows = db.batchInsert(records).execute();
-        int sum = Arrays.stream(rows).sum();
-        if(sum < records.size()) {
-            throw new IllegalStateException("批处理失败");
+        // 处理游标条件
+        if (StringUtils.isNotBlank(after)) {
+            var afterEntity = findByIdFunc.apply(after);
+            if (afterEntity != null) {
+                if ("asc".equalsIgnoreCase(order)) {
+                    condition = condition.and(createdAtField.gt(afterEntity.getCreatedAt()));
+                } else {
+                    condition = condition.and(createdAtField.lt(afterEntity.getCreatedAt()));
+                }
+            }
         }
-        return sum;
-    }
 
-    /**
-     * 分页查询
-     */
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    default <T> Page<T> queryPage(DSLContext db, SelectLimitStep scs, int page, int pageSize, Class<?> type) {
-        if(scs == null) {
-            return Page.from(page, pageSize);
+        if (StringUtils.isNotBlank(before)) {
+            var beforeEntity = findByIdFunc.apply(before);
+            if (beforeEntity != null) {
+                if ("asc".equalsIgnoreCase(order)) {
+                    condition = condition.and(createdAtField.lt(beforeEntity.getCreatedAt()));
+                } else {
+                    condition = condition.and(createdAtField.gt(beforeEntity.getCreatedAt()));
+                }
+            }
         }
-        return Page.from(page, pageSize)
-                .total(db.fetchCount(scs))
-                .list(scs.limit((page - 1) * pageSize, pageSize)
-                        .fetch()
-                        .into(type));
+
+        // 构建最终查询并添加排序和限制
+        if ("asc".equalsIgnoreCase(order)) {
+            return dsl.selectFrom(table)
+                    .where(condition)
+                    .orderBy(createdAtField.asc())
+                    .limit(limit)
+                    .fetchInto(resultClass);
+        } else {
+            return dsl.selectFrom(table)
+                    .where(condition)
+                    .orderBy(createdAtField.desc())
+                    .limit(limit)
+                    .fetchInto(resultClass);
+        }
     }
 }
