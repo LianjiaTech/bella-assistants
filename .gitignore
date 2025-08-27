@@ -81,3 +81,5 @@ web/.env
 
 *.tsbuildinfo
 
+
+api/config-cache/bella-assistant/config-cache/
