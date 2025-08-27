@@ -2,7 +2,6 @@ package com.ke.assistant.controller;
 
 import com.ke.assistant.core.run.RunExecutor;
 import com.ke.assistant.db.generated.tables.pojos.ThreadDb;
-import com.ke.assistant.db.repo.Page;
 import com.ke.assistant.model.CommonPage;
 import com.ke.assistant.model.DeleteResponse;
 import com.ke.assistant.service.RunService;
@@ -90,18 +89,22 @@ public class ThreadController {
      */
     @GetMapping
     public CommonPage<Thread> listThreads(
-            @RequestParam(value = "page", defaultValue = "1") int page,
-            @RequestParam(value = "page_size", defaultValue = "20") int pageSize) {
+            @RequestParam(value = "after", required = false) String after,
+            @RequestParam(value = "before", required = false) String before,
+            @RequestParam(value = "limit", defaultValue = "20") int limit,
+            @RequestParam(value = "order", defaultValue = "desc") String order) {
 
         String owner = BellaContext.getOwnerCode();
 
-        Page<Thread> infoPage = threadService.getThreadsByOwnerWithPage(owner, page, pageSize);
+        List<Thread> infoList = threadService.getThreadsByCursor(owner, after, before, limit + 1, order);
 
-        List<Thread> infoList = infoPage.getList();
+        boolean hasMore = infoList.size() > limit;
+        if (hasMore) {
+            infoList.remove(infoList.size() - 1);
+        }
 
         String firstId = infoList.isEmpty() ? null : infoList.get(0).getId();
         String lastId = infoList.isEmpty() ? null : infoList.get(infoList.size() - 1).getId();
-        boolean hasMore = (long) infoPage.getPage() * infoPage.getPageSize() < infoPage.getTotal();
 
         return new CommonPage<>(infoList, firstId, lastId, hasMore);
     }

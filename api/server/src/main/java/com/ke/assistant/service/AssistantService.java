@@ -6,7 +6,6 @@ import com.ke.assistant.db.generated.tables.pojos.AssistantToolDb;
 import com.ke.assistant.db.repo.AssistantFileRelationRepo;
 import com.ke.assistant.db.repo.AssistantRepo;
 import com.ke.assistant.db.repo.AssistantToolRepo;
-import com.ke.assistant.db.repo.Page;
 import com.ke.assistant.util.BeanUtils;
 import com.ke.assistant.util.ToolResourceUtils;
 import com.ke.bella.openapi.utils.JacksonUtils;
@@ -84,18 +83,13 @@ public class AssistantService {
         return assistants.stream().map(this::convertToInfo).collect(Collectors.toList());
     }
 
+
     /**
-     * 分页查询Assistant
+     * 基于游标的分页查询Assistant
      */
-    public Page<Assistant> getAssistantsByOwnerWithPage(String owner, int page, int pageSize) {
-        Page<AssistantDb> dbPage = assistantRepo.findByOwnerWithPage(owner, page, pageSize);
-        List<Assistant> infoList = dbPage.getList().stream().map(this::convertToInfo).collect(Collectors.toList());
-        Page<Assistant> result = new Page<>();
-        result.setPage(dbPage.getPage());
-        result.setPageSize(dbPage.getPageSize());
-        result.setTotal(dbPage.getTotal());
-        result.setList(infoList);
-        return result;
+    public List<Assistant> getAssistantsByCursor(String owner, String after, String before, int limit, String order) {
+        List<AssistantDb> assistants = assistantRepo.findByOwnerWithCursor(owner, after, before, limit, order);
+        return assistants.stream().map(this::convertToInfo).collect(Collectors.toList());
     }
 
     /**

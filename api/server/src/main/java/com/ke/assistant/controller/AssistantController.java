@@ -3,7 +3,6 @@ package com.ke.assistant.controller;
 import com.ke.assistant.model.CommonPage;
 import com.ke.assistant.model.DeleteResponse;
 import com.ke.assistant.db.generated.tables.pojos.AssistantDb;
-import com.ke.assistant.db.repo.Page;
 import com.ke.assistant.service.AssistantService;
 import com.ke.assistant.util.BeanUtils;
 import com.ke.assistant.util.ToolResourceUtils;
@@ -80,18 +79,22 @@ public class AssistantController {
      */
     @GetMapping
     public CommonPage<Assistant> listAssistants(
-            @RequestParam(value = "page", defaultValue = "1") int page,
-            @RequestParam(value = "page_size", defaultValue = "20") int pageSize) {
+            @RequestParam(value = "after", required = false) String after,
+            @RequestParam(value = "before", required = false) String before,
+            @RequestParam(value = "limit", defaultValue = "20") int limit,
+            @RequestParam(value = "order", defaultValue = "desc") String order) {
 
         String owner = BellaContext.getOwnerCode();
 
-        Page<Assistant> infoPage = assistantService.getAssistantsByOwnerWithPage(owner, page, pageSize);
+        List<Assistant> infoList = assistantService.getAssistantsByCursor(owner, after, before, limit + 1, order);
 
-        List<Assistant> infoList = infoPage.getList();
+        boolean hasMore = infoList.size() > limit;
+        if (hasMore) {
+            infoList.remove(infoList.size() - 1);
+        }
 
         String firstId = infoList.isEmpty() ? null : infoList.get(0).getId();
         String lastId = infoList.isEmpty() ? null : infoList.get(infoList.size() - 1).getId();
-        boolean hasMore = (long) infoPage.getPage() * infoPage.getPageSize() < infoPage.getTotal();
 
         return new CommonPage<>(infoList, firstId, lastId, hasMore);
     }
