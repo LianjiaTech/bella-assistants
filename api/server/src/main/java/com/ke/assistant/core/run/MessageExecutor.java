@@ -4,6 +4,7 @@ import com.google.common.collect.Lists;
 import com.ke.assistant.core.TaskExecutor;
 import com.ke.assistant.util.MessageUtils;
 import com.theokanning.openai.OpenAiError;
+import com.theokanning.openai.Usage;
 import com.theokanning.openai.assistants.StreamEvent;
 import com.theokanning.openai.assistants.message.Message;
 import com.theokanning.openai.assistants.message.MessageContent;
@@ -39,6 +40,7 @@ public class MessageExecutor implements Runnable {
     private StringBuilder reasoning;
     // 助手消息中的内容序号
     private Integer index;
+    private Usage usage;
 
     public MessageExecutor(ExecutionContext context, RunStateManager runStateManager, SseEmitter sseEmitter) {
         this.context = context;
@@ -85,16 +87,18 @@ public class MessageExecutor implements Runnable {
             }
             // llm处理结束
             if(msg.equals("[LLM_DONE]")) {
+                context.addUsage(usage);
                 // 没有工具调用，代表助手消息创建完毕
                 if(!context.hasInProgressToolCalls()) {
                     MessageContent messageContent = new MessageContent();
                     messageContent.setType("text");
                     messageContent.setText(new Text(content.toString(), new ArrayList<>()));
-                    runStateManager.finishMessageCreation(context, messageContent, reasoning.toString());
+                    runStateManager.finishMessageCreation(context, messageContent, reasoning.toString(), usage);
                     ++index;
                 } else {
-                    runStateManager.startToolCalls(context, reasoning.toString());
+                    runStateManager.startToolCalls(context, reasoning.toString(), usage);
                 }
+                usage = null;
                 content = new StringBuilder();
                 reasoning = new StringBuilder();
                 return;
@@ -185,6 +189,9 @@ public class MessageExecutor implements Runnable {
                         }
                     }
                 }
+            }
+            if(chunk.getUsage() != null) {
+                usage = chunk.getUsage();
             }
             return;
         }

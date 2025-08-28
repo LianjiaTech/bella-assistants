@@ -1,6 +1,7 @@
 package com.ke.assistant.core.run;
 
 import com.fasterxml.jackson.databind.node.TextNode;
+import com.theokanning.openai.Usage;
 import com.theokanning.openai.assistants.assistant.Tool;
 import com.theokanning.openai.assistants.run.RequiredAction;
 import com.theokanning.openai.assistants.run.Run;
@@ -87,6 +88,8 @@ public class ExecutionContext {
     private final CopyOnWriteArrayList<ToolCall> currentToolResults;  // 当前工具调用的结果
     // {index, ChatToolCall}
     private final ConcurrentHashMap<Integer, ChatToolCall> currentToolTasks;  // 当前待执行的工具
+    // 本次run的总消耗
+    private Usage usage;
 
     public ExecutionContext() {
         this.senderQueue = new LinkedBlockingQueue<>();
@@ -483,6 +486,17 @@ public class ExecutionContext {
             return null;
         } else {
             return historyToolSteps.get(historyToolSteps.size() - 1);
+        }
+    }
+
+    public void addUsage(Usage usage) {
+        if(usage == null) {
+            return;
+        }
+        if(this.usage == null) {
+            this.usage = usage;
+        } else {
+            this.usage.add(usage);
         }
     }
 }
