@@ -1,5 +1,6 @@
 package com.ke.assistant.core.tools.handlers;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.Lists;
 import com.ke.assistant.configuration.AssistantProperties;
@@ -206,7 +207,7 @@ public class RagToolHandler implements BellaToolHandler {
     
     @Override
     public String getDescription() {
-        return "检索增强生成，根据查询内容检索相关文档并生成回答";
+        return "可以用来查询已上传到这个助手的信息。如果用户正在引用特定的文件，那通常是一个很好的提示，这里可能有他们需要的信息。请提取完整的输入、不要提关键词";
     }
     
     @Override
@@ -218,13 +219,8 @@ public class RagToolHandler implements BellaToolHandler {
         
         Map<String, Object> queryParam = new HashMap<>();
         queryParam.put("type", "string");
-        queryParam.put("description", "查询语句");
+        queryParam.put("description", "检索中输入的检索语句");
         properties.put("query", queryParam);
-        
-        Map<String, Object> metadataParam = new HashMap<>();
-        metadataParam.put("type", "object");
-        metadataParam.put("description", "默认元数据配置");
-        properties.put("default_metadata", metadataParam);
         
         parameters.put("properties", properties);
         parameters.put("required", Lists.newArrayList("query"));
@@ -243,16 +239,22 @@ public class RagToolHandler implements BellaToolHandler {
         private String query;
         private String user;
         private boolean stream;
+        @JsonProperty("retrieval_param")
         private RetrievalParam retrievalParam;
+        @JsonProperty("generate_param")
         private GenerateParam generateParam;
     }
     
     @Data
     public static class RetrievalParam {
-        private double score;
-        private int topK;
+        @JsonProperty("file_ids")
         private List<String> fileIds;
+        @JsonProperty("top_k")
+        private int topK;
+        private double score;
+        @JsonProperty("metadata_filter")
         private List<Map<String, Object>> metadataFilter;
+        @JsonProperty("retrieval_mode")
         private String retrievalMode;
         private List<Map<String, Object>> plugins;
     }

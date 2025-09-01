@@ -119,7 +119,7 @@ public class WebSearchTavilyToolHandler implements ToolHandler {
     
     @Override
     public String getDescription() {
-        return "使用Tavily搜索引擎搜索网页内容";
+        return "一个使用Tavily搜索引擎搜索网页内容并提取片段和网页的工具,不搜索维基百科";
     }
     
     @Override
@@ -130,7 +130,7 @@ public class WebSearchTavilyToolHandler implements ToolHandler {
         Map<String, Object> properties = new HashMap<>();
         Map<String, Object> queryParam = new HashMap<>();
         queryParam.put("type", "string");
-        queryParam.put("description", "搜索查询关键词");
+        queryParam.put("description", "需要查询的内容");
         properties.put("query", queryParam);
         
         parameters.put("properties", properties);

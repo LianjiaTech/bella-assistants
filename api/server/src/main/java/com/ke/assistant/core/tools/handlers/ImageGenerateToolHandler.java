@@ -153,7 +153,7 @@ public class ImageGenerateToolHandler implements BellaToolHandler {
     
     @Override
     public String getDescription() {
-        return "根据文本描述生成图片";
+        return "This is a tool used to generate images from text";
     }
     
     @Override
@@ -166,7 +166,7 @@ public class ImageGenerateToolHandler implements BellaToolHandler {
         // prompt 参数 (必需)
         Map<String, Object> promptParam = new HashMap<>();
         promptParam.put("type", "string");
-        promptParam.put("description", "图片生成的文本描述");
+        promptParam.put("description", "Image prompt of DallE 3, you should describe the image you want to generate as a list of words as possible as detailed");
         properties.put("prompt", promptParam);
         
         // size 参数 (可选)

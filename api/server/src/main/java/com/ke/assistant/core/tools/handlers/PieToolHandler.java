@@ -133,7 +133,7 @@ public class PieToolHandler implements ToolHandler {
     
     @Override
     public String getDescription() {
-        return "根据数据生成饼图";
+        return "根据输入数据生成饼状图";
     }
     
     @Override
@@ -145,12 +145,12 @@ public class PieToolHandler implements ToolHandler {
         
         Map<String, Object> dataParam = new HashMap<>();
         dataParam.put("type", "string");
-        dataParam.put("description", "分号分隔的数值数据");
+        dataParam.put("description", "制表数据;格式为data1;data2;data3;data4,其中data为int类型数据");
         properties.put("data", dataParam);
         
         Map<String, Object> categoriesParam = new HashMap<>();
         categoriesParam.put("type", "string");
-        categoriesParam.put("description", "分号分隔的分类标签（可选）");
+        categoriesParam.put("description", "categories for pie chart, categories should be a string contains a list of texts like 'a;b;c;1;2' in order to match the data, each category should be split by ';' ");
         properties.put("categories", categoriesParam);
 
         Map<String, Object> title = new HashMap<>();

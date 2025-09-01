@@ -119,7 +119,7 @@ public class ImgVisionToolHandler implements BellaToolHandler {
     
     @Override
     public String getDescription() {
-        return "分析图片内容，识别图片中的物体、文字等信息";
+        return "这个工具可以用来解读图像并从中提取信息，输入应该是需要处理的图像的URL和图像处理工具的使用说明。";
     }
     
     @Override
@@ -138,7 +138,7 @@ public class ImgVisionToolHandler implements BellaToolHandler {
         // prompt 参数 (可选)
         Map<String, Object> promptParam = new HashMap<>();
         promptParam.put("type", "string");
-        promptParam.put("description", "自定义的分析提示词，不提供时使用默认提示词");
+        promptParam.put("description", "根据用户问题，为大模型提供分析图片时的提示词，不提供时使用默认提示词");
         properties.put("prompt", promptParam);
         
         // detail 参数 (可选)

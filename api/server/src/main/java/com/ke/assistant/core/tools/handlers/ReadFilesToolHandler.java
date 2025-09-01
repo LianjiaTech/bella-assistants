@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.Lists;
 import com.ke.assistant.configuration.AssistantProperties;
 import com.ke.assistant.configuration.ToolProperties;
+import com.ke.assistant.core.tools.BellaToolHandler;
 import com.ke.assistant.core.tools.ToolContext;
-import com.ke.assistant.core.tools.ToolHandler;
 import com.ke.assistant.core.tools.ToolOutputChannel;
 import com.ke.assistant.core.tools.ToolResult;
 import com.ke.bella.openapi.utils.HttpUtils;
@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,7 +25,7 @@ import java.util.Map;
  * 文件读取工具处理器
  */
 @Component
-public class ReadFilesToolHandler implements ToolHandler {
+public class ReadFilesToolHandler implements BellaToolHandler {
     
     @Autowired
     private AssistantProperties assistantProperties;
@@ -37,7 +38,7 @@ public class ReadFilesToolHandler implements ToolHandler {
     }
     
     @Override
-    public ToolResult execute(ToolContext context, JsonNode arguments, ToolOutputChannel channel) {
+    public ToolResult doExecute(ToolContext context, JsonNode arguments, ToolOutputChannel channel) {
 
         // 解析参数
         JsonNode fileIdsNode = arguments.get("file_ids");
@@ -63,7 +64,7 @@ public class ReadFilesToolHandler implements ToolHandler {
      * 解析文件ID列表
      */
     private List<String> parseFileIds(JsonNode fileIdsNode) {
-        List<String> fileIds = new java.util.ArrayList<>();
+        List<String> fileIds = new ArrayList<>();
         for (JsonNode fileIdNode : fileIdsNode) {
             String fileId = fileIdNode.asText();
             if(fileId != null && !fileId.trim().isEmpty()) {
@@ -77,7 +78,7 @@ public class ReadFilesToolHandler implements ToolHandler {
      * 读取单个文件
      */
     private ReadFileResponse readSingleFile(String fileId) {
-        String url = readFilesProperties.getUrl() + "/parse/" + fileId + "?parse_type=markdown";
+        String url = readFilesProperties.getUrl() + fileId + "?parse_type=markdown";
 
         Request request = new Request.Builder()
                 .url(url)
@@ -92,7 +93,7 @@ public class ReadFilesToolHandler implements ToolHandler {
      */
     private String processFileResponse(String fileId, ReadFileResponse response) {
         if(response.getDetail() != null && !response.getDetail().isEmpty()) {
-            return "读取失败: " + response.getDetail();
+            return "文件id" + fileId + "读取失败: " + response.getDetail();
         } else if(response.getMarkdown() != null) {
             return response.getMarkdown();
         } else {
@@ -107,7 +108,7 @@ public class ReadFilesToolHandler implements ToolHandler {
     
     @Override
     public String getDescription() {
-        return "批量读取文件内容，将文件解析为markdown格式";
+        return "根据文件ids 获取文件内容，并将文件解析为markdown格式";
     }
     
     @Override

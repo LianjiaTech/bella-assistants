@@ -89,7 +89,7 @@ public class WeatherSearchToolHandler implements ToolHandler {
     
     @Override
     public String getDescription() {
-        return "查询指定城市的天气信息，返回详细的天气预报数据";
+        return "当你想询问关于天气或与天气相关的问题时，你可以使用这个工具。";
     }
     
     @Override
@@ -100,7 +100,7 @@ public class WeatherSearchToolHandler implements ToolHandler {
         Map<String, Object> properties = new HashMap<>();
         Map<String, Object> cityParam = new HashMap<>();
         cityParam.put("type", "string");
-        cityParam.put("description", "要查询天气的城市名称");
+        cityParam.put("description", "要查询天气的城市名称。如果你不知道，你可以从问题中提取城市名称，或者你可以回答：'请告诉我你的城市.'你需要从问题中提取出中国的城市名称。");
         properties.put("city", cityParam);
         
         parameters.put("properties", properties);

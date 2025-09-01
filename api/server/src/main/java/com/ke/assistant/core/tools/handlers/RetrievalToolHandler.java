@@ -1,5 +1,6 @@
 package com.ke.assistant.core.tools.handlers;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.Lists;
 import com.ke.assistant.configuration.AssistantProperties;
@@ -123,7 +124,7 @@ public class RetrievalToolHandler implements BellaToolHandler {
         Map<String, Object> properties = new HashMap<>();
         Map<String, Object> queryParam = new HashMap<>();
         queryParam.put("type", "string");
-        queryParam.put("description", "检索查询语句");
+        queryParam.put("description", "检索中输入的检索语句");
         properties.put("query", queryParam);
         
         parameters.put("properties", properties);
@@ -141,11 +142,15 @@ public class RetrievalToolHandler implements BellaToolHandler {
     @Data
     public static class RetrievalRequest {
         private String query;
+        @JsonProperty("file_ids")
         private List<String> fileIds;
+        @JsonProperty("top_k")
         private int topK;
         private double score;
         private String user;
+        @JsonProperty("metadata_filter")
         private List<Map<String, Object>> metadataFilter;
+        @JsonProperty("retrieval_mode")
         private String retrievalMode;
     }
     
@@ -153,6 +158,7 @@ public class RetrievalToolHandler implements BellaToolHandler {
     @Data
     public static class RetrievalResponse {
         private String id;
+        @JsonProperty("create_at")
         private long createdAt;
         private String object;
         private String value;
@@ -163,11 +169,15 @@ public class RetrievalToolHandler implements BellaToolHandler {
     @Data
     public static class Chunk {
         private String id;
+        @JsonProperty("file_id")
         private String fileId;
+        @JsonProperty("file_name")
         private String fileName;
         private Double score;
+        @JsonProperty("chunk_id")
         private String chunkId;
         private String content;
+        @JsonProperty("file_tag")
         private String fileTag;
     }
 }

@@ -82,7 +82,7 @@ public class WikiSearchToolHandler implements ToolHandler {
     
     @Override
     public String getDescription() {
-        return "搜索维基百科条目，获取相关信息摘要";
+        return "一个用于执行维基百科搜索并提取片段和网页的工具";
     }
     
     @Override
@@ -93,7 +93,7 @@ public class WikiSearchToolHandler implements ToolHandler {
         Map<String, Object> properties = new HashMap<>();
         Map<String, Object> queryParam = new HashMap<>();
         queryParam.put("type", "string");
-        queryParam.put("description", "要搜索的关键词");
+        queryParam.put("description", "需要查询的内容");
         properties.put("query", queryParam);
         
         parameters.put("properties", properties);

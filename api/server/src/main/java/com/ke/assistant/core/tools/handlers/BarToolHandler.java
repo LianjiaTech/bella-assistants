@@ -141,7 +141,7 @@ public class BarToolHandler implements ToolHandler {
     
     @Override
     public String getDescription() {
-        return "根据数据生成柱状图";
+        return "根据输入数据生成柱状图";
     }
     
     @Override
@@ -153,22 +153,22 @@ public class BarToolHandler implements ToolHandler {
         
         Map<String, Object> dataParam = new HashMap<>();
         dataParam.put("type", "string");
-        dataParam.put("description", "分号分隔的数值数据");
+        dataParam.put("description", "制表数据;格式为data1;data2;data3;data4,其中data为int类型数据");
         properties.put("data", dataParam);
         
         Map<String, Object> xAxisParam = new HashMap<>();
         xAxisParam.put("type", "string");
-        xAxisParam.put("description", "分号分隔的X轴标签（可选）");
+        xAxisParam.put("description", "横坐标;横坐标为a;b;c;d");
         properties.put("x_axis", xAxisParam);
 
         Map<String, Object> xAxisTag = new HashMap<>();
         xAxisParam.put("type", "string");
-        xAxisParam.put("description", "x轴的类别标签（可选）");
+        xAxisParam.put("description", "横坐标的标签（可选）");
         properties.put("xAxisTag", xAxisTag);
 
         Map<String, Object> yAxisTag = new HashMap<>();
         xAxisParam.put("type", "string");
-        xAxisParam.put("description", "y轴的标签（可选）");
+        xAxisParam.put("description", "纵坐标的标签（可选）");
         properties.put("yAxisTag", yAxisTag);
 
         Map<String, Object> title = new HashMap<>();

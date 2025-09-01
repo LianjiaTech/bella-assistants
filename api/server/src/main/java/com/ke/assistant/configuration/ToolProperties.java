@@ -50,7 +50,7 @@ public class ToolProperties {
     @Data
     public static class WebCrawlerToolProperties {
         private String url;
-        private String authorization;
+        private String apiKey;
         private int timeout = 30; // 30秒
     }
     
@@ -72,8 +72,6 @@ public class ToolProperties {
     @Data
     public static class ReadFilesToolProperties {
         private String url;
-        private String[] allowedExtensions = {".txt", ".md", ".json", ".xml", ".csv"};
-        private long maxFileSize = 10485760; // 10MB
     }
     
     @Data

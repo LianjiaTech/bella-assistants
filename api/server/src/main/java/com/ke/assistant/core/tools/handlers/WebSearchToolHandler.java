@@ -106,7 +106,7 @@ public class WebSearchToolHandler implements ToolHandler {
     
     @Override
     public String getDescription() {
-        return "搜索网页内容，根据查询关键词返回相关的搜索结果";
+        return "一个用于搜索并提取片段和网页的工具,不搜索维基百科";
     }
     
     @Override
@@ -117,7 +117,7 @@ public class WebSearchToolHandler implements ToolHandler {
         Map<String, Object> properties = new HashMap<>();
         Map<String, Object> queryParam = new HashMap<>();
         queryParam.put("type", "string");
-        queryParam.put("description", "搜索查询关键词");
+        queryParam.put("description", "需要查询的内容");
         properties.put("query", queryParam);
         
         parameters.put("properties", properties);

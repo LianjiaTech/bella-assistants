@@ -1,5 +1,6 @@
 package com.ke.assistant.core.tools.handlers;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.Lists;
 import com.ke.assistant.configuration.AssistantProperties;
@@ -57,29 +58,27 @@ public class WebCrawlerToolHandler implements ToolHandler {
 
         List<WebCrawlerResult> webCrawlerUrlContent = new ArrayList<>();
         // 循环处理每个URL
-        for (String url : urls) {
-            WebCrawlerRequest crawlerRequest = buildCrawlerRequest(url);
+        WebCrawlerRequest crawlerRequest = buildCrawlerRequest(urls);
 
-            Request request = new Request.Builder()
-                    .url(webCrawlerProperties.getUrl())
-                    .addHeader("Authorization", "Bearer " + webCrawlerProperties.getAuthorization())
-                    .post(RequestBody.create(JacksonUtils.serialize(crawlerRequest), okhttp3.MediaType.parse("application/json")))
-                    .build();
+        Request request = new Request.Builder()
+                .url(webCrawlerProperties.getUrl())
+                .addHeader("Authorization", "Bearer " + webCrawlerProperties.getApiKey())
+                .post(RequestBody.create(JacksonUtils.serialize(crawlerRequest), okhttp3.MediaType.parse("application/json")))
+                .build();
 
-            // 发送请求
-            WebCrawlerResponse response = HttpUtils.httpRequest(request, WebCrawlerResponse.class, 30, webCrawlerProperties.getTimeout());
+        // 发送请求
+        WebCrawlerResponse response = HttpUtils.httpRequest(request, WebCrawlerResponse.class, 30, webCrawlerProperties.getTimeout());
 
-            // 处理响应
-            WebCrawlerResult urlResult = new WebCrawlerResult();
-            urlResult.setUrl(url);
-            
-            if(response.getResults() != null && !response.getResults().isEmpty()) {
-                urlResult.setContent(response.getResults());
-                webCrawlerUrlContent.add(urlResult);
-            } else if(response.getFailedResults() != null) {
-                urlResult.setContent(response.getFailedResults());
-                webCrawlerUrlContent.add(urlResult);
-            }
+        // 处理响应
+        WebCrawlerResult urlResult = new WebCrawlerResult();
+        urlResult.setUrl(urls);
+
+        if(response.getResults() != null && !response.getResults().isEmpty()) {
+            urlResult.setContent(response.getResults());
+            webCrawlerUrlContent.add(urlResult);
+        } else if(response.getFailedResults() != null) {
+            urlResult.setContent(response.getFailedResults());
+            webCrawlerUrlContent.add(urlResult);
         }
 
         // 构建输出内容
@@ -92,7 +91,7 @@ public class WebCrawlerToolHandler implements ToolHandler {
     /**
      * 构建爬虫请求
      */
-    private WebCrawlerRequest buildCrawlerRequest(String url) {
+    private WebCrawlerRequest buildCrawlerRequest(List<String> url) {
         WebCrawlerRequest request = new WebCrawlerRequest();
         request.setUrls(url);
         request.setIncludeImages(false);
@@ -138,8 +137,10 @@ public class WebCrawlerToolHandler implements ToolHandler {
     // 请求实体类
     @Data
     public static class WebCrawlerRequest {
-        private String urls;
+        private List<String> urls;
+        @JsonProperty("include_images")
         private boolean includeImages;
+        @JsonProperty("extract_depth")
         private String extractDepth;
     }
     
@@ -147,13 +148,14 @@ public class WebCrawlerToolHandler implements ToolHandler {
     @Data
     public static class WebCrawlerResponse {
         private List<Object> results;
+        @JsonProperty("failed_results")
         private List<Object> failedResults;
     }
-    
-    // 单个URL的爬取结果
+
+
     @Data
     public static class WebCrawlerResult {
-        private String url;
+        private List<String> url;
         private List<Object> content;
     }
 }
