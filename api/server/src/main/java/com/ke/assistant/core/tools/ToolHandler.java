@@ -14,12 +14,12 @@ public interface ToolHandler {
     /**
      * 执行工具调用
      *
-     * @param tool 工具定义
+     * @param context 工具执行上下文，包含工具和工具需要的参数
      * @param arguments 工具入参
      * @param channel 用于结果输出
      * @return 工具执行结果 -  除CodeInterpreter和FileSearch外，ToolResult的output都为String
      */
-    ToolResult execute(Tool tool, JsonNode arguments, ToolOutputChannel channel);
+    ToolResult execute(ToolContext context, JsonNode arguments, ToolOutputChannel channel);
     
     /**
      * 获取工具名称
@@ -42,18 +42,6 @@ public interface ToolHandler {
      * @return 工具参数
      */
     Map<String, Object> getParameters();
-
-    
-    /**
-     * 处理工具输出消息
-     * 允许工具对输出结果进行后处理
-     * 
-     * @param output 原始输出
-     * @return 处理后的输出
-     */
-    default Object processOutputMessage(Object output) {
-        return output;
-    }
 
     /**
      * 检查是否为终结工具

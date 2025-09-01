@@ -83,3 +83,5 @@ web/.env
 
 
 api/config-cache/bella-assistant/config-cache/
+
+api/server/config-cache/bella-assistant/config-cache/

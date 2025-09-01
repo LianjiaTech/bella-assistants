@@ -86,14 +86,15 @@ public class ToolExecutor implements Runnable {
                 }
                 ToolHandler handler = toolHandlers.get(toolName);
                 if(handler != null) {
+                    ToolContext toolContext = buildToolContext(context, tool, task.getId());
                     // 需要输出结果，需要启动channel
                     if (handler.isFinal() && channel == null) {
                         channel = ToolOutputChannel.start(context);
                     }
                     ToolOutputChannel finalChannel = channel;
-                    CompletableFuture<Void> future = TaskExecutor.supplyCaller(() -> handler.execute(tool, task.getFunction().getArguments(), finalChannel))
+                    CompletableFuture<Void> future = TaskExecutor.supplyCaller(() -> handler.execute(toolContext, task.getFunction().getArguments(), finalChannel))
                             .exceptionally(throwable -> ToolResult.builder().error(throwable.getMessage()).build())
-                            .thenAccept(output -> processResult(handler, output, toolCall, context));
+                            .thenAccept(output -> processResult(output, toolCall, context));
                     futures.add(future);
                 } else {
                     requiredTools.add(toolCall);
@@ -124,9 +125,19 @@ public class ToolExecutor implements Runnable {
         }
     }
 
+    private ToolContext buildToolContext(ExecutionContext context, Tool tool, String toolId) {
+        ToolContext toolContext = new ToolContext();
+        toolContext.setTool(tool);
+        toolContext.setFiles(context.getToolFiles().getTools().get(tool.getType()));
+        toolContext.setToolId(toolId);
+        toolContext.setUser(context.getUser());
+        toolContext.setBellaContext(context.getBellaContext());
+        return toolContext;
+    }
+
 
     @SuppressWarnings("unchecked")
-    private void processResult(ToolHandler handler, ToolResult result, ToolCall toolCall, ExecutionContext context) {
+    private void processResult(ToolResult result, ToolCall toolCall, ExecutionContext context) {
         if(result == null || result.isNull()) {
             if(toolCall.getFunction() != null) {
                 toolCall.getFunction().setOutput("tool call output is null");
@@ -144,13 +155,12 @@ public class ToolExecutor implements Runnable {
             return;
         }
         try {
-            Object processed = handler.processOutputMessage(result.getOutput());
             if(toolCall.getCodeInterpreter() != null) {
-                toolCall.getCodeInterpreter().setOutputs((List<ToolCallCodeInterpreterOutput>) processed);
+                toolCall.getCodeInterpreter().setOutputs((List<ToolCallCodeInterpreterOutput>) result.getOutput());
             } else if(toolCall.getFileSearch() != null) {
-                toolCall.getFileSearch().setResults((List<ToolCallFileSearchResult>) processed);
+                toolCall.getFileSearch().setResults((List<ToolCallFileSearchResult>) result.getOutput());
             } else if(toolCall.getFunction() != null) {
-                toolCall.getFunction().setOutput((String) processed);
+                toolCall.getFunction().setOutput((String) result.getOutput());
             }
             runStateManager.finishToolCall(context, toolCall, null);
         } catch (Exception e) {

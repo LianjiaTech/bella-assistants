@@ -113,6 +113,7 @@ public class MessageExecutor implements Runnable {
                 // 新增内容，序号 +1
                 ++index;
                 context.finishToolCallOutput();
+                return;
             }
             // 工具作为Final的输出
             sendContent((String) msg);

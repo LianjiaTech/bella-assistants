@@ -199,7 +199,7 @@ public class ThreadController {
         if(Boolean.TRUE.equals(request.getStream())) {
             emitter = new SseEmitter(300000L); // 5分钟超时
         }
-        runExecutor.startRun(thread.getId(), pair.getLeft().getId(), pair.getRight(), true, emitter);
+        runExecutor.startRun(thread.getId(), pair.getLeft().getId(), pair.getRight(), true, emitter, BellaContext.snapshot());
         return Boolean.TRUE.equals(request.getStream()) ? emitter : pair.getLeft();
     }
 }

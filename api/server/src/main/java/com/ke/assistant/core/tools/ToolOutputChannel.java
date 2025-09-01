@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -18,11 +19,13 @@ public class ToolOutputChannel implements Runnable {
     private final ExecutionContext context;
     private final ConcurrentHashMap<String, List<Object>> outputCache;
     private final AtomicBoolean endFlag;
+    private final CompletableFuture<Void> future;
 
     public ToolOutputChannel(ExecutionContext context) {
         this.context = context;
         this.outputCache = new ConcurrentHashMap<>();
         this.endFlag = new AtomicBoolean(false);
+        this.future = new CompletableFuture<>();
     }
 
     public static ToolOutputChannel start(ExecutionContext context) {
@@ -33,9 +36,14 @@ public class ToolOutputChannel implements Runnable {
 
     @Override
     public void run() {
-        while (!endFlag.get()) {
-            loop();
+        try {
+            while (!endFlag.get() || !outputCache.isEmpty()) {
+                loop();
+            }
+        } finally {
+            future.complete(null);
         }
+
     }
 
     private void loop() {
@@ -83,6 +91,10 @@ public class ToolOutputChannel implements Runnable {
 
     public void end() {
         endFlag.set(true);
+        try {
+            future.get();
+        } catch (Exception e) {
+            log.warn(e.getMessage(), e);
+        }
     }
-
 }

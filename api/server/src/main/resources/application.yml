@@ -57,6 +57,7 @@ logging:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
 
 apollo:
+  meta: ${APOLLO_META:http://apollo.meta}
   bootstrap:
     enabled: false
     eagerLoad:
@@ -78,3 +79,79 @@ bella:
   # Assistant specific configuration
   assistant:
     key-prefix: bella_assistant  # Redis key 前缀
+    # S3文件存储配置
+    s3:
+      bucket-name: ${S3_BUCKET_NAME:bella-assistant}  # S3存储桶名称
+      region: ${S3_REGION:us-east-1}                        # AWS区域
+      access-key: ${S3_ACCESS_KEY:}                         # S3访问密钥
+      secret-key: ${S3_SECRET_KEY:}                         # S3密钥
+      endpoint: ${S3_ENDPOINT:}                             # 自定义端点（可选，用于MinIO等）
+      path-style-access: ${S3_PATH_STYLE_ACCESS:false}         # 路径样式访问
+      # 文件上传配置
+      upload:
+        image-folder: images                                    # 图片文件夹名称
+        chart-folder: charts                                    # 图表文件夹名称
+        timestamp-pattern: yyyyMMdd/HHmm                        # 文件名时间戳格式
+        default-chart-format: jpg                               # 默认图表格式
+      # URL配置
+      url:
+        public-base-url: ${S3_PUBLIC_BASE_URL:}                 # 公共访问基础URL（如CDN）
+        https-enabled: ${S3_HTTPS_ENABLED:true}                 # 是否启用HTTPS
+    tools:
+      rag:
+        url: ${RAG_TOOL_URL:}
+        score: 0.7
+        top-k: 5
+        model: ${RAG_TOOL_MODEL:gpt-4o}
+        is-final: false
+      web-search:
+        url: http://localhost:8080/search
+      web-search-tavily:
+        url: https://api.tavily.com/search
+        api-key: ${WEB_SEARCH_TAVILY_APIKEY:}
+        search-depth: advanced
+        include-raw-content: false
+        max-results: 5
+      image-generate:
+        format: jpg
+        is-final: false
+      web-crawler:
+        url: ${WEB_CRAWLER_URL:}
+        authorization: ${WEB_CRAWLER_AUTHORIZATION:}
+        timeout: 30 #单位秒
+      weather-search:
+        url: https://restapi.amap.com/v3/weather/weatherInfo
+        api-key: ${WEATHER_SEARCH_APIKEY:}
+        units: metric
+        language: zh
+      wiki-search:
+        url: https://zh.wikipedia.org/api/rest_v1/page/summary/
+        language: zh
+        limit: 10
+      read-files:
+        url: ${READ_FILES_URL:}
+        allowed-extensions: [".txt", ".md", ".json", ".xml", ".csv"]
+        max-file-size: 10485760
+      img-vision:
+        model: gpt-4o
+        is-final: false
+      retrieval:
+        url: ${RETRIEVAL_URL:}
+        score: 0.7
+        top-k: 5
+        model: ${RETRIEVAL_MODEL:text-embedding-ada-002}
+        is-final: false
+      bar-tool:
+        width: 800
+        height: 600
+        is-final: true
+      line-tool:
+        width: 800
+        height: 600
+        is-final: true
+      pie-tool:
+        width: 800
+        height: 600
+        is-final: true
+
+

@@ -114,6 +114,27 @@
             <version>2.1.0</version>
         </dependency>
 
+        <!-- JFreeChart for chart generation -->
+        <dependency>
+            <groupId>org.jfree</groupId>
+            <artifactId>jfreechart</artifactId>
+            <version>1.5.3</version>
+        </dependency>
+
+        <!-- AWS S3 SDK -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>2.20.162</version>
+        </dependency>
+        
+        <!-- AWS SDK Core -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>auth</artifactId>
+            <version>2.20.162</version>
+        </dependency>
+
         <!-- Swagger Documentation -->
         <dependency>
             <groupId>org.springdoc</groupId>

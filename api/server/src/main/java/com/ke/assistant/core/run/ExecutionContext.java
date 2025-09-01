@@ -41,6 +41,9 @@ import java.util.concurrent.locks.ReentrantLock;
 @Builder
 public class ExecutionContext {
 
+    // Bella相关的上下文
+    private final Map<String, Object> bellaContext;
+
     // 用于同步executor之间的执行结果
     private final ReentrantLock lock;
     private final Condition runCondition;
@@ -91,7 +94,8 @@ public class ExecutionContext {
     // 本次run的总消耗
     private Usage usage;
 
-    public ExecutionContext() {
+    public ExecutionContext(Map<String, Object> bellaContext) {
+        this.bellaContext = bellaContext;
         this.senderQueue = new LinkedBlockingQueue<>();
         this.sendDone = new AtomicBoolean(true);
         this.lock = new ReentrantLock();

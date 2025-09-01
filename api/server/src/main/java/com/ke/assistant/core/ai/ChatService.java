@@ -1,6 +1,7 @@
 package com.ke.assistant.core.ai;
 
 import com.ke.assistant.core.run.ExecutionContext;
+import com.ke.bella.openapi.BellaContext;
 import com.theokanning.openai.completion.chat.ChatCompletionRequest;
 import com.theokanning.openai.service.OpenAiService;
 import org.slf4j.Logger;
@@ -20,7 +21,12 @@ public class ChatService {
      * 流式聊天完成
      */
     public void chat(ExecutionContext context) {
-        tryStreamChat(context, 0 , 3);
+        try {
+            BellaContext.replace(context.getBellaContext());
+            tryStreamChat(context, 0, 3);
+        } finally {
+            BellaContext.clearAll();
+        }
     }
 
 

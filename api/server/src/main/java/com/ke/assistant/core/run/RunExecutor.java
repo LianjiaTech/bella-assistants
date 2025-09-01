@@ -10,6 +10,7 @@ import com.ke.assistant.core.tools.ToolFetcher;
 import com.ke.assistant.service.RunService;
 import com.ke.assistant.service.ThreadService;
 import com.theokanning.openai.assistants.run.Run;
+import com.theokanning.openai.assistants.run.ToolFiles;
 import com.theokanning.openai.assistants.run_step.RunStep;
 import com.theokanning.openai.assistants.run_step.StepDetails;
 import com.theokanning.openai.assistants.thread.Thread;
@@ -20,7 +21,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Run执行器
@@ -55,16 +58,16 @@ public class RunExecutor {
     /**
      * 开启run
      */
-    public void startRun(String threadId, String runId, String assistantMessageId, boolean withThreadCreation, SseEmitter sseEmitter) {
-        ExecutionContext context = buildExecutionContext(threadId, runId, assistantMessageId, withThreadCreation ? RunType.CREATE_THREAD_AND_RUN : RunType.CREATE_RUN);
+    public void startRun(String threadId, String runId, String assistantMessageId, boolean withThreadCreation, SseEmitter sseEmitter, Map<String, Object> bellaContext) {
+        ExecutionContext context = buildExecutionContext(threadId, runId, assistantMessageId, withThreadCreation ? RunType.CREATE_THREAD_AND_RUN : RunType.CREATE_RUN, bellaContext);
         TaskExecutor.addRunner(()->executeRun(context, sseEmitter));
     }
 
     /**
      * 重启run
      */
-    public void resumeRun(String threadId, String runId, String assistantMessageId, SseEmitter sseEmitter) {
-        ExecutionContext context = buildExecutionContext(threadId, runId, assistantMessageId, RunType.SUBMIT_TOOL_CALLS);
+    public void resumeRun(String threadId, String runId, String assistantMessageId, SseEmitter sseEmitter, Map<String, Object> bellaContext) {
+        ExecutionContext context = buildExecutionContext(threadId, runId, assistantMessageId, RunType.SUBMIT_TOOL_CALLS, bellaContext);
         TaskExecutor.addRunner(()->executeRun(context, sseEmitter));
     }
 
@@ -174,9 +177,9 @@ public class RunExecutor {
     /**
      * 构建执行上下文
      */
-    private ExecutionContext buildExecutionContext(String threadId, String runId, String assistantMessageId, RunType type) {
+    private ExecutionContext buildExecutionContext(String threadId, String runId, String assistantMessageId, RunType type, Map<String, Object> bellaContext) {
 
-        ExecutionContext context = new ExecutionContext();
+        ExecutionContext context = new ExecutionContext(bellaContext);
 
         context.setAssistantMessageId(assistantMessageId);
 
@@ -200,7 +203,13 @@ public class RunExecutor {
             // 工具
             context.setTools(run.getTools());
 
-            context.setToolFiles(run.getFileIds());
+            if(run.getFileIds() != null && run.getFileIds().getTools() != null) {
+                context.setToolFiles(run.getFileIds());
+            } else {
+                ToolFiles files = new ToolFiles();
+                files.setTools(new HashMap<>());
+                context.setToolFiles(files);
+            }
 
             // 获取当前的runStep，时间从小到大
             List<RunStep> runSteps = runService.getRunSteps(threadId, runId);
