@@ -1,7 +1,7 @@
 package com.ke.assistant.core.plan.template;
 
 import com.ke.assistant.core.run.ExecutionContext;
-import com.ke.assistant.core.run.FileInfo;
+import com.ke.assistant.core.file.FileInfo;
 import com.theokanning.openai.assistants.assistant.Tool;
 
 import java.time.LocalDateTime;

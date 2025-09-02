@@ -3,6 +3,8 @@ package com.ke.assistant.core.run;
 import com.ke.assistant.configuration.AssistantProperties;
 import com.ke.assistant.core.TaskExecutor;
 import com.ke.assistant.core.ai.ChatService;
+import com.ke.assistant.core.file.FileInfo;
+import com.ke.assistant.core.file.FileProvider;
 import com.ke.assistant.core.plan.Planner;
 import com.ke.assistant.core.plan.PlannerDecision;
 import com.ke.assistant.core.tools.ToolExecutor;

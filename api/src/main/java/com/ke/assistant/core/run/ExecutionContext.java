@@ -1,6 +1,7 @@
 package com.ke.assistant.core.run;
 
 import com.fasterxml.jackson.databind.node.TextNode;
+import com.ke.assistant.core.file.FileInfo;
 import com.theokanning.openai.Usage;
 import com.theokanning.openai.assistants.assistant.Tool;
 import com.theokanning.openai.assistants.run.RequiredAction;

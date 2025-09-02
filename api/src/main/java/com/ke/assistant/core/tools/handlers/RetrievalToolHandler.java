@@ -135,7 +135,7 @@ public class RetrievalToolHandler implements BellaToolHandler {
     
     @Override
     public boolean isFinal() {
-        return true;
+        return retrievalProperties.isFinal();
     }
     
     // 请求实体类

@@ -2,7 +2,7 @@ package com.ke.assistant.core.plan.template;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.ke.assistant.core.run.FileInfo;
+import com.ke.assistant.core.file.FileInfo;
 import lombok.Builder;
 import lombok.Data;
 import lombok.experimental.SuperBuilder;

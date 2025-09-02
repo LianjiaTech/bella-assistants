@@ -1,4 +1,4 @@
-package com.ke.assistant.core.run;
+package com.ke.assistant.core.file;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
