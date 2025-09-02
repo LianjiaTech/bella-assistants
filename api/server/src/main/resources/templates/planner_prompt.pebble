@@ -1,0 +1,42 @@
+## 环境信息
+
+当前时间：{{ env.datetime }}
+
+
+## Agent
+
+{{ agent.instruction }}
+
+{% if agent.files != null and (agent.toolNames contains 'rag' or agent.toolNames contains 'retrieval') %}
+下面是知识库的摘要信息，请你综合判断是否需要调用知识库相关工具
+<KnowledgeBase>
+{% for file in agent.files %}
+{% if agent.toolNames contains file.tool or file.tool == '_all' %}
+<knowledge>
+<id>{{file.id}}</id>
+<name>{{file.name}}</name>
+<abstract>{{file.abstractInfo}}</abstract>
+</knowledge>
+{% endif %}
+{% endfor %}
+</KnowledgeBase>
+{% endif %}
+
+{% if user != null %}
+## 用户信息
+{% if user.gender != null %}
+性别：{{ user.gender }}
+{% endif %}
+{% if user.age != null %}
+年龄：{{ user.age }}
+{% endif %}
+{% if user.job != null %}
+工作：{{ user.job }}
+{% endif %}
+{% endif %}
+
+{% if profile != null %}
+{% for info in profile %}
+{{ loop.index}}. {{info.content}}
+{% endfor %}
+{% endif %}

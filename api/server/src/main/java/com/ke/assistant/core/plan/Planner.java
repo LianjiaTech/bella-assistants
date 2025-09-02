@@ -1,10 +1,14 @@
 package com.ke.assistant.core.plan;
 
+import com.ke.assistant.core.plan.template.TemplateContext;
+import com.ke.assistant.core.plan.template.TemplateContextBuilder;
 import com.ke.assistant.core.run.ExecutionContext;
 import com.ke.assistant.core.tools.ToolFetcher;
 import com.ke.assistant.service.MessageService;
 import com.ke.assistant.service.RunService;
 import com.ke.assistant.util.MessageUtils;
+import com.ke.bella.openapi.utils.JacksonUtils;
+import com.ke.bella.openapi.utils.Renders;
 import com.theokanning.openai.assistants.assistant.Tool;
 import com.theokanning.openai.assistants.message.Message;
 import com.theokanning.openai.assistants.run_step.RunStep;
@@ -190,10 +194,10 @@ public class Planner {
             return;
         }
 
-        // 添加系统指令
-        String instructions = context.getInstructions();
-        if (instructions != null && !instructions.trim().isEmpty()) {
-            context.addChatMessage(new SystemMessage(instructions));
+        // 使用模板渲染系统指令
+        String renderedSystemPrompt = renderSystemPrompt(context);
+        if (renderedSystemPrompt != null && !renderedSystemPrompt.trim().isEmpty()) {
+            context.addChatMessage(new SystemMessage(renderedSystemPrompt));
         }
 
         // 消息历史，只返回小于当前assistantMessageId的消息
@@ -261,6 +265,30 @@ public class Planner {
      */
     private boolean hasUnexecutedToolCalls(ExecutionContext context) {
         return context.hasInProgressToolCalls();
+    }
+
+    /**
+     * 渲染系统提示词模板
+     *
+     * @param context 执行上下文
+     * @return 渲染后的系统提示词
+     */
+    private String renderSystemPrompt(ExecutionContext context) {
+        try {
+            // 构建模板上下文
+            TemplateContext templateContext = TemplateContextBuilder.buildTemplateContext(context);
+            
+            // 使用模板服务渲染系统提示词
+            return Renders.render("templates/planner_prompt.pebble", JacksonUtils.toMap(templateContext));
+            
+        } catch (Exception e) {
+            logger.warn("Failed to render system prompt template for run: {}, falling back to original instructions", 
+                       context.getRunId(), e);
+            
+            // 降级处理：如果模板渲染失败，使用原始的指令
+            String instructions = context.getInstructions();
+            return instructions != null ? instructions : "";
+        }
     }
 
 }

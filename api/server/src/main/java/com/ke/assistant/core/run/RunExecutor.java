@@ -9,6 +9,7 @@ import com.ke.assistant.core.tools.ToolExecutor;
 import com.ke.assistant.core.tools.ToolFetcher;
 import com.ke.assistant.service.RunService;
 import com.ke.assistant.service.ThreadService;
+import com.ke.bella.openapi.BellaContext;
 import com.theokanning.openai.assistants.run.Run;
 import com.theokanning.openai.assistants.run.ToolFiles;
 import com.theokanning.openai.assistants.run_step.RunStep;
@@ -24,6 +25,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Run执行器
@@ -55,6 +57,9 @@ public class RunExecutor {
     @Autowired
     private AssistantProperties assistantProperties;
 
+    @Autowired
+    private FileProvider fileProvider;
+
     /**
      * 开启run
      */
@@ -80,6 +85,8 @@ public class RunExecutor {
         logger.info("Starting execution for run: {}", context.getRunId());
 
         try {
+
+            BellaContext.replace(context.getBellaContext());
 
             // 启动消息管理器
             MessageExecutor.start(context, stateManager, sseEmitter);
@@ -110,6 +117,7 @@ public class RunExecutor {
         } finally {
             // 通知所有辅助线程退出
             context.end();
+            BellaContext.clearAll();
         }
     }
     
@@ -203,8 +211,11 @@ public class RunExecutor {
             // 工具
             context.setTools(run.getTools());
 
+            List<String> fileIds = null;
+
             if(run.getFileIds() != null && run.getFileIds().getTools() != null) {
                 context.setToolFiles(run.getFileIds());
+                fileIds = run.getFileIds().getTools().values().stream().flatMap(List::stream).collect(Collectors.toList());
             } else {
                 ToolFiles files = new ToolFiles();
                 files.setTools(new HashMap<>());
@@ -252,6 +263,10 @@ public class RunExecutor {
                     throw new IllegalStateException("invalid run step status");
                 }
                 context.publish(new ResumeMessage(run, runStep));
+            }
+
+            if(fileIds != null) {
+                context.setFileInfos(fileProvider.provide(fileIds).stream().collect(Collectors.toMap(FileInfo::getId, info -> info)));
             }
 
             return context;

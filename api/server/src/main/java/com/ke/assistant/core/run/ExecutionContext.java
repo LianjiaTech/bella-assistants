@@ -20,6 +20,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -63,6 +64,7 @@ public class ExecutionContext {
     private Run run;
     private List<Tool> tools;
     private ToolFiles toolFiles;
+    private Map<String, FileInfo> fileInfos;
     private RunStep currentRunStep;
     private String currentToolCallStepId;
     private String assistantMessageId;
@@ -115,6 +117,7 @@ public class ExecutionContext {
         this.historyToolSteps = new ArrayList<>();
         this.end = new AtomicBoolean(false);
         this.currentOutputToolCallId = new AtomicReference<>();
+        this.fileInfos = new HashMap<>();
     }
     
     /**

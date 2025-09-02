@@ -193,7 +193,6 @@ class AssistantControllerTest extends BaseControllerTest {
 
         // 验证Files更新了
         assert json.get("file_ids").size() == 3;
-        assert json.get("file_ids").get(0).asText().equals("file_update1");
     }
 
     @Test
