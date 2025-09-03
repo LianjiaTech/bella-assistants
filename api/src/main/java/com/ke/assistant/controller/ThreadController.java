@@ -8,6 +8,7 @@ import com.ke.assistant.service.RunService;
 import com.ke.assistant.service.ThreadService;
 import com.ke.assistant.util.BeanUtils;
 import com.ke.assistant.util.ToolResourceUtils;
+import com.ke.assistant.util.ToolUtils;
 import com.ke.bella.openapi.BellaContext;
 import com.ke.bella.openapi.common.exception.ResourceNotFoundException;
 import com.ke.bella.openapi.utils.JacksonUtils;
@@ -56,6 +57,7 @@ public class ThreadController {
         ThreadDb thread = new ThreadDb();
         BeanUtils.copyProperties(request, thread);
 
+        thread.setUser(BellaContext.getOwnerCode());
         thread.setOwner(BellaContext.getOwnerCode());
 
         // 将metadata Map转换为JSON字符串
@@ -184,6 +186,7 @@ public class ThreadController {
      */
     @PostMapping("/runs")
     public Object createThreadAndRun(@RequestBody CreateThreadAndRunRequest request) {
+        ToolUtils.checkTools(request.getTools());
 
         Thread thread = createThread(request.getThread());
 

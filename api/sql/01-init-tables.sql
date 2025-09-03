@@ -195,7 +195,7 @@ CREATE TABLE IF NOT EXISTS message
     status VARCHAR
 (
     64
-) NOT NULL DEFAULT 'in_progress',
+) NOT NULL DEFAULT 'completed',
     content MEDIUMTEXT NULL,
     reasoning_content TEXT NULL,
     attachments VARCHAR

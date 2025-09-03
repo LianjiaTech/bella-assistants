@@ -13,6 +13,8 @@ import com.ke.assistant.mesh.ServiceMesh;
 import com.ke.assistant.service.MessageService;
 import com.ke.assistant.util.MessageUtils;
 import com.ke.assistant.util.RunUtils;
+import com.ke.bella.openapi.common.exception.BizParamCheckException;
+import com.ke.bella.openapi.utils.DateTimeUtils;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.Usage;
 import com.theokanning.openai.assistants.message.Message;
@@ -78,7 +80,7 @@ public class RunStateManager {
     @Transactional
     public boolean updateRun(String threadId, String runId, RunStatus newStatus, LastError lastError, Usage usage) {
         try {
-            RunDb run = runRepo.findByIdForUpdate(runId, threadId);
+            RunDb run = runRepo.findByIdForUpdate(threadId, runId);
             if (run == null) {
                 logger.error("Run not found: {}", runId);
                 return false;
@@ -144,10 +146,10 @@ public class RunStateManager {
     @Transactional
     public boolean updateRunStatus(ExecutionContext context, RunStatus newStatus, LastError lastError) {
         boolean success = updateRun(context.getThreadId(), context.getRunId(), newStatus, lastError, context.getUsage());
+        context.getRun().setStatus(newStatus.getValue());
         if(newStatus.getRunStreamEvent() != null) {
-            context.getRun().setStatus(newStatus.getValue());
+            context.publish(context.getRun());
         }
-        context.publish(context.getRun());
         return success;
     }
     
@@ -168,7 +170,7 @@ public class RunStateManager {
 
         Message message = messageService.getMessageById(context.getThreadId(), context.getAssistantMessageId());
 
-        RunStep runStep = context.getLastToolCallStep();
+        RunStep runStep = context.getCurrentRunStep();
 
         if(!RunStatus.IN_PROGRESS.getValue().equals(message.getStatus())) {
             throw new IllegalStateException("invalid message status");
@@ -184,7 +186,7 @@ public class RunStateManager {
             context.publish(message);
             context.publish(runStep);
             context.publish(context.getRun());
-            serviceMesh.addRunningRun(context.getRunId(), context.getExecutionSeconds());
+            serviceMesh.addRunningRun(context.getRunId(), (int) (DateTimeUtils.getCurrentSeconds() + context.getExecutionSeconds()));
             processingCache.put(context.getRunId(), context);
         }
         return success;
@@ -195,11 +197,10 @@ public class RunStateManager {
      */
     @Transactional
     public boolean toRequiresAction(ExecutionContext context) {
-        boolean success = updateRunStatus(context, RunStatus.REQUIRES_ACTION);
-        if(success) {
-            runRepo.updateRequireAction(context.getThreadId(), context.getRunId(), JacksonUtils.serialize(context.getRequiredAction()));
-        }
-        return success;
+        runRepo.updateRequireAction(context.getThreadId(), context.getRunId(), JacksonUtils.serialize(context.getRequiredAction().get()));
+        context.getRun().setRequiredAction(context.getRequiredAction().get());
+        updateRunStatus(context, RunStatus.REQUIRES_ACTION);
+        return true;
     }
     
     /**
@@ -294,7 +295,7 @@ public class RunStateManager {
             }
             return submitRequiredAction(threadId, runId, submitToolOutputs, expiredAt);
         }
-        RunStepDb runStepDb = runStepRepo.findActionRequiredForUpdate(runId, threadId);
+        RunStepDb runStepDb = runStepRepo.findActionRequiredForUpdate(threadId, runId);
 
         RunStatus currentStatus = RunStatus.fromValue(runStepDb.getStatus());
         if(!currentStatus.canTransitionTo(RunStatus.COMPLETED)) {
@@ -304,10 +305,15 @@ public class RunStateManager {
         StepDetails stepDetails = JacksonUtils.deserialize(runStepDb.getStepDetails(), StepDetails.class);
         Map<String, ToolCall> outputMap = submitToolOutputs.getToolCalls().stream().collect(Collectors.toMap(ToolCall::getId, toolCall -> toolCall));
         for(ToolCall toolCall : stepDetails.getToolCalls()) {
+            if(toolCall.getId() == null) {
+                throw new BizParamCheckException("tool call Id is null");
+            }
             if(outputMap.containsKey(toolCall.getId())) {
                  if(toolCall.getFunction() != null) {
                     toolCall.getFunction().setOutput(outputMap.get(toolCall.getId()).getFunction().getOutput());
                 }
+            } else {
+                throw new BizParamCheckException("tool call id is not exist");
             }
         }
         runStepDb.setStepDetails(JacksonUtils.serialize(stepDetails));
@@ -390,24 +396,29 @@ public class RunStateManager {
             logger.warn("no current tool call step");
             return;
         }
+        String stepId = context.getCurrentToolCallStepId();
         context.finishToolCall(toolCall);
+        List<ToolCall> results = Lists.newArrayList(context.getCurrentToolResults());
         // 构建step_details
         StepDetails stepDetails = StepDetails.builder()
                 .type("tool_calls")
-                .toolCalls(context.getCurrentToolResults())  // 直接使用完整的ToolCall列表
+                .toolCalls(results)
                 .build();
         String stepDetailsJson = JacksonUtils.serialize(stepDetails);
-        runStepRepo.updateStepDetails(context.getThreadId(), context.getCurrentToolCallStepId(), stepDetailsJson);
+        runStepRepo.updateStepDetails(context.getThreadId(), stepId, stepDetailsJson);
         if(errorMessage != null) {
             LastError lastError = new LastError("tool_execute_error", errorMessage);
-            updateRunStepStatus(context.getCurrentToolCallStepId(), RunStatus.COMPLETED, lastError, context);
+            updateRunStepStatus(stepId, RunStatus.FAILED, lastError, context);
         }
-        if(!context.hasInProgressToolCalls()) {
-            if(errorMessage != null) {
-                updateRunStepStatus(context.getCurrentToolCallStepId(), RunStatus.COMPLETED, null, context);
+        if(!context.hasInProgressToolCalls() && results.size() == context.getCurrentToolResults().size()) {
+            boolean signal = true;
+            if(errorMessage == null) {
+                signal = updateRunStepStatus(stepId, RunStatus.COMPLETED, null, context);
             }
             context.setCurrentToolCallStepId(null);
-            context.signalRunner();
+            if(signal) {
+                context.signalRunner();
+            }
         }
     }
 
@@ -421,12 +432,17 @@ public class RunStateManager {
 
     @Transactional
     public boolean updateRunStep(String runStepId, RunStatus newStatus, LastError lastError, ExecutionContext context, Usage usage) {
-        RunStepDb db = runStepRepo.findByIdForUpdate(runStepId, context.getThreadId());
+        if(runStepId == null) {
+            return false;
+        }
+        RunStepDb db = runStepRepo.findByIdForUpdate(context.getThreadId(), runStepId);
 
         // 失败时先修改message的状态
         if(newStatus.isTerminal() && db.getType().equals("message_creation")) {
             if(newStatus != RunStatus.COMPLETED) {
-                updateMessageStatus(context, "incomplete");
+                updateMessageStatus(context, "incomplete", context.isNoExecute());
+            } else {
+                updateMessageStatus(context, "completed", context.isNoExecute());
             }
         }
 
@@ -458,6 +474,9 @@ public class RunStateManager {
         }
 
         boolean success = runStepRepo.update(db);
+        if(db.getType().equals("message_creation")) {
+            context.getCurrentRunStep().setStatus(newStatus.getValue());
+        }
         if(newStatus.getRunStepStreamEvent() != null && db.getType().equals("message_creation")) {
             // 发送客户端消息
             RunStep runStep = RunUtils.convertStepToInfo(db);
@@ -489,8 +508,8 @@ public class RunStateManager {
     }
 
     @Transactional
-    public Message updateMessageStatus(ExecutionContext context, String status) {
-       Message message = messageService.updateStatus(context.getThreadId(), context.getAssistantMessageId(), status);
+    public Message updateMessageStatus(ExecutionContext context, String status, boolean hidden) {
+        Message message = messageService.updateStatus(context.getThreadId(), context.getAssistantMessageId(), status, hidden);
        context.publish(message);
        return message;
     }

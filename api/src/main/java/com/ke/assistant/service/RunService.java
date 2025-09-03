@@ -9,6 +9,7 @@ import com.ke.assistant.db.repo.RunToolRepo;
 import com.ke.assistant.util.BeanUtils;
 import com.ke.assistant.util.RunUtils;
 import com.ke.assistant.util.ToolResourceUtils;
+import com.ke.bella.openapi.BellaContext;
 import com.ke.bella.openapi.common.exception.BizParamCheckException;
 import com.ke.bella.openapi.common.exception.ResourceNotFoundException;
 import com.ke.bella.openapi.utils.JacksonUtils;
@@ -18,6 +19,7 @@ import com.theokanning.openai.assistants.assistant.Tool;
 import com.theokanning.openai.assistants.message.IncompleteDetails;
 import com.theokanning.openai.assistants.message.Message;
 import com.theokanning.openai.assistants.message.MessageRequest;
+import com.theokanning.openai.assistants.run.MessageCreation;
 import com.theokanning.openai.assistants.run.RequiredAction;
 import com.theokanning.openai.assistants.run.Run;
 import com.theokanning.openai.assistants.run.RunCreateRequest;
@@ -25,6 +27,7 @@ import com.theokanning.openai.assistants.run.ToolChoice;
 import com.theokanning.openai.assistants.run.ToolFiles;
 import com.theokanning.openai.assistants.run.TruncationStrategy;
 import com.theokanning.openai.assistants.run_step.RunStep;
+import com.theokanning.openai.assistants.run_step.StepDetails;
 import com.theokanning.openai.common.LastError;
 import com.theokanning.openai.completion.chat.ChatResponseFormat;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +38,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -55,9 +59,6 @@ public class RunService {
     private RunStepRepo runStepRepo;
     @Autowired
     private RunToolRepo runToolRepo;
-    @Autowired
-    @Lazy
-    private ThreadService threadService;
     @Autowired
     private AssistantService assistantService;
     @Autowired
@@ -144,6 +145,8 @@ public class RunService {
         Run info = new Run();
         BeanUtils.copyProperties(runDb, info);
 
+        info.setCreateTime(runDb.getCreatedAt());
+
         info.setCreatedAt((int) runDb.getCreatedAt().toEpochSecond(ZoneOffset.ofHours(8)));
         if(runDb.getStartedAt() != null) {
             info.setStartedAt((int) runDb.getStartedAt().toEpochSecond(ZoneOffset.ofHours(8)));
@@ -178,7 +181,19 @@ public class RunService {
         }
 
         if(StringUtils.isNotBlank(runDb.getToolChoice())) {
-            info.setToolChoice(JacksonUtils.deserialize(runDb.getToolChoice(), ToolChoice.class));
+            switch (runDb.getToolChoice()) {
+            case "auto":
+                info.setToolChoice(ToolChoice.AUTO);
+                break;
+            case "none":
+                info.setToolChoice(ToolChoice.NONE);
+                break;
+            case "required":
+                info.setToolChoice(ToolChoice.REQUIRED);
+                break;
+            default:
+                info.setToolChoice(JacksonUtils.deserialize(runDb.getToolChoice(), ToolChoice.class));
+            }
         }
 
         if(StringUtils.isNotBlank(runDb.getResponseFormat())) {
@@ -240,6 +255,8 @@ public class RunService {
         // 创建run记录
         RunDb runDb = new RunDb();
         BeanUtils.copyProperties(request, runDb);
+        runDb.setThreadId(threadId);
+        runDb.setUser(BellaContext.getOwnerCode());
         if(runDb.getModel() == null) {
             runDb.setModel(assistant.getModel());
         }
@@ -309,14 +326,14 @@ public class RunService {
         // 保存tools
         if(request.getTools() != null && !request.getTools().isEmpty()) {
             createRunTool(request.getTools(), runDb.getId());
-        } else if(assistant.getTools() != null && !request.getTools().isEmpty()){
+        } else if(assistant.getTools() != null && !assistant.getTools().isEmpty()) {
             createRunTool(assistant.getTools(), runDb.getId());
         }
 
         // 处理additional_messages
         if(request.getAdditionalMessages() != null && !request.getAdditionalMessages().isEmpty()) {
             for(MessageRequest additionalMsg : request.getAdditionalMessages()) {
-                messageService.createMessage(threadId, additionalMsg);
+                messageService.createMessage(threadId, additionalMsg, "completed", Boolean.FALSE == request.getSaveMessage());
             }
         }
         
@@ -327,7 +344,23 @@ public class RunService {
                 .build();
         
         // 使用MessageService创建消息
-        Message assistantMessage = messageService.createMessage(threadId, messageRequest);
+        Message assistantMessage = messageService.createRunStepMessage(threadId, messageRequest);
+
+        RunStepDb runStep = new RunStepDb();
+        runStep.setRunId(runDb.getId());
+        runStep.setThreadId(threadId);
+        runStep.setAssistantId(assistant.getId());
+        runStep.setType("message_creation");
+        runStep.setStatus("in_progress");
+        runStep.setCreatedAt(LocalDateTime.now());
+
+        StepDetails stepDetails = StepDetails.builder()
+                .type("message_creation")
+                .messageCreation(new MessageCreation(assistantMessage.getId()))
+                .build();
+        runStep.setStepDetails(JacksonUtils.serialize(stepDetails));
+
+        runStepRepo.insert(runStep);
         
         return Pair.of(convertToInfo(runDb), assistantMessage.getId());
     }

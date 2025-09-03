@@ -76,6 +76,7 @@ public class RunRepo implements BaseRepo {
      * 插入 Run
      */
     public RunDb insert(RunDb run) {
+        run.setObject("thread.run.step");
         if(StringUtils.isBlank(run.getId())) {
             run.setId(idGenerator.generateRunId());
         }

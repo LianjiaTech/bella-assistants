@@ -5,6 +5,7 @@ import com.ke.assistant.core.run.RunStateManager;
 import com.ke.assistant.model.CommonPage;
 import com.ke.assistant.service.RunService;
 import com.ke.assistant.service.ThreadService;
+import com.ke.assistant.util.ToolUtils;
 import com.ke.bella.openapi.BellaContext;
 import com.ke.bella.openapi.common.exception.BizParamCheckException;
 import com.ke.bella.openapi.common.exception.ResourceNotFoundException;
@@ -19,6 +20,7 @@ import com.theokanning.openai.assistants.run_step.RunStep;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -57,6 +59,8 @@ public class RunController {
             @PathVariable("thread_id") String threadId,
             @RequestBody RunCreateRequest request) {
 
+        ToolUtils.checkTools(request.getTools());
+
         // 验证thread是否存在
         if(threadService.getThreadById(threadId) == null) {
             throw new ResourceNotFoundException("Thread not found");
@@ -93,6 +97,8 @@ public class RunController {
         if(!threadId.equals(existing.getThreadId())) {
             throw new BizParamCheckException("Run does not belong to this thread");
         }
+
+        Assert.notEmpty(request.getToolOutputs(), "output can not be null");
 
         // 构造SubmitToolOutputs
         SubmitToolOutputs submitToolOutputs = new SubmitToolOutputs();

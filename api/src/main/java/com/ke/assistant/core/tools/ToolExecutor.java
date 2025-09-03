@@ -5,6 +5,7 @@ import com.ke.assistant.core.TaskExecutor;
 import com.ke.assistant.core.run.ExecutionContext;
 import com.ke.assistant.core.run.RunStateManager;
 import com.ke.assistant.util.MessageUtils;
+import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.assistants.assistant.Tool;
 import com.theokanning.openai.assistants.run.RequiredAction;
 import com.theokanning.openai.assistants.run.SubmitToolOutputs;
@@ -30,13 +31,13 @@ public class ToolExecutor implements Runnable {
     private final ExecutionContext context;
     private final RunStateManager runStateManager;
     private final Map<String, ToolHandler> toolHandlers;
-    private final Map<String, Tool> toolDefinites;
+    private final Map<String, Tool> toolDefinite;
 
     public ToolExecutor(ExecutionContext context, RunStateManager runStateManager) {
         this.context = context;
         this.runStateManager = runStateManager;
         this.toolHandlers = new HashMap<>();
-        this.toolDefinites = new HashMap<>();
+        this.toolDefinite = new HashMap<>();
     }
 
     public static void start(ExecutionContext context, RunStateManager runStateManager, ToolFetcher toolFetcher) {
@@ -79,21 +80,32 @@ public class ToolExecutor implements Runnable {
                     break;
                 }
                 String toolName = toolCall.getFunction().getName();
-                Tool tool = toolDefinites.get(toolName);
-                if(tool == null) {
-                    context.setError("invalid_tool", "tool name: " + toolName + "is not defined");
-                    break;
-                }
                 ToolHandler handler = toolHandlers.get(toolName);
                 if(handler != null) {
+                    Tool tool = toolDefinite.get(toolName);
+                    if(tool == null) {
+                        context.setError("invalid_tool", "tool name: " + toolName + " is not defined");
+                        break;
+                    }
                     ToolContext toolContext = buildToolContext(context, tool, task.getId());
                     // 需要输出结果，需要启动channel
-                    if (handler.isFinal() && channel == null) {
+                    if(handler.isFinal() && channel == null) {
                         channel = ToolOutputChannel.start(context);
                     }
                     ToolOutputChannel finalChannel = channel;
-                    CompletableFuture<Void> future = TaskExecutor.supplyCaller(() -> handler.execute(toolContext, task.getFunction().getArguments(), finalChannel))
-                            .exceptionally(throwable -> ToolResult.builder().error(throwable.getMessage()).build())
+                    CompletableFuture<Void> future = TaskExecutor.supplyCaller(() -> {
+                                        Map<String, Object> arguments = JacksonUtils.toMap(task.getFunction().getArguments().asText());
+                                        if(arguments == null) {
+                                            arguments = new HashMap<>();
+                                        }
+                                        return handler.execute(toolContext, arguments, finalChannel);
+                                    }
+                            )
+                            .exceptionally(throwable -> {
+                                        log.warn(throwable.getMessage(), throwable);
+                                        return ToolResult.builder().error(throwable.getMessage()).build();
+                                    }
+                            )
                             .thenAccept(output -> processResult(output, toolCall, context));
                     futures.add(future);
                 } else {
@@ -180,6 +192,6 @@ public class ToolExecutor implements Runnable {
         if(handler != null) {
             toolHandlers.put(toolName, handler);
         }
-        toolDefinites.put(toolName, tool);
+        toolDefinite.put(toolName, tool);
     }
 }

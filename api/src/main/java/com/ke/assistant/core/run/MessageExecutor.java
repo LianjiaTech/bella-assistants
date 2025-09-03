@@ -35,7 +35,7 @@ import java.util.List;
 public class MessageExecutor implements Runnable {
     private final ExecutionContext context;
     private final RunStateManager runStateManager;
-    private final SseEmitter sseEmitter;
+    private SseEmitter sseEmitter;
     private StringBuilder content;
     private StringBuilder reasoning;
     // 助手消息中的内容序号
@@ -57,13 +57,14 @@ public class MessageExecutor implements Runnable {
 
     @Override
     public void run() {
-        while (!context.isEnd()) {
+        while (true) {
             try {
                 Object msg = context.consume();
                 // 线程未结束时才执行
-                if(!context.isEnd()) {
-                    process(msg);
+                if(context.isEnd() && "[END]".equals(msg)) {
+                    break;
                 }
+                process(msg);
             } catch (Exception e) {
                 context.setError("server_error", e.getMessage());
                 log.warn(e.getMessage(), e);
@@ -71,6 +72,13 @@ public class MessageExecutor implements Runnable {
                     sseEmitter.completeWithError(e);
                 }
             }
+        }
+        try {
+            finish();
+        } catch (Exception e) {
+            log.warn(e.getMessage(), e);
+        } finally {
+            context.finishSend();
         }
     }
 
@@ -105,10 +113,12 @@ public class MessageExecutor implements Runnable {
             }
             // 工具处理结束时，存在content输出的工具会发送此消息，需要将输出加入到助手消息中
             if(msg.equals("[TOOL_DONE]")) {
-                MessageContent messageContent = new MessageContent();
-                messageContent.setType("text");
-                messageContent.setText(new Text(content.toString(), new ArrayList<>()));
-                runStateManager.addContent(context, messageContent, null);
+                if(content.length() > 0) {
+                    MessageContent messageContent = new MessageContent();
+                    messageContent.setType("text");
+                    messageContent.setText(new Text(content.toString(), new ArrayList<>()));
+                    runStateManager.addContent(context, messageContent, null);
+                }
                 content = new StringBuilder();
                 // 新增内容，序号 +1
                 ++index;
@@ -171,7 +181,7 @@ public class MessageExecutor implements Runnable {
         }
         // llm调用的消息
         if(msg instanceof ChatCompletionChunk) {
-            ChatCompletionChunk chunk = new ChatCompletionChunk();
+            ChatCompletionChunk chunk = (ChatCompletionChunk) msg;
             if(CollectionUtils.isNotEmpty(chunk.getChoices())) {
                 AssistantMessage assistantMessage = chunk.getChoices().get(0).getMessage();
                 if(assistantMessage != null) {
@@ -228,6 +238,7 @@ public class MessageExecutor implements Runnable {
         }
         send(StreamEvent.DONE, "[DONE]");
         sseEmitter.complete();
+        sseEmitter = null;
     }
 
     private void sendContent(String content) throws IOException {
@@ -275,7 +286,7 @@ public class MessageExecutor implements Runnable {
         com.theokanning.openai.assistants.run_step.Delta rDelta = new com.theokanning.openai.assistants.run_step.Delta();
         rDelta.setStepDetails(stepDetails);
         delta.setDelta(rDelta);
-        delta.setObject("run. step. delta");
+        delta.setObject("run.step.delta");
         send(StreamEvent.THREAD_RUN_STEP_DELTA, delta);
     }
 

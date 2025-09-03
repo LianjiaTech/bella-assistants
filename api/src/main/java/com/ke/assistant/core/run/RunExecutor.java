@@ -110,13 +110,16 @@ public class RunExecutor {
 
             // 主执行循环
             executeLoop(context);
-
+        } catch (Exception e) {
+            logger.error(e.getMessage(), e);
+            context.setError("server_error", e.getMessage());
+            stateManager.toFailed(context);
+        } finally {
             // 发送 "DONE", 并确认发送完成
             context.publish("[DONE]");
             if(!context.isFinishSend()) {
                 context.waitForSend(10);
             }
-        } finally {
             // 通知所有辅助线程退出
             context.end();
             BellaContext.clearAll();
@@ -148,9 +151,13 @@ public class RunExecutor {
                 // 2. 执行决策
                 switch (decision.getAction()) {
                 case COMPLETE:
+                    // 第一轮就完成的消息，即未执行，产生的空消息不生效，保持为hidden
+                    context.setNoExecute(context.getCurrentStep() == 1);
                     stateManager.toCompleted(context);
                     break;
                 case CANCELED:
+                    // run取消时，本轮产生的assistant消息不生效
+                    context.setNoExecute(true);
                     stateManager.toCanceled(context);
                     break;
                 case ERROR:
@@ -197,6 +204,8 @@ public class RunExecutor {
 
             if(assistantProperties.getMaxExecutionMinutes() != null ) {
                 context.setExpiredAt(LocalDateTime.now().plusMinutes(assistantProperties.getMaxExecutionMinutes()));
+            } else {
+                context.setExpiredAt(LocalDateTime.now().plusMinutes(10));
             }
 
             context.setMaxSteps(assistantProperties.getMaxExecutionSteps() == null ? 50 : assistantProperties.getMaxExecutionSteps());

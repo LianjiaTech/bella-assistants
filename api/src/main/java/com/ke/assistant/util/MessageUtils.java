@@ -307,6 +307,7 @@ public class MessageUtils {
         if("code_interpreter".equals(chatToolCall.getFunction().getName())) {
             return ToolCall.builder()
                     .id(chatToolCall.getId())
+                    .index(chatToolCall.getIndex())
                     .type("code_interpreter")
                     .codeInterpreter(ToolCallCodeInterpreter.builder()
                             .input(chatToolCall.getFunction().getArguments().asText())
@@ -316,6 +317,7 @@ public class MessageUtils {
         } else if("file_search".equals(chatToolCall.getFunction().getName())) {
             return ToolCall.builder()
                     .id(chatToolCall.getId())
+                    .index(chatToolCall.getIndex())
                     .type("file_search")
                     .fileSearch(ToolCallFileSearch.builder()
                             .rankingOptions(JacksonUtils.deserialize(chatToolCall.getFunction().getArguments().asText(), FileSearchRankingOptions.class))
@@ -324,6 +326,7 @@ public class MessageUtils {
         } else {
             return ToolCall.builder()
                     .id(chatToolCall.getId())
+                    .index(chatToolCall.getIndex())
                     .type("function")
                     .function(ToolCallFunction.builder()
                             .name(chatToolCall.getFunction().getName())

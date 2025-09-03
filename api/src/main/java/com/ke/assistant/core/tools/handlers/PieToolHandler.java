@@ -1,6 +1,5 @@
 package com.ke.assistant.core.tools.handlers;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.Lists;
 import com.ke.assistant.configuration.AssistantProperties;
 import com.ke.assistant.configuration.ToolProperties;
@@ -19,6 +18,7 @@ import org.springframework.stereotype.Component;
 import javax.annotation.PostConstruct;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 饼图生成工具处理器
@@ -44,10 +44,10 @@ public class PieToolHandler implements ToolHandler {
     }
     
     @Override
-    public ToolResult execute(ToolContext context, JsonNode arguments, ToolOutputChannel channel) {
+    public ToolResult execute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
         
         // 解析参数
-        String data = arguments.get("data").asText();
+        String data = Optional.ofNullable(arguments.get("data")).map(Object::toString).orElse(null);
         if (data == null || data.trim().isEmpty()) {
             // 返回错误消息
             Map<String, Object> outputData = new HashMap<>();
@@ -58,9 +58,6 @@ public class PieToolHandler implements ToolHandler {
             
             return ToolResult.builder().output(JacksonUtils.serialize(outputData)).build();
         }
-        
-        JsonNode categoriesNode = arguments.get("categories");
-        String categories = categoriesNode != null ? categoriesNode.asText() : null;
         
         // 解析数据
         String[] dataArray = data.split(";");
@@ -75,7 +72,8 @@ public class PieToolHandler implements ToolHandler {
                 values[i] = Integer.parseInt(item);
             }
         }
-        
+
+        String categories = Optional.ofNullable(arguments.get("categories")).map(Object::toString).orElse(null);
         // 解析分类标签
         String[] categoryLabels = null;
         if (categories != null && !categories.trim().isEmpty()) {
@@ -90,8 +88,7 @@ public class PieToolHandler implements ToolHandler {
             return ToolResult.builder().output(JacksonUtils.serialize("S3存储服务未配置，无法生成饼图。")).build();
         }
 
-        JsonNode titleNode = arguments.get("title");
-        String title = titleNode == null ? "饼图" : titleNode.asText();
+        String title = Optional.ofNullable(arguments.get("title")).map(Object::toString).orElse("饼图");
 
         String imageUrl;
         try {

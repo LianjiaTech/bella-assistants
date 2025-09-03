@@ -1,7 +1,6 @@
 package com.ke.assistant.core.tools.handlers;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.Lists;
 import com.ke.assistant.configuration.AssistantProperties;
 import com.ke.assistant.configuration.ToolProperties;
@@ -22,6 +21,7 @@ import javax.annotation.PostConstruct;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 文档检索工具处理器
@@ -40,10 +40,10 @@ public class RetrievalToolHandler implements BellaToolHandler {
     }
     
     @Override
-    public ToolResult doExecute(ToolContext context, JsonNode arguments, ToolOutputChannel channel) {
+    public ToolResult doExecute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
 
         // 解析参数并构建请求体
-        String query = arguments.get("query").asText();
+        String query = Optional.ofNullable(arguments.get("query")).map(Object::toString).orElse(null);
         if(query == null || query.trim().isEmpty()) {
             throw new IllegalArgumentException("query is null");
         }

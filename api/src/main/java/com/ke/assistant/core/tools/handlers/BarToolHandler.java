@@ -1,6 +1,5 @@
 package com.ke.assistant.core.tools.handlers;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.Lists;
 import com.ke.assistant.configuration.AssistantProperties;
 import com.ke.assistant.configuration.ToolProperties;
@@ -19,6 +18,7 @@ import org.springframework.stereotype.Component;
 import javax.annotation.PostConstruct;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 柱状图生成工具处理器
@@ -44,10 +44,10 @@ public class BarToolHandler implements ToolHandler {
     }
     
     @Override
-    public ToolResult execute(ToolContext context, JsonNode arguments, ToolOutputChannel channel) {
+    public ToolResult execute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
         
         // 解析参数
-        String data = arguments.get("data").asText();
+        String data = Optional.ofNullable(arguments.get("data")).map(Object::toString).orElse(null);
         if (data == null || data.trim().isEmpty()) {
             // 返回错误消息
             Map<String, Object> outputData = new HashMap<>();
@@ -58,9 +58,7 @@ public class BarToolHandler implements ToolHandler {
             
             return ToolResult.builder().output(JacksonUtils.serialize(outputData)).build();
         }
-        
-        JsonNode xAxisNode = arguments.get("x_axis");
-        String xAxis = xAxisNode != null ? xAxisNode.asText() : null;
+
         
         // 解析数据
         String[] dataArray = data.split(";");
@@ -75,7 +73,8 @@ public class BarToolHandler implements ToolHandler {
                 values[i] = Integer.parseInt(item);
             }
         }
-        
+
+        String xAxis = Optional.ofNullable(arguments.get("x_axis")).map(Object::toString).orElse(null);
         // 解析X轴标签
         String[] xAxisLabels = null;
         if (xAxis != null && !xAxis.trim().isEmpty()) {
@@ -90,14 +89,11 @@ public class BarToolHandler implements ToolHandler {
             return ToolResult.builder().output(JacksonUtils.serialize("S3存储服务未配置，无法生成柱状图。")).build();
         }
 
-        JsonNode titleNode = arguments.get("title");
-        String title = titleNode == null ? "柱状图" : titleNode.asText();
+        String title = Optional.ofNullable(arguments.get("title")).map(Object::toString).orElse("柱状图");
 
-        JsonNode xTagNode = arguments.get("xAxisTag");
-        String xTag = xTagNode == null ? "类别" : xTagNode.asText();
+        String xTag = Optional.ofNullable(arguments.get("xAxisTag")).map(Object::toString).orElse("类别");
 
-        JsonNode yTagNode = arguments.get("yAxisTag");
-        String yTag = xTagNode == null ? "数值" : yTagNode.asText();
+        String yTag = Optional.ofNullable(arguments.get("yAxisTag")).map(Object::toString).orElse("数值");
 
         String imageUrl;
         try {

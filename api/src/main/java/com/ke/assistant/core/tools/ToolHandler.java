@@ -1,8 +1,5 @@
 package com.ke.assistant.core.tools;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.theokanning.openai.assistants.assistant.Tool;
-
 import java.util.Map;
 
 /**
@@ -19,7 +16,7 @@ public interface ToolHandler {
      * @param channel 用于结果输出
      * @return 工具执行结果 -  除CodeInterpreter和FileSearch外，ToolResult的output都为String
      */
-    ToolResult execute(ToolContext context, JsonNode arguments, ToolOutputChannel channel);
+    ToolResult execute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel);
     
     /**
      * 获取工具名称

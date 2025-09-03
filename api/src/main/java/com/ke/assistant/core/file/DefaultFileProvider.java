@@ -1,7 +1,7 @@
 package com.ke.assistant.core.file;
 
+import com.ke.bella.openapi.server.OpenAiServiceFactory;
 import com.theokanning.openai.file.File;
-import com.theokanning.openai.service.OpenAiService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
@@ -10,10 +10,10 @@ import java.util.List;
 @Slf4j
 public class DefaultFileProvider implements FileProvider {
 
-    private final OpenAiService openAiService;
+    private final OpenAiServiceFactory openAiServiceFactory;
 
-    public DefaultFileProvider(OpenAiService openAiService) {
-        this.openAiService = openAiService;
+    public DefaultFileProvider(OpenAiServiceFactory openAiServiceFactory) {
+        this.openAiServiceFactory = openAiServiceFactory;
     }
 
     @Override
@@ -21,7 +21,7 @@ public class DefaultFileProvider implements FileProvider {
         List<FileInfo> result = new ArrayList<>();
         for(String fileId : fileIds) {
             try {
-                File file = openAiService.retrieveFile(fileId);
+                File file = openAiServiceFactory.create().retrieveFile(fileId);
                 if(file != null) {
                     FileInfo fileInfo = FileInfo.builder()
                             .id(fileId)

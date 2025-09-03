@@ -1,6 +1,5 @@
 package com.ke.assistant.core.tools.handlers;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.Lists;
 import com.ke.assistant.configuration.AssistantProperties;
 import com.ke.assistant.configuration.ToolProperties;
@@ -9,10 +8,10 @@ import com.ke.assistant.core.tools.ToolContext;
 import com.ke.assistant.core.tools.ToolOutputChannel;
 import com.ke.assistant.core.tools.ToolResult;
 import com.ke.assistant.service.S3Service;
+import com.ke.bella.openapi.server.OpenAiServiceFactory;
 import com.theokanning.openai.image.CreateImageRequest;
 import com.theokanning.openai.image.Image;
 import com.theokanning.openai.image.ImageResult;
-import com.theokanning.openai.service.OpenAiService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -21,6 +20,7 @@ import javax.annotation.PostConstruct;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 图片生成工具处理器
@@ -30,7 +30,7 @@ import java.util.Map;
 public class ImageGenerateToolHandler implements BellaToolHandler {
 
     @Autowired
-    private OpenAiService openAiService;
+    private OpenAiServiceFactory openAiServiceFactory;
     
     @Autowired
     private AssistantProperties assistantProperties;
@@ -46,7 +46,7 @@ public class ImageGenerateToolHandler implements BellaToolHandler {
     }
     
     @Override
-    public ToolResult doExecute(ToolContext context, JsonNode arguments, ToolOutputChannel channel) {
+    public ToolResult doExecute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
         // 检查S3服务是否配置
         if (!s3Service.isConfigured()) {
             return ToolResult.builder().output("S3存储服务未配置，无法生成图片。").build();
@@ -54,27 +54,15 @@ public class ImageGenerateToolHandler implements BellaToolHandler {
         
         try {
             // 解析参数
-            String prompt = arguments.get("prompt").asText();
+            String prompt = Optional.ofNullable(arguments.get("prompt")).map(Object::toString).orElse(null);
             if (prompt == null || prompt.trim().isEmpty()) {
                 throw new IllegalArgumentException("prompt参数不能为空");
             }
-            
+
             // 获取可选参数
-            String size = "1024x1024";  // 默认尺寸
-            if (arguments.has("size") && !arguments.get("size").isNull()) {
-                size = arguments.get("size").asText();
-            }
-            
-            String quality = "standard";  // 默认质量
-            if (arguments.has("quality") && !arguments.get("quality").isNull()) {
-                quality = arguments.get("quality").asText();
-            }
-            
-            String style = "vivid";  // 默认风格
-            if (arguments.has("style") && !arguments.get("style").isNull()) {
-                style = arguments.get("style").asText();
-            }
-            
+            String size = Optional.ofNullable(arguments.get("size")).map(Object::toString).orElse("1024x1024");
+            String quality = Optional.ofNullable(arguments.get("quality")).map(Object::toString).orElse("standard");
+            String style = Optional.ofNullable(arguments.get("style")).map(Object::toString).orElse("vivid");
             String model = "dall-e-3";
             String responseFormat = "b64_json";
 
@@ -122,7 +110,7 @@ public class ImageGenerateToolHandler implements BellaToolHandler {
             CreateImageRequest request = requestBuilder.build();
             
             // 调用API
-            ImageResult result = openAiService.createImage(request);
+            ImageResult result = openAiServiceFactory.create().createImage(request);
             
             if (result.getData() != null && !result.getData().isEmpty()) {
                 Image image = result.getData().get(0);

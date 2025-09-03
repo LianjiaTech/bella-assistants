@@ -2,6 +2,7 @@ package com.ke.assistant.core.run;
 
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.ke.assistant.core.file.FileInfo;
+import com.ke.bella.openapi.utils.DateTimeUtils;
 import com.theokanning.openai.Usage;
 import com.theokanning.openai.assistants.assistant.Tool;
 import com.theokanning.openai.assistants.run.RequiredAction;
@@ -96,6 +97,8 @@ public class ExecutionContext {
     private final ConcurrentHashMap<Integer, ChatToolCall> currentToolTasks;  // 当前待执行的工具
     // 本次run的总消耗
     private Usage usage;
+    // 是否未执行，决定本轮的assistant消息是否生效
+    private boolean noExecute;
 
     public ExecutionContext(Map<String, Object> bellaContext) {
         this.bellaContext = bellaContext;
@@ -197,8 +200,12 @@ public class ExecutionContext {
             if(origin.getFunction() == null) {
                 origin.setFunction(chatToolCall.getFunction());
             } else {
-                origin.getFunction().setName(Optional.of(origin.getFunction().getName()).orElse("") + Optional.of(chatToolCall.getFunction().getName()).orElse(""));
-                origin.getFunction().setArguments(new TextNode(Optional.of(origin.getFunction().getArguments()).orElse(new TextNode("")).asText() + Optional.of(chatToolCall.getFunction().getArguments()).orElse(new TextNode("")).asText()));
+                origin.getFunction().setName(
+                        Optional.ofNullable(origin.getFunction().getName()).orElse("") + Optional.ofNullable(chatToolCall.getFunction().getName())
+                                .orElse(""));
+                origin.getFunction().setArguments(new TextNode(
+                        Optional.ofNullable(origin.getFunction().getArguments()).orElse(new TextNode("")).asText() + Optional.ofNullable(
+                                chatToolCall.getFunction().getArguments()).orElse(new TextNode("")).asText()));
             }
         } else {
             currentToolTasks.put(chatToolCall.getIndex(), chatToolCall);
@@ -272,7 +279,10 @@ public class ExecutionContext {
      * 获取最大完成token数
      */
     public Integer getMaxCompletionTokens() {
-        return run.getMaxCompletionTokens();
+        if(run.getMaxCompletionTokens() == null || run.getMaxCompletionTokens() > 0) {
+            return run.getMaxCompletionTokens();
+        }
+        return null;
     }
     
     /**
@@ -313,7 +323,7 @@ public class ExecutionContext {
      * 剩余时间
      */
     public Integer getExecutionSeconds() {
-        return Math.toIntExact(run.getExpiresAt() - LocalDateTime.now().toEpochSecond(ZoneOffset.ofHours(8)));
+        return Math.toIntExact(expiredAt.toEpochSecond(ZoneOffset.ofHours(8)) - DateTimeUtils.getCurrentSeconds());
     }
 
     /**

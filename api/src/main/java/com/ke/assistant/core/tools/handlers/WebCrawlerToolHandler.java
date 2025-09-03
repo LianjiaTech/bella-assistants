@@ -1,7 +1,6 @@
 package com.ke.assistant.core.tools.handlers;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.Lists;
 import com.ke.assistant.configuration.AssistantProperties;
 import com.ke.assistant.configuration.ToolProperties;
@@ -22,6 +21,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 网页爬虫工具处理器
@@ -38,22 +38,16 @@ public class WebCrawlerToolHandler implements ToolHandler {
     public void init() {
         this.webCrawlerProperties = assistantProperties.getTools().getWebCrawler();
     }
-    
+
+    @SuppressWarnings("unchecked")
     @Override
-    public ToolResult execute(ToolContext context, JsonNode arguments, ToolOutputChannel channel) {
+    public ToolResult execute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
 
         // 解析参数
-        JsonNode urlsNode = arguments.get("web_crawler_urls");
-        if(urlsNode == null || !urlsNode.isArray()) {
-            throw new IllegalArgumentException("web_crawler_urls is null or not array");
-        }
+        List<String> urls = (List<String>) Optional.ofNullable(arguments.get("web_crawler_urls")).orElse(new ArrayList<>());
 
-        List<String> urls = new ArrayList<>();
-        for (JsonNode urlNode : urlsNode) {
-            String url = urlNode.asText();
-            if(url != null && !url.trim().isEmpty()) {
-                urls.add(url);
-            }
+        if(urls.isEmpty()) {
+            throw new IllegalArgumentException("urls is null or not array");
         }
 
         List<WebCrawlerResult> webCrawlerUrlContent = new ArrayList<>();

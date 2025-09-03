@@ -1,6 +1,5 @@
 package com.ke.assistant.core.tools.handlers;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.Lists;
 import com.ke.assistant.configuration.AssistantProperties;
 import com.ke.assistant.configuration.ToolProperties;
@@ -20,6 +19,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 文件读取工具处理器
@@ -36,17 +36,17 @@ public class ReadFilesToolHandler implements BellaToolHandler {
     public void init() {
         this.readFilesProperties = assistantProperties.getTools().getReadFiles();
     }
-    
+
+    @SuppressWarnings("unchecked")
     @Override
-    public ToolResult doExecute(ToolContext context, JsonNode arguments, ToolOutputChannel channel) {
+    public ToolResult doExecute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
 
         // 解析参数
-        JsonNode fileIdsNode = arguments.get("file_ids");
-        if(fileIdsNode == null || !fileIdsNode.isArray()) {
-            throw new IllegalArgumentException("file_ids is null or not array");
+        List<String> fileIds = (List<String>) Optional.ofNullable(arguments.get("file_ids")).orElse(new ArrayList<>());
+        if(fileIds.isEmpty()) {
+            throw new IllegalArgumentException("file_ids is null");
         }
 
-        List<String> fileIds = parseFileIds(fileIdsNode);
         Map<String, String> filesContent = new HashMap<>();
 
         // 循环处理每个文件ID
@@ -63,16 +63,16 @@ public class ReadFilesToolHandler implements BellaToolHandler {
     /**
      * 解析文件ID列表
      */
-    private List<String> parseFileIds(JsonNode fileIdsNode) {
-        List<String> fileIds = new ArrayList<>();
-        for (JsonNode fileIdNode : fileIdsNode) {
-            String fileId = fileIdNode.asText();
-            if(fileId != null && !fileId.trim().isEmpty()) {
-                fileIds.add(fileId);
-            }
-        }
-        return fileIds;
-    }
+    //    private List<String> parseFileIds(JsonNode fileIdsNode) {
+    //        List<String> fileIds = new ArrayList<>();
+    //        for (JsonNode fileIdNode : fileIdsNode) {
+    //            String fileId = fileIdNode.asText();
+    //            if(fileId != null && !fileId.trim().isEmpty()) {
+    //                fileIds.add(fileId);
+    //            }
+    //        }
+    //        return fileIds;
+    //    }
     
     /**
      * 读取单个文件
@@ -108,7 +108,7 @@ public class ReadFilesToolHandler implements BellaToolHandler {
     
     @Override
     public String getDescription() {
-        return "根据文件ids 获取文件内容，并将文件解析为markdown格式";
+        return "根据文件ids 获取文件内容，并将文件解析为markdown格式。如果不清楚应该使用哪些文件，可以输入全部的文件ID。";
     }
     
     @Override

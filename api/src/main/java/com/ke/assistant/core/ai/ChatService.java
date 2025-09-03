@@ -2,8 +2,8 @@ package com.ke.assistant.core.ai;
 
 import com.ke.assistant.core.run.ExecutionContext;
 import com.ke.bella.openapi.BellaContext;
+import com.ke.bella.openapi.server.OpenAiServiceFactory;
 import com.theokanning.openai.completion.chat.ChatCompletionRequest;
-import com.theokanning.openai.service.OpenAiService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,18 +15,13 @@ public class ChatService {
     private static final Logger logger = LoggerFactory.getLogger(ChatService.class);
 
     @Autowired
-    private OpenAiService openAiService;
+    private OpenAiServiceFactory openAiServiceFactory;
     
     /**
      * 流式聊天完成
      */
     public void chat(ExecutionContext context) {
-        try {
-            BellaContext.replace(context.getBellaContext());
-            tryStreamChat(context, 0, 3);
-        } finally {
-            BellaContext.clearAll();
-        }
+        tryStreamChat(context, 0, 3);
     }
 
 
@@ -51,18 +46,26 @@ public class ChatService {
             request.setStream(true);
 
             int finalTime = time;
-            openAiService.streamChatCompletion(request)
+            openAiServiceFactory.create().streamChatCompletion(request)
                     .subscribe(context::publish, throwable -> {
+                        logger.warn(throwable.getMessage(), throwable);
                         if(finalTime > maxTimes) {
                             context.setError("llm_error", throwable.getMessage());
                         } else {
-                            tryStreamChat(context, finalTime, maxTimes);
+                            try {
+                                BellaContext.replace(context.getBellaContext());
+                                tryStreamChat(context, finalTime, maxTimes);
+                            } finally {
+                                BellaContext.clearAll();
+                            }
                         }
                     }, () -> context.publish("[LLM_DONE]"));
 
         } catch (Exception e) {
+            logger.warn(e.getMessage(), e);
             if(time < maxTimes) {
                 tryStreamChat(context, time, maxTimes);
+                return;
             }
             logger.error("Stream chat completion failed for model: {}", context.getModel(), e);
             context.setError("llm_error", e.getMessage());

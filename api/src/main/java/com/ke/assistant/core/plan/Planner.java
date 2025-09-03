@@ -21,8 +21,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -152,11 +150,6 @@ public class Planner {
 
         ChatMessage lastMessage = messages.get(messages.size() - 1);
 
-        // 如果最后一条消息是用户消息，需要生成assistant回复
-        if ("user".equals(lastMessage.getRole())) {
-            return planLLMCall();
-        }
-
         // 如果最后一条消息是assistant消息，检查是否有工具调用
         if ("assistant".equals(lastMessage.getRole())) {
             // 检查是否有待执行的工具调用
@@ -168,8 +161,8 @@ public class Planner {
             }
         }
 
-        context.setError("bad_request", "No messages to process");
-        return PlannerDecision.error("No messages to process");
+        // 如果最后一条消息是用户消息，或者工具消息，需要生成assistant回复
+        return planLLMCall();
     }
 
     /**
@@ -201,7 +194,7 @@ public class Planner {
         }
 
         // 消息历史，只返回小于当前assistantMessageId的消息
-        List<Message> messages = messageService.getMessagesForRun(context.getThreadId(), LocalDateTime.ofEpochSecond(context.getRun().getCreatedAt(), 0, ZoneOffset.ofHours(8)));
+        List<Message> messages = messageService.getMessagesForRun(context.getThreadId(), context.getRun().getCreateTime());
 
         // 线程下的所有RunSteps
         Map<String, List<RunStep>> runStepMap = runService.getThreadSteps(context.getThreadId()).stream().collect(Collectors.groupingBy(RunStep::getRunId));
@@ -217,14 +210,26 @@ public class Planner {
                 ChatMessage assistantMessage = MessageUtils.formatChatCompletionMessage(message);
                 if(message.getRunId() != null ) {
                     List<RunStep> runSteps = runStepMap.get(message.getRunId());
-                    for(RunStep runStep : runSteps) {
-                        buildToolMessage(context, runStep);
+                    if(runSteps != null) {
+                        for (RunStep runStep : runSteps) {
+                            buildToolMessage(context, runStep);
+                        }
                     }
                 }
                 context.addChatMessage(assistantMessage);
             }
         }
 
+        // 将之前的工具调用结果加入
+        if(context.getHistoryToolSteps() != null && !context.getHistoryToolSteps().isEmpty()) {
+            for (RunStep runStep : context.getHistoryToolSteps()) {
+                StepDetails stepDetails = runStep.getStepDetails();
+                if(stepDetails.getToolCalls() == null) {
+                    continue;
+                }
+                MessageUtils.convertToolCallMessages(stepDetails.getToolCalls(), runStep.getLastError()).forEach(context::addChatMessage);
+            }
+        }
     }
 
     private void buildToolMessage(ExecutionContext context, RunStep runStep) {

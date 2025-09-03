@@ -47,14 +47,26 @@ public class MessageService {
      */
     @Transactional
     public Message createMessage(String threadId, MessageRequest request) {
+        return createMessage(threadId, request, "completed", false);
+    }
+
+    @Transactional
+    public Message createRunStepMessage(String threadId, MessageRequest request) {
+        return createMessage(threadId, request, "in_progress", true);
+    }
+
+    @Transactional
+    public Message createMessage(String threadId, MessageRequest request, String status, boolean hidden) {
         // 验证Thread是否存在
         if (!threadService.existsById(threadId)) {
             throw new ResourceNotFoundException("Thread not found: " + threadId);
         }
-        
+
         MessageDb message = new MessageDb();
         BeanUtils.copyProperties(request, message);
         message.setThreadId(threadId);
+        message.setStatus(status);
+        message.setMessageStatus(hidden ? "hidden" : "original");
 
         // 格式化content内容
         List<Object> formattedContent = MessageUtils.formatMessageContent(request.getContent());
@@ -76,7 +88,7 @@ public class MessageService {
 
         // 只有实际的数据库插入操作需要加读锁
         MessageDb savedMessage = threadLockService.executeWithReadLock(threadId, () -> messageRepo.insert(message));
-        
+
         return convertToInfo(savedMessage);
     }
 
@@ -100,7 +112,7 @@ public class MessageService {
      * 获取运行相关的消息列表，并可选择根据命令类型进行过滤
      */
     public List<Message> getMessagesForRun(String threadId, LocalDateTime runCreateAt) {
-        List<MessageDb> messages = messageRepo.findByThreadIdWithLimit(threadId, runCreateAt);
+        List<MessageDb> messages = messageRepo.findByThreadIdWithLimitWithoutHidden(threadId, runCreateAt);
 
         // 从后向前查找第一个命令类型的消息
         for (int i = messages.size() - 1; i >= 0; i--) {
@@ -188,7 +200,16 @@ public class MessageService {
             contents = new ArrayList<>();
         }
 
-        contents.add(content);
+        if(contents.isEmpty()) {
+            contents.add(content);
+        } else {
+            MessageContent last = contents.get(contents.size() - 1);
+            if(last.empty()) {
+                contents.set(contents.size() - 1, content);
+            } else {
+                contents.add(content);
+            }
+        }
 
         existing.setContent(JacksonUtils.serialize(contents));
 
@@ -204,13 +225,15 @@ public class MessageService {
     }
 
     @Transactional
-    public Message updateStatus(String threadId, String id, String status) {
+    public Message updateStatus(String threadId, String id, String status, boolean hidden) {
         MessageDb existing = messageRepo.findByIdForUpdate(threadId, id);
         if(existing == null) {
             throw new IllegalArgumentException("Message not found: " + id);
         }
 
         existing.setStatus(status);
+
+        existing.setMessageStatus(hidden ? "hidden" : "original");
 
         messageRepo.update(existing);
         return convertToInfo(existing);

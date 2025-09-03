@@ -1,7 +1,6 @@
 package com.ke.assistant.core.tools.handlers;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.Lists;
 import com.ke.assistant.configuration.AssistantProperties;
 import com.ke.assistant.configuration.ToolProperties;
@@ -22,6 +21,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Tavily搜索工具处理器
@@ -40,14 +40,14 @@ public class WebSearchTavilyToolHandler implements ToolHandler {
     }
     
     @Override
-    public ToolResult execute(ToolContext context, JsonNode arguments, ToolOutputChannel channel) {
+    public ToolResult execute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
 
         if(tavilyProperties.getApiKey() == null) {
             throw new IllegalStateException("Tavily apikey is null");
         }
 
         // 解析参数
-        String query = arguments.get("query").asText();
+        String query = Optional.ofNullable(arguments.get("query")).map(Object::toString).orElse(null);
         if(query == null || query.trim().isEmpty()) {
             throw new IllegalArgumentException("query is null");
         }

@@ -1,7 +1,6 @@
 package com.ke.assistant.core.tools.handlers;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.Lists;
 import com.ke.assistant.configuration.AssistantProperties;
 import com.ke.assistant.configuration.ToolProperties;
@@ -26,6 +25,7 @@ import javax.annotation.PostConstruct;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * RAG检索增强生成工具处理器 - Bella RAG
@@ -45,10 +45,10 @@ public class RagToolHandler implements BellaToolHandler {
     }
     
     @Override
-    public ToolResult doExecute(ToolContext context, JsonNode arguments, ToolOutputChannel channel) {
-        
+    public ToolResult doExecute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
+
+        String query = Optional.ofNullable(arguments.get("query")).map(Object::toString).orElse(null);
         // 解析参数
-        String query = arguments.get("query").asText();
         if (query == null || query.trim().isEmpty()) {
             throw new IllegalArgumentException("query is null");
         }
@@ -207,7 +207,7 @@ public class RagToolHandler implements BellaToolHandler {
     
     @Override
     public String getDescription() {
-        return "可以用来查询已上传到这个助手的信息。如果用户正在引用特定的文件，那通常是一个很好的提示，这里可能有他们需要的信息。请提取完整的输入、不要提关键词";
+        return "可以用来查询已上传到这个助手的信息。如果用户正在引用特定的文件，那通常是一个很好的提示，这里可能有他们需要的信息。请提取完整的输入、不要提关键词。";
     }
     
     @Override

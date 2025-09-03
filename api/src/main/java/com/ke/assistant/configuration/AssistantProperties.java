@@ -7,7 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties("bella.assistant")
 public class AssistantProperties {
     private String keyPrefix = "bella_assistant";
-    private Integer maxExecutionMinutes;
+    private Integer maxExecutionMinutes = 10;
     private Integer maxExecutionSteps;
     private ToolProperties tools = new ToolProperties();
     private S3Properties s3 = new S3Properties();

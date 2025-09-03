@@ -1,6 +1,5 @@
 package com.ke.assistant.core.tools.handlers;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.Lists;
 import com.ke.assistant.configuration.AssistantProperties;
 import com.ke.assistant.configuration.ToolProperties;
@@ -19,6 +18,7 @@ import javax.annotation.PostConstruct;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 天气搜索工具处理器
@@ -37,14 +37,14 @@ public class WeatherSearchToolHandler implements ToolHandler {
     }
     
     @Override
-    public ToolResult execute(ToolContext context, JsonNode arguments, ToolOutputChannel channel) {
+    public ToolResult execute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
 
         if(weatherProperties.getApiKey() == null) {
             throw new IllegalStateException("apikey is null");
         }
         
         // 解析参数
-        String city = arguments.get("city").asText();
+        String city = Optional.ofNullable(arguments.get("city")).map(Object::toString).orElse(null);
         
         if (city == null || city.trim().isEmpty()) {
             throw new IllegalArgumentException("city is null");
@@ -89,7 +89,7 @@ public class WeatherSearchToolHandler implements ToolHandler {
     
     @Override
     public String getDescription() {
-        return "当你想询问关于天气或与天气相关的问题时，你可以使用这个工具。";
+        return "可以查询当天天气和未来三天的天气预报。当你想询问关于天气或与天气相关的问题时，你可以使用这个工具。";
     }
     
     @Override

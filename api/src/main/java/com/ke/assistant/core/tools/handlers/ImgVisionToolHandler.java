@@ -1,16 +1,15 @@
 package com.ke.assistant.core.tools.handlers;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.Lists;
 import com.ke.assistant.core.tools.BellaToolHandler;
 import com.ke.assistant.core.tools.ToolContext;
 import com.ke.assistant.core.tools.ToolOutputChannel;
 import com.ke.assistant.core.tools.ToolResult;
+import com.ke.bella.openapi.server.OpenAiServiceFactory;
 import com.theokanning.openai.completion.chat.ChatCompletionRequest;
 import com.theokanning.openai.completion.chat.ChatCompletionResult;
 import com.theokanning.openai.completion.chat.ChatMessage;
 import com.theokanning.openai.completion.chat.UserMessage;
-import com.theokanning.openai.service.OpenAiService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -19,6 +18,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 图片视觉理解工具处理器
@@ -28,29 +28,25 @@ import java.util.Map;
 public class ImgVisionToolHandler implements BellaToolHandler {
 
     @Autowired
-    private OpenAiService openAiService;
+    private OpenAiServiceFactory openAiServiceFactory;
     
     @Override
-    public ToolResult doExecute(ToolContext context, JsonNode arguments, ToolOutputChannel channel) {
+    public ToolResult doExecute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
         try {
             // 解析参数
-            String imageUrl = arguments.get("image_url").asText();
+            String imageUrl = Optional.ofNullable(arguments.get("image_url")).map(Object::toString).orElse(null);
+
             if (imageUrl == null || imageUrl.trim().isEmpty()) {
                 throw new IllegalArgumentException("image_url参数不能为空");
             }
             
             // 获取可选的提示词参数
-            String prompt = "请分析这张图片，描述你看到的内容，包括物体、场景、文字等详细信息。";
-            if (arguments.has("prompt") && !arguments.get("prompt").isNull()) {
-                prompt = arguments.get("prompt").asText();
-            }
+            String prompt = Optional.ofNullable(arguments.get("prompt")).map(Object::toString)
+                    .orElse("请分析这张图片，描述你看到的内容，包括物体、场景、文字等详细信息。");
             
             // 获取可选的detail参数
-            String detail = "auto";
-            if (arguments.has("detail") && !arguments.get("detail").isNull()) {
-                detail = arguments.get("detail").asText();
-            }
-            
+            String detail = Optional.ofNullable(arguments.get("prompt")).map(Object::toString).orElse("auto");
+
             log.info("开始分析图片: {}, 提示词: {}, 详细度: {}", imageUrl, prompt, detail);
             
             // 调用OpenAI Vision API
@@ -98,7 +94,7 @@ public class ImgVisionToolHandler implements BellaToolHandler {
                     .build();
             
             // 调用API
-            ChatCompletionResult result = openAiService.createChatCompletion(request);
+            ChatCompletionResult result = openAiServiceFactory.create().createChatCompletion(request);
             
             if (result.getChoices() != null && !result.getChoices().isEmpty()) {
                 return result.getChoices().get(0).getMessage().getContent();

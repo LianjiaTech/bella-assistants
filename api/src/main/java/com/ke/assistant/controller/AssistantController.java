@@ -1,11 +1,12 @@
 package com.ke.assistant.controller;
 
+import com.ke.assistant.db.generated.tables.pojos.AssistantDb;
 import com.ke.assistant.model.CommonPage;
 import com.ke.assistant.model.DeleteResponse;
-import com.ke.assistant.db.generated.tables.pojos.AssistantDb;
 import com.ke.assistant.service.AssistantService;
 import com.ke.assistant.util.BeanUtils;
 import com.ke.assistant.util.ToolResourceUtils;
+import com.ke.assistant.util.ToolUtils;
 import com.ke.bella.openapi.BellaContext;
 import com.ke.bella.openapi.common.exception.ResourceNotFoundException;
 import com.ke.bella.openapi.utils.JacksonUtils;
@@ -47,6 +48,7 @@ public class AssistantController {
         AssistantDb assistant = new AssistantDb();
         BeanUtils.copyProperties(request, assistant);
         assistant.setOwner(BellaContext.getOwnerCode());
+        assistant.setUser(BellaContext.getOwnerCode());
 
         // 将metadata Map转换为JSON字符串
         if(request.getMetadata() != null) {
@@ -56,6 +58,8 @@ public class AssistantController {
         // 处理 tool_resources
         List<Map<String, String>> toolResourceFiles = request.getToolResources() != null ?
                 ToolResourceUtils.toolResourceToFiles(request.getToolResources()) : null;
+
+        ToolUtils.checkTools(request.getTools());
 
         return assistantService.createAssistant(assistant, request.getFileIds(), request.getTools(), toolResourceFiles);
     }
@@ -119,6 +123,8 @@ public class AssistantController {
         // 处理 tool_resources
         List<Map<String, String>> toolResourceFiles = request.getToolResources() != null ?
                 ToolResourceUtils.toolResourceToFiles(request.getToolResources()) : null;
+
+        ToolUtils.checkTools(request.getTools());
 
         return assistantService.updateAssistant(assistantId, updateData, request.getFileIds(), request.getTools(), toolResourceFiles,
                 BellaContext.getOwnerCode());

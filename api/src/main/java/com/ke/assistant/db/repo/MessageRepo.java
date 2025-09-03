@@ -4,7 +4,6 @@ import com.ke.assistant.db.IdGenerator;
 import com.ke.assistant.db.generated.tables.pojos.MessageDb;
 import com.ke.assistant.db.generated.tables.records.MessageRecord;
 import lombok.RequiredArgsConstructor;
-import lombok.var;
 import org.apache.commons.lang3.StringUtils;
 import org.jooq.DSLContext;
 import org.springframework.stereotype.Repository;
@@ -57,10 +56,11 @@ public class MessageRepo implements BaseRepo {
     /**
      * 根据 Thread ID 和 最大创建时间 查询 Message 列表
      */
-    public List<MessageDb> findByThreadIdWithLimit(String threadId, LocalDateTime lessThanCreateAt) {
+    public List<MessageDb> findByThreadIdWithLimitWithoutHidden(String threadId, LocalDateTime lessThanCreateAt) {
         return dsl.selectFrom(MESSAGE)
                 .where(MESSAGE.THREAD_ID.eq(threadId))
                 .and(MESSAGE.CREATED_AT.lt(lessThanCreateAt))
+                .and(MESSAGE.MESSAGE_STATUS.eq("original"))
                 .orderBy(MESSAGE.CREATED_AT.asc())
                 .fetchInto(MessageDb.class);
     }
