@@ -9,6 +9,7 @@ import com.ke.assistant.core.tools.ToolOutputChannel;
 import com.ke.assistant.core.tools.ToolResult;
 import com.ke.assistant.service.S3Service;
 import com.ke.bella.openapi.server.OpenAiServiceFactory;
+import com.theokanning.openai.completion.chat.ImageUrl;
 import com.theokanning.openai.image.CreateImageRequest;
 import com.theokanning.openai.image.Image;
 import com.theokanning.openai.image.ImageResult;
@@ -51,6 +52,11 @@ public class ImageGenerateToolHandler implements BellaToolHandler {
         if (!s3Service.isConfigured()) {
             return ToolResult.builder().output("S3存储服务未配置，无法生成图片。").build();
         }
+
+        String model = imageProperties.getModel();
+        if(model == null || model.isEmpty()) {
+            return ToolResult.builder().output("模型未配置，无法生成图片。").build();
+        }
         
         try {
             // 解析参数
@@ -63,18 +69,20 @@ public class ImageGenerateToolHandler implements BellaToolHandler {
             String size = Optional.ofNullable(arguments.get("size")).map(Object::toString).orElse("1024x1024");
             String quality = Optional.ofNullable(arguments.get("quality")).map(Object::toString).orElse("standard");
             String style = Optional.ofNullable(arguments.get("style")).map(Object::toString).orElse("vivid");
-            String model = "dall-e-3";
-            String responseFormat = "b64_json";
 
+            String responseFormat = "b64_json";
             
             log.info("开始生成图片: prompt={}, size={}, quality={}, style={}, model={}", 
                     prompt, size, quality, style, model);
             
             // 调用OpenAI图像生成API
             String result = generateImage(prompt, size, quality, style, model, responseFormat);
+
+            ImageUrl output = new ImageUrl();
+            output.setUrl(result);
             
             if(isFinal()) {
-                channel.output(context.getToolId(), result);
+                channel.output(context.getToolId(), output);
             }
             
             log.info("图片生成完成");
@@ -106,7 +114,12 @@ public class ImageGenerateToolHandler implements BellaToolHandler {
                     .model(model)
                     .responseFormat(responseFormat)
                     .n(1);  // 生成1张图片
-            
+
+            // 需要去除水印
+            if(imageProperties.isProcessWatermark()) {
+                requestBuilder.watermark(false);
+            }
+
             CreateImageRequest request = requestBuilder.build();
             
             // 调用API
@@ -167,7 +180,7 @@ public class ImageGenerateToolHandler implements BellaToolHandler {
         // quality 参数 (可选)
         Map<String, Object> qualityParam = new HashMap<>();
         qualityParam.put("type", "string");
-        qualityParam.put("description", "图片质量，standard为标准质量，hd为高清");
+        qualityParam.put("description", "图片质量，standard为标准质量，hd为高清，如无特殊要求，默认选择标准质量");
         qualityParam.put("enum", Lists.newArrayList("standard", "hd"));
         properties.put("quality", qualityParam);
         

@@ -8,6 +8,7 @@ public class ToolProperties {
     private WebSearchToolProperties webSearch = new WebSearchToolProperties();
     private WebSearchTavilyToolProperties webSearchTavily = new WebSearchTavilyToolProperties();
     private ImageGenerateToolProperties imageGenerate = new ImageGenerateToolProperties();
+    private ImageGenerateToolProperties imageVision = new ImageGenerateToolProperties();
     private WebCrawlerToolProperties webCrawler = new WebCrawlerToolProperties();
     private WeatherSearchToolProperties weatherSearch = new WeatherSearchToolProperties();
     private WikiSearchToolProperties wikiSearch = new WikiSearchToolProperties();
@@ -43,8 +44,10 @@ public class ToolProperties {
     
     @Data
     public static class ImageGenerateToolProperties {
+        private String model = "dall-e-3";
         private String format = "jpg";
-        private boolean isFinal = false;
+        private boolean processWatermark = false;
+        private boolean isFinal = true;
     }
     
     @Data

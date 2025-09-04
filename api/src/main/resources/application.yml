@@ -113,8 +113,10 @@ bella:
         include-raw-content: false
         max-results: 5
       image-generate:
+        model: ${IMG_GEN_TOOL_MODEL:dall-e-3}
+        process-watermark: ${IMG_GEN_PROCESS_WATERMARK:false}
         format: jpg
-        is-final: false
+        is-final: true
       web-crawler:
         url: ${WEB_CRAWLER_URL:}
         api-key: ${WEB_CRAWLER_APIKEY:}
@@ -131,7 +133,7 @@ bella:
       read-files:
         url: ${READ_FILES_URL:}
       img-vision:
-        model: gpt-4o
+        model: ${IMG_VISION_TOOL_MODEL:gpt-4o}
         is-final: false
       retrieval:
         url: ${RETRIEVAL_URL:}

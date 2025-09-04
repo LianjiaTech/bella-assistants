@@ -195,7 +195,7 @@ public class MessageExecutor implements Runnable {
                     }
                     if(assistantMessage.getToolCalls() != null) {
                         for(ChatToolCall chatToolCall : assistantMessage.getToolCalls()) {
-                            sendToolCall(chatToolCall);
+                            sendToolCall(context.getCurrentRunStep().getId(), chatToolCall);
                             context.addToolCallTask(chatToolCall);
                         }
                     }
@@ -275,18 +275,20 @@ public class MessageExecutor implements Runnable {
         send(StreamEvent.THREAD_MESSAGE_DELTA, messageDelta);
     }
 
-    private void sendToolCall(ChatToolCall chatToolCall) throws IOException {
+    private void sendToolCall(String stepId, ChatToolCall chatToolCall) throws IOException {
         if(sseEmitter == null) {
             return;
         }
         StepDetails stepDetails = new StepDetails();
         ToolCall call = MessageUtils.convertToolCall(chatToolCall);
+        stepDetails.setType("tool_calls");
         stepDetails.setToolCalls(Lists.newArrayList(call));
         RunStepDelta delta = new RunStepDelta();
         com.theokanning.openai.assistants.run_step.Delta rDelta = new com.theokanning.openai.assistants.run_step.Delta();
         rDelta.setStepDetails(stepDetails);
         delta.setDelta(rDelta);
         delta.setObject("run.step.delta");
+        delta.setId(stepId);
         send(StreamEvent.THREAD_RUN_STEP_DELTA, delta);
     }
 

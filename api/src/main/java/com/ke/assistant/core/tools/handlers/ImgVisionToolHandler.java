@@ -1,6 +1,8 @@
 package com.ke.assistant.core.tools.handlers;
 
 import com.google.common.collect.Lists;
+import com.ke.assistant.configuration.AssistantProperties;
+import com.ke.assistant.configuration.ToolProperties;
 import com.ke.assistant.core.tools.BellaToolHandler;
 import com.ke.assistant.core.tools.ToolContext;
 import com.ke.assistant.core.tools.ToolOutputChannel;
@@ -14,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -29,9 +32,25 @@ public class ImgVisionToolHandler implements BellaToolHandler {
 
     @Autowired
     private OpenAiServiceFactory openAiServiceFactory;
+
+    @Autowired
+    private AssistantProperties assistantProperties;
+
+    private ToolProperties.ImgVisionToolProperties visionToolProperties;
+
+    @PostConstruct
+    public void init() {
+        this.visionToolProperties = assistantProperties.getTools().getImgVision();
+    }
     
     @Override
     public ToolResult doExecute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
+
+        String model = visionToolProperties.getModel();
+        if(model == null || model.isEmpty()) {
+            return ToolResult.builder().output("模型未配置，无法生成图片。").build();
+        }
+
         try {
             // 解析参数
             String imageUrl = Optional.ofNullable(arguments.get("image_url")).map(Object::toString).orElse(null);
@@ -45,12 +64,12 @@ public class ImgVisionToolHandler implements BellaToolHandler {
                     .orElse("请分析这张图片，描述你看到的内容，包括物体、场景、文字等详细信息。");
             
             // 获取可选的detail参数
-            String detail = Optional.ofNullable(arguments.get("prompt")).map(Object::toString).orElse("auto");
+            String detail = Optional.ofNullable(arguments.get("detail")).map(Object::toString).orElse("auto");
 
             log.info("开始分析图片: {}, 提示词: {}, 详细度: {}", imageUrl, prompt, detail);
             
             // 调用OpenAI Vision API
-            String analysisResult = analyzeImage(imageUrl, prompt, detail);
+            String analysisResult = analyzeImage(imageUrl, prompt, detail, model);
             
             if(isFinal()) {
                 channel.output(context.getToolId(), analysisResult);
@@ -74,7 +93,7 @@ public class ImgVisionToolHandler implements BellaToolHandler {
     /**
      * 使用OpenAI Vision API分析图片
      */
-    private String analyzeImage(String imageUrl, String prompt, String detail) {
+    private String analyzeImage(String imageUrl, String prompt, String detail, String model) {
         try {
             // 构建消息
             List<ChatMessage> messages = new ArrayList<>();
@@ -87,7 +106,7 @@ public class ImgVisionToolHandler implements BellaToolHandler {
             
             // 构建请求
             ChatCompletionRequest request = ChatCompletionRequest.builder()
-                    .model("gpt-4o")  // 使用支持视觉的模型
+                    .model(model)
                     .messages(messages)
                     .maxTokens(1000)
                     .temperature(0.7)
@@ -152,6 +171,6 @@ public class ImgVisionToolHandler implements BellaToolHandler {
     
     @Override
     public boolean isFinal() {
-        return false;
+        return visionToolProperties.isFinal();
     }
 }
