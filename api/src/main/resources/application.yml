@@ -104,8 +104,6 @@ bella:
         top-k: 5
         model: ${RAG_TOOL_MODEL:gpt-4o}
         is-final: false
-      web-search:
-        url: http://localhost:8080/search
       web-search-tavily:
         url: https://api.tavily.com/search
         api-key: ${WEB_SEARCH_TAVILY_APIKEY:}

@@ -5,7 +5,6 @@ import lombok.Data;
 @Data
 public class ToolProperties {
     private RagToolProperties rag = new RagToolProperties();
-    private WebSearchToolProperties webSearch = new WebSearchToolProperties();
     private WebSearchTavilyToolProperties webSearchTavily = new WebSearchTavilyToolProperties();
     private ImageGenerateToolProperties imageGenerate = new ImageGenerateToolProperties();
     private ImageGenerateToolProperties imageVision = new ImageGenerateToolProperties();
@@ -26,11 +25,6 @@ public class ToolProperties {
         private int topK = 5;
         private String model = "gpt-4o";
         private boolean isFinal = false;
-    }
-    
-    @Data
-    public static class WebSearchToolProperties {
-        private String url = "http://localhost:8080/search";
     }
     
     @Data
