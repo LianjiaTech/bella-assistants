@@ -98,6 +98,7 @@ public class MessageRepo implements BaseRepo {
      * 插入 Message
      */
     public MessageDb insert(MessageDb message) {
+        message.setObject("thread.message");
         if(StringUtils.isBlank(message.getId())) {
             message.setId(idGenerator.generateMessageId());
         }

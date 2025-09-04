@@ -48,6 +48,7 @@ public class ThreadFileRelationRepo implements BaseRepo {
     }
 
     public ThreadFileRelationDb insert(ThreadFileRelationDb relation) {
+        relation.setObject("thread.file");
         // 自增 ID，不需要设置
         fillCreateTime(relation);
 

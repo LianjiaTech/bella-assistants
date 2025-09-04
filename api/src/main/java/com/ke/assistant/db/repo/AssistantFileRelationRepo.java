@@ -48,6 +48,7 @@ public class AssistantFileRelationRepo implements BaseRepo {
     }
 
     public AssistantFileRelationDb insert(AssistantFileRelationDb relation) {
+        relation.setObject("assistant.file");
         // 自增 ID，不需要设置
         fillCreateTime(relation);
 

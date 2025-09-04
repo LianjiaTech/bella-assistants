@@ -201,13 +201,13 @@ public class Planner {
 
         for(Message message : messages) {
             if(message.getRole().equals("user")) {
-                ChatMessage chatMessage = MessageUtils.formatChatCompletionMessage(message);
+                ChatMessage chatMessage = MessageUtils.formatChatCompletionMessage(message, context.getFileInfos());
                 if(chatMessage != null) {
                     context.addChatMessage(chatMessage);
                 }
             }
             if(message.getRole().equals("assistant")) {
-                ChatMessage assistantMessage = MessageUtils.formatChatCompletionMessage(message);
+                ChatMessage assistantMessage = MessageUtils.formatChatCompletionMessage(message, context.getFileInfos());
                 if(message.getRunId() != null ) {
                     List<RunStep> runSteps = runStepMap.get(message.getRunId());
                     if(runSteps != null) {

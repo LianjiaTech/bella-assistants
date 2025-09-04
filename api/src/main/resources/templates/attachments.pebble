@@ -1,0 +1,14 @@
+
+
+{% if files != null %}
+有如下文档参考：
+<KnowledgeBase>
+{% for file in files %}
+<knowledge>
+<id>{{file.id}}</id>
+<name>{{file.name}}</name>
+<abstract>{{file.abstractInfo}}</abstract>
+</knowledge>
+{% endfor %}
+</KnowledgeBase>
+{% endif %}

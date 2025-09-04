@@ -224,7 +224,7 @@ public class RunExecutor {
 
             List<String> fileIds = null;
 
-            if(run.getFileIds() != null && run.getFileIds().getTools() != null) {
+            if(run.getFileIds() != null && run.getFileIds().getTools() != null && !run.getFileIds().getTools().isEmpty()) {
                 context.setToolFiles(run.getFileIds());
                 fileIds = run.getFileIds().getTools().values().stream().flatMap(List::stream).collect(Collectors.toList());
             } else {

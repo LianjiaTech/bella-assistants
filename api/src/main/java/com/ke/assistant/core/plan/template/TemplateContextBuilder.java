@@ -79,7 +79,7 @@ public class TemplateContextBuilder {
         return TemplateContext.AgentInfo.builder()
                 .instruction(context.getInstructions())
                 .toolNames(toolNames)
-                .files(files) // File information would need to be populated based on available file service
+                .files(files)
                 .build();
     }
 

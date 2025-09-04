@@ -65,6 +65,7 @@ public class AssistantRepo implements BaseRepo {
      * 插入 Assistant
      */
     public AssistantDb insert(AssistantDb assistant) {
+        assistant.setObject("assistant");
         // 如果没有 ID，则生成一个
         if(StringUtils.isBlank(assistant.getId())) {
             assistant.setId(idGenerator.generateAssistantId());

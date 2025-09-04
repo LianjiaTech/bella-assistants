@@ -75,9 +75,14 @@ public class MessageService {
         // 序列化其他复杂字段
         if(request.getAttachments() != null) {
             message.setAttachments(JacksonUtils.serialize(request.getAttachments()));
+        } else {
+            message.setAttachments("[]");
         }
+
         if(request.getMetadata() != null) {
             message.setMetadata(JacksonUtils.serialize(request.getMetadata()));
+        } else {
+            message.setMetadata("{}");
         }
 
         //设置消息类型

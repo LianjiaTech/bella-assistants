@@ -1,8 +1,10 @@
 package com.ke.assistant.util;
 
 import com.fasterxml.jackson.databind.node.TextNode;
+import com.ke.assistant.core.file.FileInfo;
 import com.ke.assistant.db.generated.tables.pojos.MessageDb;
 import com.ke.bella.openapi.utils.JacksonUtils;
+import com.ke.bella.openapi.utils.Renders;
 import com.theokanning.openai.assistants.assistant.FileSearchRankingOptions;
 import com.theokanning.openai.assistants.message.Message;
 import com.theokanning.openai.assistants.message.MessageContent;
@@ -10,6 +12,7 @@ import com.theokanning.openai.assistants.run.ToolCall;
 import com.theokanning.openai.assistants.run.ToolCallCodeInterpreter;
 import com.theokanning.openai.assistants.run.ToolCallFileSearch;
 import com.theokanning.openai.assistants.run.ToolCallFunction;
+import com.theokanning.openai.assistants.thread.Attachment;
 import com.theokanning.openai.common.LastError;
 import com.theokanning.openai.completion.chat.AssistantMessage;
 import com.theokanning.openai.completion.chat.AssistantMultipleMessage;
@@ -180,15 +183,30 @@ public class MessageUtils {
     /**
      * 格式化消息内容，将存储格式转换为用于chat completion的Content格式
      */
-    public static Object formatChatCompletionContent(List<MessageContent> contents, String role) {
+    public static Object formatChatCompletionContent(List<MessageContent> contents, String role, List<Attachment> attachments, Map<String, FileInfo> fileInfoMap) {
 
         if(contents == null || contents.isEmpty()) {
             return "";
         }
 
+        String attachInfo = "";
+        if(attachments != null && !attachments.isEmpty()) {
+            List<FileInfo> fileInfos = new ArrayList<>();
+            attachments.forEach(attachment -> {
+                if(fileInfoMap.containsKey(attachment.getFileId())) {
+                    fileInfos.add(fileInfoMap.get(attachment.getFileId()));
+                }
+            });
+            if(!fileInfos.isEmpty()) {
+                Map<String, Object> filesMap = new HashMap<>();
+                filesMap.put("files", fileInfos);
+                attachInfo = Renders.render("templates/attachments.pebble", filesMap);
+            }
+        }
+
         if(contents.size() == 1) {
             if("text".equals(contents.get(0).getType())) {
-                return contents.get(0).getText().getValue();
+                return contents.get(0).getText().getValue() + attachInfo;
             }
         }
 
@@ -198,14 +216,16 @@ public class MessageUtils {
             MultiMediaContent mmContent = new MultiMediaContent();
             if("text".equals(content.getType())) {
                 mmContent.setType("text");
-                mmContent.setText(content.getText().getValue());
+                mmContent.setText(content.getText().getValue() + attachInfo);
+                // 只在一条消息中添加即可
+                attachInfo = "";
             } else {
                 mmContent.setType(content.getType());
                 mmContent.setImageFile(content.getImageFile());
                 mmContent.setImageUrl(content.getImageUrl());
             }
 
-            // 目前的chat completion，只支持多模态输入，不支持多模态输出
+            // 目前的chat completion，只支持多模态输入，不支持多模态输出，因此不添加assistant的多模态消息
             if(mmContent.getType().equals("text")) {
                 result.add(mmContent);
             } else if(role.equals("user")) {
@@ -219,13 +239,13 @@ public class MessageUtils {
     /**
      * 格式化消息，将内容转换为用于chat completion的Message
      */
-    public static ChatMessage formatChatCompletionMessage(Message messageInfo) {
+    public static ChatMessage formatChatCompletionMessage(Message messageInfo, Map<String, FileInfo> fileInfoMap) {
 
         if (messageInfo == null || messageInfo.getRole() == null) {
             return null;
         }
         
-        Object content = formatChatCompletionContent(messageInfo.getContent(), messageInfo.getRole());
+        Object content = formatChatCompletionContent(messageInfo.getContent(), messageInfo.getRole(), messageInfo.getAttachments(), fileInfoMap);
 
         switch (messageInfo.getRole()) {
         case "user":
