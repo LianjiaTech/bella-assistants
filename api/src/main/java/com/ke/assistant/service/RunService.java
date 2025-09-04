@@ -30,6 +30,7 @@ import com.theokanning.openai.assistants.run.ToolFiles;
 import com.theokanning.openai.assistants.run.TruncationStrategy;
 import com.theokanning.openai.assistants.run_step.RunStep;
 import com.theokanning.openai.assistants.run_step.StepDetails;
+import com.theokanning.openai.assistants.thread.Attachment;
 import com.theokanning.openai.common.LastError;
 import com.theokanning.openai.completion.chat.ChatResponseFormat;
 import lombok.extern.slf4j.Slf4j;
@@ -76,7 +77,7 @@ public class RunService {
      * 创建Run
      */
     @Transactional
-    public Pair<Run, String> createRun(String threadId, RunCreateRequest request) {
+    public Pair<Run, String> createRun(String threadId, RunCreateRequest request, List<Attachment> attachments) {
 
         Assistant assistant = assistantService.getAssistantById(request.getAssistantId());
 
@@ -91,18 +92,19 @@ public class RunService {
         if(request.getAdditionalMessages() != null && !request.getAdditionalMessages().isEmpty()) {
             for(MessageRequest additionalMsg : request.getAdditionalMessages()) {
                 messageService.createMessage(threadId, additionalMsg, "completed", Boolean.FALSE == request.getSaveMessage());
-                if(additionalMsg.getAttachments() != null && !additionalMsg.getAttachments().isEmpty()) {
-                    additionalMsg.getAttachments().forEach(attachment -> {
-                        if(attachment.getTools() != null && !attachment.getTools().isEmpty()) {
-                            attachment.getTools().forEach(tool -> {
-                                toolFilesMap.computeIfAbsent(tool.getType(), k -> new HashSet<>()).add(attachment.getFileId());
-                            });
-                        } else {
-                            toolFilesMap.computeIfAbsent("_all", k -> new HashSet<>()).add(attachment.getFileId());
-                        }
-                    });
-                }
             }
+        }
+
+        if(!attachments.isEmpty()) {
+            attachments.forEach(attachment -> {
+                if(attachment.getTools() != null && !attachment.getTools().isEmpty()) {
+                    attachment.getTools().forEach(tool -> {
+                        toolFilesMap.computeIfAbsent(tool.getType(), k -> new HashSet<>()).add(attachment.getFileId());
+                    });
+                } else {
+                    toolFilesMap.computeIfAbsent("_all", k -> new HashSet<>()).add(attachment.getFileId());
+                }
+            });
         }
 
         // 创建run记录

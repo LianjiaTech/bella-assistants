@@ -8,6 +8,7 @@ import com.ke.bella.openapi.utils.Renders;
 import com.theokanning.openai.assistants.assistant.FileSearchRankingOptions;
 import com.theokanning.openai.assistants.message.Message;
 import com.theokanning.openai.assistants.message.MessageContent;
+import com.theokanning.openai.assistants.message.MessageRequest;
 import com.theokanning.openai.assistants.run.ToolCall;
 import com.theokanning.openai.assistants.run.ToolCallCodeInterpreter;
 import com.theokanning.openai.assistants.run.ToolCallFileSearch;
@@ -32,6 +33,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Message 工具类
@@ -420,5 +422,11 @@ public class MessageUtils {
         return result;
     }
 
+    public static List<Attachment> getAttachments(List<MessageRequest> messageRequests) {
+        if(messageRequests == null || messageRequests.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return messageRequests.stream().map(MessageRequest::getAttachments).flatMap(List::stream).collect(Collectors.toList());
+    }
 
 }

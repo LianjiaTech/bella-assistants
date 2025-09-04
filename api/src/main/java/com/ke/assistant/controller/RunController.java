@@ -5,6 +5,7 @@ import com.ke.assistant.core.run.RunStateManager;
 import com.ke.assistant.model.CommonPage;
 import com.ke.assistant.service.RunService;
 import com.ke.assistant.service.ThreadService;
+import com.ke.assistant.util.MessageUtils;
 import com.ke.assistant.util.ToolUtils;
 import com.ke.bella.openapi.BellaContext;
 import com.ke.bella.openapi.common.exception.BizParamCheckException;
@@ -31,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -67,7 +69,7 @@ public class RunController {
         }
 
         // 创建Run和初始消息
-        Pair<Run, String> pair = runService.createRun(threadId, request);
+        Pair<Run, String> pair = runService.createRun(threadId, request, MessageUtils.getAttachments(request.getAdditionalMessages()));
 
         SseEmitter emitter = null;
         // 如果是流式请求，返回SseEmitter

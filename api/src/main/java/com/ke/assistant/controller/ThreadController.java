@@ -7,6 +7,7 @@ import com.ke.assistant.model.DeleteResponse;
 import com.ke.assistant.service.RunService;
 import com.ke.assistant.service.ThreadService;
 import com.ke.assistant.util.BeanUtils;
+import com.ke.assistant.util.MessageUtils;
 import com.ke.assistant.util.ToolResourceUtils;
 import com.ke.assistant.util.ToolUtils;
 import com.ke.bella.openapi.BellaContext;
@@ -15,6 +16,7 @@ import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.assistants.run.CreateThreadAndRunRequest;
 import com.theokanning.openai.assistants.run.Run;
 import com.theokanning.openai.assistants.run.RunCreateRequest;
+import com.theokanning.openai.assistants.thread.Attachment;
 import com.theokanning.openai.assistants.thread.Thread;
 import com.theokanning.openai.assistants.thread.ThreadRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -194,8 +196,12 @@ public class ThreadController {
 
         BeanUtils.copyProperties(request, runCreateRequest);
 
+        List<Attachment> attachments = MessageUtils.getAttachments(request.getThread().getMessages());
+
+        attachments.addAll(MessageUtils.getAttachments(request.getAdditionalMessages()));
+
         // 创建Thread和Run
-        Pair<Run, String> pair = runService.createRun(thread.getId(), runCreateRequest);
+        Pair<Run, String> pair = runService.createRun(thread.getId(), runCreateRequest, attachments);
 
         SseEmitter emitter = null;
         // 如果是流式请求，返回SseEmitter
