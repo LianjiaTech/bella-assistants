@@ -193,8 +193,13 @@ public class Planner {
             context.addChatMessage(new SystemMessage(renderedSystemPrompt));
         }
 
-        // 消息历史，只返回小于当前assistantMessageId的消息
+        // 消息历史，只返回在此次run之前的消息，additional messages在run之后创建因此不包含在内
         List<Message> messages = messageService.getMessagesForRun(context.getThreadId(), context.getRun().getCreateTime());
+
+        // 此次run的additional messages，因为存在不保存的消息，需要单独添加
+        if(context.getAdditionalMessages() != null && !context.getAdditionalMessages().isEmpty()) {
+            messages.addAll(context.getAdditionalMessages());
+        }
 
         // 线程下的所有RunSteps
         Map<String, List<RunStep>> runStepMap = runService.getThreadSteps(context.getThreadId()).stream().collect(Collectors.groupingBy(RunStep::getRunId));
@@ -208,12 +213,9 @@ public class Planner {
             }
             if(message.getRole().equals("assistant")) {
                 ChatMessage assistantMessage = MessageUtils.formatChatCompletionMessage(message, context.getFileInfos());
-                if(message.getRunId() != null ) {
-                    List<RunStep> runSteps = runStepMap.get(message.getRunId());
-                    if(runSteps != null) {
-                        for (RunStep runStep : runSteps) {
-                            buildToolMessage(context, runStep);
-                        }
+                if(message.getRunId() != null && runStepMap.containsKey(message.getRunId())) {
+                    for (RunStep runStep : runStepMap.get(message.getRunId())) {
+                        buildToolMessage(context, runStep);
                     }
                 }
                 context.addChatMessage(assistantMessage);

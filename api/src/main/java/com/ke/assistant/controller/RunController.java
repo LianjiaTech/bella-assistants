@@ -2,7 +2,10 @@ package com.ke.assistant.controller;
 
 import com.ke.assistant.core.run.RunExecutor;
 import com.ke.assistant.core.run.RunStateManager;
+import com.ke.assistant.db.generated.tables.pojos.MessageDb;
 import com.ke.assistant.model.CommonPage;
+import com.ke.assistant.model.RunCreateResult;
+import com.ke.assistant.service.MessageService;
 import com.ke.assistant.service.RunService;
 import com.ke.assistant.service.ThreadService;
 import com.ke.assistant.util.MessageUtils;
@@ -10,6 +13,7 @@ import com.ke.assistant.util.ToolUtils;
 import com.ke.bella.openapi.BellaContext;
 import com.ke.bella.openapi.common.exception.BizParamCheckException;
 import com.ke.bella.openapi.common.exception.ResourceNotFoundException;
+import com.theokanning.openai.assistants.message.Message;
 import com.theokanning.openai.assistants.run.ModifyRunRequest;
 import com.theokanning.openai.assistants.run.Run;
 import com.theokanning.openai.assistants.run.RunCreateRequest;
@@ -19,7 +23,6 @@ import com.theokanning.openai.assistants.run.ToolCall;
 import com.theokanning.openai.assistants.run.ToolCallFunction;
 import com.theokanning.openai.assistants.run_step.RunStep;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,7 +35,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -52,6 +54,8 @@ public class RunController {
     private RunExecutor runExecutor;
     @Autowired
     private RunStateManager runStateManager;
+    @Autowired
+    private MessageService messageService;
 
     /**
      * 创建 Run
@@ -69,7 +73,7 @@ public class RunController {
         }
 
         // 创建Run和初始消息
-        Pair<Run, String> pair = runService.createRun(threadId, request, MessageUtils.getAttachments(request.getAdditionalMessages()));
+        RunCreateResult result = runService.createRun(threadId, request, MessageUtils.getAttachments(request.getAdditionalMessages()));
 
         SseEmitter emitter = null;
         // 如果是流式请求，返回SseEmitter
@@ -77,8 +81,8 @@ public class RunController {
             emitter = new SseEmitter(300000L); // 5分钟超时
             // 启动流式执行
         }
-        runExecutor.startRun(threadId, pair.getLeft().getId(), pair.getRight(), false, emitter, BellaContext.snapshot());
-        return Boolean.TRUE.equals(request.getStream()) ? emitter : pair.getLeft();
+        runExecutor.startRun(threadId, result.getRun().getId(), result.getAssistantMessageId(), result.getAdditionalMessages(),false, emitter, BellaContext.snapshot());
+        return Boolean.TRUE.equals(request.getStream()) ? emitter : result.getRun();
     }
 
     /**
@@ -91,12 +95,12 @@ public class RunController {
             @RequestBody SubmitToolOutputsRequest request) {
 
         // 验证run是否存在且属于指定的thread
-        Run existing = runService.getRunById(threadId, runId);
-        if(existing == null) {
+        Run run = runService.getRunById(threadId, runId);
+        if(run == null) {
             throw new ResourceNotFoundException("Run not found");
         }
 
-        if(!threadId.equals(existing.getThreadId())) {
+        if(!threadId.equals(run.getThreadId())) {
             throw new BizParamCheckException("Run does not belong to this thread");
         }
 
@@ -105,32 +109,37 @@ public class RunController {
         // 构造SubmitToolOutputs
         SubmitToolOutputs submitToolOutputs = new SubmitToolOutputs();
         submitToolOutputs.setToolCalls(request.getToolOutputs().stream()
-            .map(output -> {
-                ToolCall toolCall = new ToolCall();
-                toolCall.setId(output.getToolCallId());
-                if(output.getOutput() != null) {
-                    ToolCallFunction function = new ToolCallFunction();
-                    function.setOutput(output.getOutput());
-                    toolCall.setFunction(function);
-                }
-                return toolCall;
-            })
-            .collect(Collectors.toList()));
-        
+                .map(output -> {
+                    ToolCall toolCall = new ToolCall();
+                    toolCall.setId(output.getToolCallId());
+                    if(output.getOutput() != null) {
+                        ToolCallFunction function = new ToolCallFunction();
+                        function.setOutput(output.getOutput());
+                        toolCall.setFunction(function);
+                    }
+                    return toolCall;
+                })
+                .collect(Collectors.toList()));
+
         // 提交工具输出
         runStateManager.submitRequiredAction(threadId, runId, submitToolOutputs, LocalDateTime.now().plusMinutes(5));
 
-       RunStep runStep = runService.getRunSteps(threadId, runId).stream().filter(r -> "message_creation".equals(r.getType()))
-               .findAny().orElseThrow(() -> new IllegalStateException("server_error:no message creation step type"));
+        RunStep runStep = runService.getRunSteps(threadId, runId).stream().filter(r -> "message_creation".equals(r.getType()))
+                .findAny().orElseThrow(() -> new IllegalStateException("server_error:no message creation step type"));
 
-        String assistantMessageId  = runStep.getStepDetails().getMessageCreation().getMessageId();
+        String assistantMessageId = runStep.getStepDetails().getMessageCreation().getMessageId();
+
+        MessageDb assistantMessage = messageService.getMessageDbById(threadId, assistantMessageId);
+
+        // 查找additionalMessages - 创建时间在run和assistantMessage之间
+        List<Message> additionalMessages = messageService.getAdditionalMessages(threadId, run.getCreateTime(), assistantMessage.getCreatedAt());
 
         SseEmitter emitter = null;
         // 如果是流式请求，返回SseEmitter
         if(Boolean.TRUE.equals(request.getStream())) {
             emitter = new SseEmitter(300000L); // 5分钟超时
         }
-        runExecutor.resumeRun(threadId, runId, assistantMessageId, emitter, BellaContext.snapshot());
+        runExecutor.resumeRun(threadId, runId, assistantMessageId, additionalMessages, emitter, BellaContext.snapshot());
         return Boolean.TRUE.equals(request.getStream()) ? emitter : runService.getRunById(threadId, runId);
     }
 

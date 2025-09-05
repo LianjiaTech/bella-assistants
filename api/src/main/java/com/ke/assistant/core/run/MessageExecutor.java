@@ -18,6 +18,7 @@ import com.theokanning.openai.assistants.run.ToolCall;
 import com.theokanning.openai.assistants.run_step.RunStep;
 import com.theokanning.openai.assistants.run_step.RunStepDelta;
 import com.theokanning.openai.assistants.run_step.StepDetails;
+import com.theokanning.openai.assistants.thread.Thread;
 import com.theokanning.openai.common.LastError;
 import com.theokanning.openai.completion.chat.AssistantMessage;
 import com.theokanning.openai.completion.chat.ChatCompletionChunk;
@@ -166,6 +167,9 @@ public class MessageExecutor implements Runnable {
         }
         if(msg instanceof RunStep) {
             RunStatus status = RunStatus.fromValue(((RunStep) msg).getStatus());
+            if(status == RunStatus.IN_PROGRESS) {
+                send(StreamEvent.THREAD_RUN_STEP_CREATED, msg);
+            }
             send(status.getRunStepStreamEvent(), msg);
             return;
         }
@@ -175,6 +179,7 @@ public class MessageExecutor implements Runnable {
             } else if(((Message) msg).getStatus().equals("completed")){
                 send(StreamEvent.THREAD_MESSAGE_COMPLETED, msg);
             } else {
+                send(StreamEvent.THREAD_MESSAGE_CREATED, msg);
                 send(StreamEvent.THREAD_MESSAGE_IN_PROGRESS, msg);
             }
             return;

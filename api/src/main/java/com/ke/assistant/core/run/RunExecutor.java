@@ -12,6 +12,7 @@ import com.ke.assistant.core.tools.ToolFetcher;
 import com.ke.assistant.service.RunService;
 import com.ke.assistant.service.ThreadService;
 import com.ke.bella.openapi.BellaContext;
+import com.theokanning.openai.assistants.message.Message;
 import com.theokanning.openai.assistants.run.Run;
 import com.theokanning.openai.assistants.run.ToolFiles;
 import com.theokanning.openai.assistants.run_step.RunStep;
@@ -24,6 +25,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -65,16 +67,16 @@ public class RunExecutor {
     /**
      * 开启run
      */
-    public void startRun(String threadId, String runId, String assistantMessageId, boolean withThreadCreation, SseEmitter sseEmitter, Map<String, Object> bellaContext) {
-        ExecutionContext context = buildExecutionContext(threadId, runId, assistantMessageId, withThreadCreation ? RunType.CREATE_THREAD_AND_RUN : RunType.CREATE_RUN, bellaContext);
+    public void startRun(String threadId, String runId, String assistantMessageId, List<Message> additionalMessages, boolean withThreadCreation, SseEmitter sseEmitter, Map<String, Object> bellaContext) {
+        ExecutionContext context = buildExecutionContext(threadId, runId, assistantMessageId, withThreadCreation ? RunType.CREATE_THREAD_AND_RUN : RunType.CREATE_RUN, additionalMessages, bellaContext);
         TaskExecutor.addRunner(()->executeRun(context, sseEmitter));
     }
 
     /**
      * 重启run
      */
-    public void resumeRun(String threadId, String runId, String assistantMessageId, SseEmitter sseEmitter, Map<String, Object> bellaContext) {
-        ExecutionContext context = buildExecutionContext(threadId, runId, assistantMessageId, RunType.SUBMIT_TOOL_CALLS, bellaContext);
+    public void resumeRun(String threadId, String runId, String assistantMessageId, List<Message> additionalMessages, SseEmitter sseEmitter, Map<String, Object> bellaContext) {
+        ExecutionContext context = buildExecutionContext(threadId, runId, assistantMessageId, RunType.SUBMIT_TOOL_CALLS, additionalMessages, bellaContext);
         TaskExecutor.addRunner(()->executeRun(context, sseEmitter));
     }
 
@@ -194,11 +196,13 @@ public class RunExecutor {
     /**
      * 构建执行上下文
      */
-    private ExecutionContext buildExecutionContext(String threadId, String runId, String assistantMessageId, RunType type, Map<String, Object> bellaContext) {
+    private ExecutionContext buildExecutionContext(String threadId, String runId, String assistantMessageId, RunType type, List<Message> additionalMessages, Map<String, Object> bellaContext) {
 
         ExecutionContext context = new ExecutionContext(bellaContext);
 
         context.setAssistantMessageId(assistantMessageId);
+
+        context.setAdditionalMessages(additionalMessages == null ? new ArrayList<>() : additionalMessages);
 
         try {
 

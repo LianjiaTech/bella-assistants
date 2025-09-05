@@ -49,6 +49,7 @@ public class MessageRepo implements BaseRepo {
     public List<MessageDb> findByThreadId(String threadId) {
         return dsl.selectFrom(MESSAGE)
                 .where(MESSAGE.THREAD_ID.eq(threadId))
+                .and(MESSAGE.MESSAGE_STATUS.eq("original"))
                 .orderBy(MESSAGE.CREATED_AT.asc())
                 .fetchInto(MessageDb.class);
     }
@@ -56,21 +57,23 @@ public class MessageRepo implements BaseRepo {
     /**
      * 根据 Thread ID 和 最大创建时间 查询 Message 列表
      */
-    public List<MessageDb> findByThreadIdWithLimitWithoutHidden(String threadId, LocalDateTime lessThanCreateAt) {
+    public List<MessageDb> findByThreadIdWithLimit(String threadId, LocalDateTime lessThanCreateAt) {
         return dsl.selectFrom(MESSAGE)
                 .where(MESSAGE.THREAD_ID.eq(threadId))
-                .and(MESSAGE.CREATED_AT.lt(lessThanCreateAt))
+                .and(MESSAGE.CREATED_AT.lessThan(lessThanCreateAt))
                 .and(MESSAGE.MESSAGE_STATUS.eq("original"))
                 .orderBy(MESSAGE.CREATED_AT.asc())
                 .fetchInto(MessageDb.class);
     }
 
     /**
-     * 根据 Run ID 查询 Message 列表
+     * 根据 Thread ID 和 创建时间间隔查询
      */
-    public List<MessageDb> findByRunId(String threadId, String runId) {
+    public List<MessageDb> findByThreadIdWithIntervalIncludeHidden(String threadId, LocalDateTime from, LocalDateTime to) {
         return dsl.selectFrom(MESSAGE)
-                .where(MESSAGE.RUN_ID.eq(runId))
+                .where(MESSAGE.THREAD_ID.eq(threadId))
+                .and(MESSAGE.CREATED_AT.greaterThan(from))
+                .and(MESSAGE.CREATED_AT.lessThan(to))
                 .orderBy(MESSAGE.CREATED_AT.asc())
                 .fetchInto(MessageDb.class);
     }
@@ -83,7 +86,7 @@ public class MessageRepo implements BaseRepo {
         return findWithCursor(
                 dsl,
                 MESSAGE,
-                MESSAGE.THREAD_ID.eq(threadId),
+                MESSAGE.THREAD_ID.eq(threadId).and(MESSAGE.MESSAGE_STATUS.eq("original")),
                 MESSAGE.CREATED_AT,
                 after,
                 before,

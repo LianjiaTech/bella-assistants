@@ -106,18 +106,38 @@ public class MessageService {
     }
 
     /**
+     * 根据ID获取MessageDb
+     */
+    public MessageDb getMessageDbById(String threadId, String id) {
+        return messageRepo.findById(threadId, id);
+    }
+
+    /**
+     * additional messages的插入时间为run和此次run创建的assistant message之间
+     * @param threadId
+     * @param from - run的创建时间
+     * @param to - 此次run创建的assistant message的创建时间
+     * @return
+     */
+    public List<Message> getAdditionalMessages(String threadId, LocalDateTime from, LocalDateTime to) {
+        List<MessageDb> messages = messageRepo.findByThreadIdWithIntervalIncludeHidden(threadId, from, to);
+        return messages.stream().map(this::convertToInfo).collect(Collectors.toList());
+    }
+
+    /**
      * 根据Thread ID查询MessageDb列表
      */
     public List<MessageDb> getMessageDbsByThreadId(String threadId) {
         return messageRepo.findByThreadId(threadId);
     }
 
+
     /**
      * 根据Thread ID查询MessageDb列表，用于run
      * 获取运行相关的消息列表，并可选择根据命令类型进行过滤
      */
     public List<Message> getMessagesForRun(String threadId, LocalDateTime runCreateAt) {
-        List<MessageDb> messages = messageRepo.findByThreadIdWithLimitWithoutHidden(threadId, runCreateAt);
+        List<MessageDb> messages = messageRepo.findByThreadIdWithLimit(threadId, runCreateAt);
 
         // 从后向前查找第一个命令类型的消息
         for (int i = messages.size() - 1; i >= 0; i--) {

@@ -8,6 +8,7 @@ import com.ke.assistant.db.generated.tables.pojos.ThreadFileRelationDb;
 import com.ke.assistant.db.repo.RunRepo;
 import com.ke.assistant.db.repo.RunStepRepo;
 import com.ke.assistant.db.repo.RunToolRepo;
+import com.ke.assistant.model.RunCreateResult;
 import com.ke.assistant.util.BeanUtils;
 import com.ke.assistant.util.RunUtils;
 import com.ke.assistant.util.ToolResourceUtils;
@@ -35,7 +36,6 @@ import com.theokanning.openai.common.LastError;
 import com.theokanning.openai.completion.chat.ChatResponseFormat;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
@@ -72,12 +72,18 @@ public class RunService {
     @Autowired
     @Lazy
     private ThreadService threadService;
+    @Autowired
+    private ThreadLockService threadLockService;
+
+    @Transactional
+    public RunCreateResult createRun(String threadId, RunCreateRequest request, List<Attachment> attachments) {
+        return threadLockService.executeWithWriteLock(threadId, () -> doCreateRun(threadId, request, attachments));
+    }
 
     /**
      * 创建Run
      */
-    @Transactional
-    public Pair<Run, String> createRun(String threadId, RunCreateRequest request, List<Attachment> attachments) {
+    private RunCreateResult doCreateRun(String threadId, RunCreateRequest request, List<Attachment> attachments) {
 
         Assistant assistant = assistantService.getAssistantById(request.getAssistantId());
 
@@ -87,13 +93,6 @@ public class RunService {
         }
 
         Map<String, Set<String>> toolFilesMap = new HashMap<>();
-
-        // 处理additional_messages
-        if(request.getAdditionalMessages() != null && !request.getAdditionalMessages().isEmpty()) {
-            for(MessageRequest additionalMsg : request.getAdditionalMessages()) {
-                messageService.createMessage(threadId, additionalMsg, "completed", Boolean.FALSE == request.getSaveMessage());
-            }
-        }
 
         if(!attachments.isEmpty()) {
             attachments.forEach(attachment -> {
@@ -194,6 +193,18 @@ public class RunService {
             createRunTool(assistant.getTools(), runDb.getId());
         }
 
+
+        // 处理additional_messages - 创建时间在run和assistantMessage之间
+        List<Message> additionalMessages = new ArrayList<>();
+        if(request.getAdditionalMessages() != null && !request.getAdditionalMessages().isEmpty()) {
+            for(MessageRequest additionalMsg : request.getAdditionalMessages()) {
+                // 只有run产生的消息才可以设置runId
+                additionalMsg.setRunId(null);
+                additionalMessages.add(messageService.createMessage(threadId, additionalMsg, "completed", Boolean.FALSE == request.getSaveMessage()));
+            }
+        }
+
+
         // 创建初始的assistant消息
         MessageRequest messageRequest = MessageRequest.builder()
                 .role("assistant")
@@ -219,7 +230,11 @@ public class RunService {
 
         runStepRepo.insert(runStep);
 
-        return Pair.of(convertToInfo(runDb), assistantMessage.getId());
+        return RunCreateResult.builder()
+                .run(convertToInfo(runDb))
+                .assistantMessageId(assistantMessage.getId())
+                .additionalMessages(additionalMessages)
+                .build();
     }
 
     /**

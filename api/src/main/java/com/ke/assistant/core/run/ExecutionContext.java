@@ -5,6 +5,7 @@ import com.ke.assistant.core.file.FileInfo;
 import com.ke.bella.openapi.utils.DateTimeUtils;
 import com.theokanning.openai.Usage;
 import com.theokanning.openai.assistants.assistant.Tool;
+import com.theokanning.openai.assistants.message.Message;
 import com.theokanning.openai.assistants.run.RequiredAction;
 import com.theokanning.openai.assistants.run.Run;
 import com.theokanning.openai.assistants.run.ToolCall;
@@ -87,6 +88,9 @@ public class ExecutionContext {
 
     // 历史轮次的已完成工具执行记录，用于消息上下文的构建
     private List<RunStep> historyToolSteps;
+
+    // 添加的additionalMessages
+    private List<Message> additionalMessages;
     
     // 当前轮次的执行结果
     private final List<ChatMessage> chatMessages;                     // 当前聊天构建的消息

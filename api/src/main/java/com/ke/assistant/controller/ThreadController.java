@@ -4,6 +4,7 @@ import com.ke.assistant.core.run.RunExecutor;
 import com.ke.assistant.db.generated.tables.pojos.ThreadDb;
 import com.ke.assistant.model.CommonPage;
 import com.ke.assistant.model.DeleteResponse;
+import com.ke.assistant.model.RunCreateResult;
 import com.ke.assistant.service.RunService;
 import com.ke.assistant.service.ThreadService;
 import com.ke.assistant.util.BeanUtils;
@@ -14,13 +15,11 @@ import com.ke.bella.openapi.BellaContext;
 import com.ke.bella.openapi.common.exception.ResourceNotFoundException;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.assistants.run.CreateThreadAndRunRequest;
-import com.theokanning.openai.assistants.run.Run;
 import com.theokanning.openai.assistants.run.RunCreateRequest;
 import com.theokanning.openai.assistants.thread.Attachment;
 import com.theokanning.openai.assistants.thread.Thread;
 import com.theokanning.openai.assistants.thread.ThreadRequest;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -200,15 +199,14 @@ public class ThreadController {
 
         attachments.addAll(MessageUtils.getAttachments(request.getAdditionalMessages()));
 
-        // 创建Thread和Run
-        Pair<Run, String> pair = runService.createRun(thread.getId(), runCreateRequest, attachments);
+        RunCreateResult result = runService.createRun(thread.getId(), runCreateRequest, attachments);
 
         SseEmitter emitter = null;
         // 如果是流式请求，返回SseEmitter
         if(Boolean.TRUE.equals(request.getStream())) {
             emitter = new SseEmitter(300000L); // 5分钟超时
         }
-        runExecutor.startRun(thread.getId(), pair.getLeft().getId(), pair.getRight(), true, emitter, BellaContext.snapshot());
-        return Boolean.TRUE.equals(request.getStream()) ? emitter : pair.getLeft();
+        runExecutor.startRun(thread.getId(), result.getRun().getId(), result.getAssistantMessageId(), result.getAdditionalMessages(),true, emitter, BellaContext.snapshot());
+        return Boolean.TRUE.equals(request.getStream()) ? emitter : result.getRun();
     }
 }

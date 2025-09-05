@@ -183,9 +183,9 @@ public class RunStateManager {
         boolean success = updateRunStatus(context.getThreadId(), context.getRunId(), RunStatus.IN_PROGRESS);
         if(success) {
             context.getRun().setStatus(RunStatus.IN_PROGRESS.getValue());
-            context.publish(message);
-            context.publish(runStep);
             context.publish(context.getRun());
+            context.publish(runStep);
+            context.publish(message);
             serviceMesh.addRunningRun(context.getRunId(), (int) (DateTimeUtils.getCurrentSeconds() + context.getExecutionSeconds()));
             processingCache.put(context.getRunId(), context);
         }

@@ -114,6 +114,16 @@ public class ThreadLockService {
     }
 
     /**
+     * 执行带写锁的操作并返回结果
+     * @param threadId 线程ID
+     * @param supplier 要执行的操作
+     * @return 操作结果
+     */
+    public <T> T executeWithWriteLock(String threadId, Supplier<T> supplier) {
+        return executeWithWriteLock(threadId, supplier, 10, TimeUnit.SECONDS);
+    }
+
+    /**
      * 执行带写锁的操作
      * @param threadId 线程ID
      * @param operation 要执行的操作
@@ -127,6 +137,34 @@ public class ThreadLockService {
                 try {
                     log.debug("Acquired write lock for thread: {}", threadId);
                     operation.run();
+                } finally {
+                    readWriteLock.writeLock().unlock();
+                    log.debug("Released write lock for thread: {}", threadId);
+                }
+            } else {
+                throw new RuntimeException("Failed to acquire write lock for thread: " + threadId + " within " + timeout + " " + timeUnit);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while waiting for write lock for thread: " + threadId, e);
+        }
+    }
+
+    /**
+     * 执行带写锁的操作并返回结果
+     * @param threadId 线程ID
+     * @param supplier 要执行的操作
+     * @param timeout 锁超时时间
+     * @param timeUnit 时间单位
+     * @return 操作结果
+     */
+    public <T> T executeWithWriteLock(String threadId, Supplier<T> supplier, long timeout, TimeUnit timeUnit) {
+        RReadWriteLock readWriteLock = getReadWriteLock(threadId);
+        try {
+            if (readWriteLock.writeLock().tryLock(timeout, timeUnit)) {
+                try {
+                    log.debug("Acquired write lock for thread: {}", threadId);
+                    return supplier.get();
                 } finally {
                     readWriteLock.writeLock().unlock();
                     log.debug("Released write lock for thread: {}", threadId);
