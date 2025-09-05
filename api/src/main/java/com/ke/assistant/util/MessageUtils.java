@@ -185,7 +185,7 @@ public class MessageUtils {
     /**
      * 格式化消息内容，将存储格式转换为用于chat completion的Content格式
      */
-    public static Object formatChatCompletionContent(List<MessageContent> contents, String role, List<Attachment> attachments, Map<String, FileInfo> fileInfoMap) {
+    public static Object formatChatCompletionContent(List<MessageContent> contents, String role, List<Attachment> attachments, Map<String, FileInfo> fileInfoMap, boolean supportVision) {
 
         if(contents == null || contents.isEmpty()) {
             return "";
@@ -222,17 +222,25 @@ public class MessageUtils {
                 // 只在一条消息中添加即可
                 attachInfo = "";
             } else {
-                mmContent.setType(content.getType());
-                mmContent.setImageFile(content.getImageFile());
-                mmContent.setImageUrl(content.getImageUrl());
+                // 目前的chat completion，只支持多模态输入，不支持多模态输出
+                if(role.equals("user") && supportVision) {
+                    mmContent.setType(content.getType());
+                    mmContent.setImageFile(content.getImageFile());
+                    mmContent.setImageUrl(content.getImageUrl());
+                } else {
+                    mmContent.setType("text");
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("消息内容为一张图片，图片信息为：");
+                    if(content.getImageFile() != null) {
+                        sb.append(content.getImageFile().toString());
+                    } else {
+                        sb.append(content.getImageUrl().toString());
+                    }
+                    mmContent.setText(sb.toString());
+                }
             }
 
-            // 目前的chat completion，只支持多模态输入，不支持多模态输出，因此不添加assistant的多模态消息
-            if(mmContent.getType().equals("text")) {
-                result.add(mmContent);
-            } else if(role.equals("user")) {
-                result.add(mmContent);
-            }
+            result.add(mmContent);
         }
 
         return result;
@@ -241,13 +249,13 @@ public class MessageUtils {
     /**
      * 格式化消息，将内容转换为用于chat completion的Message
      */
-    public static ChatMessage formatChatCompletionMessage(Message messageInfo, Map<String, FileInfo> fileInfoMap) {
+    public static ChatMessage formatChatCompletionMessage(Message messageInfo, Map<String, FileInfo> fileInfoMap, boolean supportVision) {
 
         if (messageInfo == null || messageInfo.getRole() == null) {
             return null;
         }
         
-        Object content = formatChatCompletionContent(messageInfo.getContent(), messageInfo.getRole(), messageInfo.getAttachments(), fileInfoMap);
+        Object content = formatChatCompletionContent(messageInfo.getContent(), messageInfo.getRole(), messageInfo.getAttachments(), fileInfoMap, supportVision);
 
         switch (messageInfo.getRole()) {
         case "user":

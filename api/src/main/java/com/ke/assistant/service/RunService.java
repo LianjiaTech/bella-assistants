@@ -195,6 +195,7 @@ public class RunService {
 
 
         // 处理additional_messages - 创建时间在run和assistantMessage之间
+        // 查询 additional_messages 使用时间范围即可
         List<Message> additionalMessages = new ArrayList<>();
         if(request.getAdditionalMessages() != null && !request.getAdditionalMessages().isEmpty()) {
             for(MessageRequest additionalMsg : request.getAdditionalMessages()) {

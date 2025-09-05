@@ -82,7 +82,7 @@ public class Planner {
             // 检查是否超过最大步数
             if (context.exceedsMaxSteps()) {
                 context.setError("exceeded_max_steps", "Exceeded maximum steps: " + context.getMaxSteps());
-                return PlannerDecision.error("Exceeded maximum steps: " + context.getMaxSteps());
+                return PlannerDecision.expired("Exceeded maximum steps: " + context.getMaxSteps());
             }
 
             // 检查是否需要等待
@@ -206,13 +206,13 @@ public class Planner {
 
         for(Message message : messages) {
             if(message.getRole().equals("user")) {
-                ChatMessage chatMessage = MessageUtils.formatChatCompletionMessage(message, context.getFileInfos());
+                ChatMessage chatMessage = MessageUtils.formatChatCompletionMessage(message, context.getFileInfos(), context.isVisionModel());
                 if(chatMessage != null) {
                     context.addChatMessage(chatMessage);
                 }
             }
             if(message.getRole().equals("assistant")) {
-                ChatMessage assistantMessage = MessageUtils.formatChatCompletionMessage(message, context.getFileInfos());
+                ChatMessage assistantMessage = MessageUtils.formatChatCompletionMessage(message, context.getFileInfos(), context.isVisionModel());
                 if(message.getRunId() != null && runStepMap.containsKey(message.getRunId())) {
                     for (RunStep runStep : runStepMap.get(message.getRunId())) {
                         buildToolMessage(context, runStep);

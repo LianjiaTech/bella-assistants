@@ -12,6 +12,10 @@ import com.ke.assistant.core.tools.ToolFetcher;
 import com.ke.assistant.service.RunService;
 import com.ke.assistant.service.ThreadService;
 import com.ke.bella.openapi.BellaContext;
+import com.ke.bella.openapi.client.OpenapiClient;
+import com.ke.bella.openapi.metadata.Model;
+import com.ke.bella.openapi.protocol.completion.CompletionModelFeatures;
+import com.ke.bella.openapi.protocol.completion.CompletionModelProperties;
 import com.theokanning.openai.assistants.message.Message;
 import com.theokanning.openai.assistants.run.Run;
 import com.theokanning.openai.assistants.run.ToolFiles;
@@ -63,6 +67,11 @@ public class RunExecutor {
 
     @Autowired
     private FileProvider fileProvider;
+
+    @Autowired
+    private OpenapiClient client;
+    @Autowired
+    private OpenapiClient openapiClient;
 
     /**
      * 开启run
@@ -209,10 +218,10 @@ public class RunExecutor {
             if(assistantProperties.getMaxExecutionMinutes() != null ) {
                 context.setExpiredAt(LocalDateTime.now().plusMinutes(assistantProperties.getMaxExecutionMinutes()));
             } else {
-                context.setExpiredAt(LocalDateTime.now().plusMinutes(10));
+                context.setExpiredAt(LocalDateTime.now().plusMinutes(15));
             }
 
-            context.setMaxSteps(assistantProperties.getMaxExecutionSteps() == null ? 50 : assistantProperties.getMaxExecutionSteps());
+            context.setMaxSteps(assistantProperties.getMaxExecutionSteps() == null ? 10 : assistantProperties.getMaxExecutionSteps());
 
             // 获取Run信息
             Run run = runService.getRunById(threadId, runId);
@@ -222,6 +231,16 @@ public class RunExecutor {
                 return context;
             }
             context.setRun(run);
+
+            try {
+                Model model = openapiClient.getModelInfo(run.getModel());
+                if(model != null) {
+                    context.setModelFeatures(model.toFeatures(CompletionModelFeatures.class));
+                    context.setModelProperties(model.toProperties(CompletionModelProperties.class));
+                }
+            } catch (Exception e) {
+                logger.warn(e.getMessage(), e);
+            }
 
             // 工具
             context.setTools(run.getTools());

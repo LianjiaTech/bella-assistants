@@ -76,6 +76,7 @@ bella:
   openapi:
     host: http://localhost:8080
     service: assistant
+    service-ak: ${SERVICE_AK:}
   # Assistant specific configuration
   assistant:
     key-prefix: bella_assistant  # Redis key 前缀

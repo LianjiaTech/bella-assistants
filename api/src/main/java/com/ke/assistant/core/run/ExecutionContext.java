@@ -2,6 +2,8 @@ package com.ke.assistant.core.run;
 
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.ke.assistant.core.file.FileInfo;
+import com.ke.bella.openapi.protocol.completion.CompletionModelFeatures;
+import com.ke.bella.openapi.protocol.completion.CompletionModelProperties;
 import com.ke.bella.openapi.utils.DateTimeUtils;
 import com.theokanning.openai.Usage;
 import com.theokanning.openai.assistants.assistant.Tool;
@@ -103,6 +105,10 @@ public class ExecutionContext {
     private Usage usage;
     // 是否未执行，决定本轮的assistant消息是否生效
     private boolean noExecute;
+    // 模型特性
+    private CompletionModelFeatures modelFeatures;
+    // 模型属性
+    private CompletionModelProperties modelProperties;
 
     public ExecutionContext(Map<String, Object> bellaContext) {
         this.bellaContext = bellaContext;
@@ -520,5 +526,9 @@ public class ExecutionContext {
         } else {
             this.usage.add(usage);
         }
+    }
+
+    public boolean isVisionModel() {
+        return modelFeatures == null || modelFeatures.isVision();
     }
 }
