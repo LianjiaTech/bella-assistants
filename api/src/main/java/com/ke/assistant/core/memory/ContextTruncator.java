@@ -4,6 +4,8 @@ import com.google.common.collect.Lists;
 import com.ke.assistant.core.run.ExecutionContext;
 import com.ke.assistant.util.MessageUtils;
 import com.ke.bella.openapi.protocol.completion.CompletionModelProperties;
+import com.ke.bella.openapi.utils.TokenCounter;
+import com.knuddels.jtokkit.api.EncodingType;
 import com.theokanning.openai.completion.chat.AssistantMessage;
 import com.theokanning.openai.completion.chat.AssistantMultipleMessage;
 import com.theokanning.openai.completion.chat.ChatMessage;
@@ -38,6 +40,7 @@ public class ContextTruncator {
      * 基于token数量的截断
      * 从中间开始删除消息，保护重要的系统消息和最新的用户消息
      */
+    @SuppressWarnings("unchecked")
     public void truncate(ExecutionContext context) {
 
         List<ChatMessage> messages = context.getChatMessages();
@@ -61,8 +64,15 @@ public class ContextTruncator {
         int protectedTokens = MessageUtils.countToken(Lists.newArrayList(protectedMessages.values()));
         int remainingTokens = maxTokens - protectedTokens;
 
-        if (remainingTokens <= 0) {
-            logger.warn("Protected messages exceed max tokens limit");
+        if (remainingTokens == 0) {
+            context.getChatMessages().clear();
+            context.getChatMessages().addAll(protectedMessages.values());
+            return;
+        }
+
+
+        if (remainingTokens < 0) {
+            shortenContext(protectedMessages.values(), protectedTokens, maxTokens, 10);
             context.getChatMessages().clear();
             context.getChatMessages().addAll(protectedMessages.values());
             return;
@@ -87,6 +97,51 @@ public class ContextTruncator {
         List<ChatMessage> finalMessages = buildMessages(selectedMessages);
         context.getChatMessages().clear();
         context.getChatMessages().addAll(finalMessages);
+    }
+
+    /**
+     * 上下文不足时，可以缩短工具的输出
+     */
+    private void shortenContext(Collection<ChatMessage> chatMessages, int protectedTokens, int maxTokens, int maxTimes) {
+        if(maxTimes == 0) {
+            return;
+        }
+        int needSaveTokens = protectedTokens - maxTokens;
+        if(needSaveTokens <= 0) {
+            return;
+        }
+        // 上下文不足时，找到可以处理的消息
+        ToolMessage maxToolMessage = null;
+        int maxToolContext = 0;
+        for(ChatMessage chatMessage : chatMessages) {
+            // 如果有多条消息，只保留最后一条（前面的消息是isFinal类型的工具产生）
+            if(chatMessage.getRole().equals("assistant")) {
+                if(chatMessage instanceof AssistantMultipleMessage) {
+                    AssistantMultipleMessage message = (AssistantMultipleMessage) chatMessage;
+                    if(message.getContent() instanceof Collection) {
+                        List<MultiMediaContent> contents = Lists.newArrayList((Collection<MultiMediaContent>) message.getContent());
+                        message.setContent(contents.get(contents.size() - 1).getText());
+                    }
+                }
+            }
+            // 找到最长的工具结果进行处理
+            if(chatMessage.getRole().equals("tool")) {
+                ToolMessage toolMessage = (ToolMessage) chatMessage;
+                int tokens = TokenCounter.tokenCount(toolMessage.getContent(), EncodingType.O200K_BASE);
+                if(tokens > needSaveTokens && tokens > maxToolContext) {
+                    maxToolMessage = toolMessage;
+                    maxToolContext = tokens;
+                }
+            }
+        }
+        if(maxToolMessage != null) {
+            int limit = maxToolContext - needSaveTokens;
+            maxToolMessage.setContent(maxToolMessage.getContent().substring(0, limit));
+        } else {
+            return;
+        }
+        int tokens = MessageUtils.countToken(Lists.newArrayList(chatMessages));
+        shortenContext(chatMessages, tokens, maxTokens, --maxTimes);
     }
 
     /**
