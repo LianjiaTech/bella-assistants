@@ -1,5 +1,6 @@
 package com.ke.assistant.core.plan;
 
+import com.ke.assistant.core.memory.ContextTruncator;
 import com.ke.assistant.core.plan.template.TemplateContext;
 import com.ke.assistant.core.plan.template.TemplateContextBuilder;
 import com.ke.assistant.core.run.ExecutionContext;
@@ -39,6 +40,9 @@ public class Planner {
 
     @Autowired
     private RunService runService;
+
+    @Autowired
+    private ContextTruncator truncator;
 
     private static final Logger logger = LoggerFactory.getLogger(Planner.class);
 
@@ -140,6 +144,8 @@ public class Planner {
         buildChatMessages(context);
         // 构建工具列表
         buildChatTools(context);
+        // 处理上下文
+        truncator.truncate(context);
         // 获取当前消息
         List<ChatMessage> messages = context.getChatMessages();
 

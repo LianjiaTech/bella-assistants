@@ -1,11 +1,29 @@
 package com.ke.assistant.core.memory;
 
+import com.google.common.collect.Lists;
+import com.ke.assistant.core.run.ExecutionContext;
+import com.ke.assistant.util.MessageUtils;
+import com.ke.bella.openapi.protocol.completion.CompletionModelProperties;
+import com.theokanning.openai.completion.chat.AssistantMessage;
+import com.theokanning.openai.completion.chat.AssistantMultipleMessage;
 import com.theokanning.openai.completion.chat.ChatMessage;
+import com.theokanning.openai.completion.chat.ChatToolCall;
+import com.theokanning.openai.completion.chat.MultiMediaContent;
+import com.theokanning.openai.completion.chat.ToolMessage;
+import com.theokanning.openai.completion.chat.UserMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.Stack;
+import java.util.stream.Collectors;
 
 /**
  * 上下文截断器
@@ -20,240 +38,224 @@ public class ContextTruncator {
      * 基于token数量的截断
      * 从中间开始删除消息，保护重要的系统消息和最新的用户消息
      */
-    public List<ChatMessage> truncateByTokens(List<ChatMessage> messages, int maxTokens, 
-                                             MemoryStrategy strategy, String model) {
+    public void truncate(ExecutionContext context) {
+
+        List<ChatMessage> messages = context.getChatMessages();
+
         if (messages == null || messages.isEmpty()) {
-            return new ArrayList<>();
+            return;
         }
         
         // 检查是否需要截断
-        if (!strategy.needsTruncation(messages, maxTokens, model)) {
-            return new ArrayList<>(messages);
+        if (!needsTruncation(messages, context)) {
+            return;
         }
-        
-        logger.debug("Truncating {} messages, max tokens: {}", messages.size(), maxTokens);
         
         // 获取受保护的消息索引
-        Set<Integer> protectedIndices = strategy.getProtectedMessageIndices(messages);
+        Map<Integer, ChatMessage> protectedMessages = getProtectedMessages(messages);
         
         // 构建截断后的消息列表
-        List<ChatMessage> truncatedMessages = new ArrayList<>();
-        List<ChatMessage> candidateMessages = new ArrayList<>();
-        
-        // 首先添加受保护的消息
-        for (int i = 0; i < messages.size(); i++) {
-            if (protectedIndices.contains(i)) {
-                truncatedMessages.add(messages.get(i));
-            } else {
-                candidateMessages.add(messages.get(i));
-            }
-        }
-        
+        int maxTokens = context.getModelProperties().getMax_input_context();
+
         // 计算受保护消息的token数
-        int protectedTokens = strategy.estimateTokens(truncatedMessages, model);
+        int protectedTokens = MessageUtils.countToken(Lists.newArrayList(protectedMessages.values()));
         int remainingTokens = maxTokens - protectedTokens;
-        
+
         if (remainingTokens <= 0) {
             logger.warn("Protected messages exceed max tokens limit");
-            return truncatedMessages;
+            context.getChatMessages().clear();
+            context.getChatMessages().addAll(protectedMessages.values());
+            return;
         }
-        
+
         // 从候选消息中选择能够放入剩余空间的消息
-        // 优先选择较新的消息
-        Collections.reverse(candidateMessages);
-        
-        List<ChatMessage> selectedMessages = new ArrayList<>();
+        // 优先选择较新的消息，反向遍历列表，使用栈结构，后进（列表中排在前面的消息）先出
+        Stack<ChatMessage> selectedMessages = new Stack<>();
         int currentTokens = 0;
-        
-        for (ChatMessage message : candidateMessages) {
-            int messageTokens = strategy.estimateTokens(Arrays.asList(message), model);
-            if (currentTokens + messageTokens <= remainingTokens) {
-                selectedMessages.add(message);
-                currentTokens += messageTokens;
-            }
-        }
-        
-        // 恢复消息顺序并合并
-        Collections.reverse(selectedMessages);
-        List<ChatMessage> result = mergeMessages(truncatedMessages, selectedMessages, messages);
-        
-        logger.debug("Truncated from {} to {} messages, estimated tokens: {}", 
-            messages.size(), result.size(), strategy.estimateTokens(result, model));
-        
-        return result;
-    }
-    
-    /**
-     * 基于消息对的截断
-     * 删除完整的用户-助手消息对，保持对话的完整性
-     */
-    public List<ChatMessage> truncateByMessagePairs(List<ChatMessage> messages, int maxTokens,
-                                                   MemoryStrategy strategy, String model) {
-        if (messages == null || messages.isEmpty()) {
-            return new ArrayList<>();
-        }
-        
-        if (!strategy.needsTruncation(messages, maxTokens, model)) {
-            return new ArrayList<>(messages);
-        }
-        
-        logger.debug("Truncating {} messages by pairs, max tokens: {}", messages.size(), maxTokens);
-        
-        // 识别消息对
-        List<MessagePair> pairs = identifyMessagePairs(messages);
-        List<ChatMessage> systemMessages = extractSystemMessages(messages);
-        
-        // 计算系统消息的token数
-        int systemTokens = strategy.estimateTokens(systemMessages, model);
-        int remainingTokens = maxTokens - systemTokens;
-        
-        if (remainingTokens <= 0) {
-            logger.warn("System messages exceed max tokens limit");
-            return systemMessages;
-        }
-        
-        // 从最新的消息对开始选择
-        Collections.reverse(pairs);
-        
-        List<ChatMessage> selectedMessages = new ArrayList<>(systemMessages);
-        List<MessagePair> selectedPairs = new ArrayList<>();
-        int currentTokens = 0;
-        
-        for (MessagePair pair : pairs) {
-            int pairTokens = strategy.estimateTokens(pair.getMessages(), model);
-            if (currentTokens + pairTokens <= remainingTokens) {
-                selectedPairs.add(pair);
-                currentTokens += pairTokens;
-            }
-        }
-        
-        // 恢复顺序并添加选中的消息对
-        Collections.reverse(selectedPairs);
-        for (MessagePair pair : selectedPairs) {
-            selectedMessages.addAll(pair.getMessages());
-        }
-        
-        logger.debug("Truncated to {} message pairs, estimated tokens: {}", 
-            selectedPairs.size(), strategy.estimateTokens(selectedMessages, model));
-        
-        return selectedMessages;
-    }
-    
-    /**
-     * 滑动窗口截断
-     * 保持最近的N条消息
-     */
-    public List<ChatMessage> truncateByWindow(List<ChatMessage> messages, int windowSize) {
-        if (messages == null || messages.isEmpty()) {
-            return new ArrayList<>();
-        }
-        
-        if (messages.size() <= windowSize) {
-            return new ArrayList<>(messages);
-        }
-        
-        logger.debug("Truncating {} messages to window size: {}", messages.size(), windowSize);
-        
-        // 保护系统消息
-        List<ChatMessage> systemMessages = extractSystemMessages(messages);
-        List<ChatMessage> otherMessages = messages.stream()
-                .filter(msg -> !"system".equals(msg.getRole()))
-                .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
-        
-        int availableSlots = windowSize - systemMessages.size();
-        if (availableSlots <= 0) {
-            return systemMessages;
-        }
-        
-        // 取最新的消息
-        List<ChatMessage> recentMessages = otherMessages.subList(
-            Math.max(0, otherMessages.size() - availableSlots), 
-            otherMessages.size()
-        );
-        
-        List<ChatMessage> result = new ArrayList<>(systemMessages);
-        result.addAll(recentMessages);
-        
-        logger.debug("Truncated to {} messages using window approach", result.size());
-        
-        return result;
-    }
-    
-    /**
-     * 提取系统消息
-     */
-    private List<ChatMessage> extractSystemMessages(List<ChatMessage> messages) {
-        return messages.stream()
-                .filter(msg -> "system".equals(msg.getRole()))
-                .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
-    }
-    
-    /**
-     * 识别消息对（用户消息 + 紧跟的助手消息）
-     */
-    private List<MessagePair> identifyMessagePairs(List<ChatMessage> messages) {
-        List<MessagePair> pairs = new ArrayList<>();
-        
-        for (int i = 0; i < messages.size(); i++) {
-            ChatMessage current = messages.get(i);
-            if ("user".equals(current.getRole())) {
-                List<ChatMessage> pairMessages = new ArrayList<>();
-                pairMessages.add(current);
-                
-                // 查找紧跟的助手消息和工具消息
-                for (int j = i + 1; j < messages.size(); j++) {
-                    ChatMessage next = messages.get(j);
-                    if ("assistant".equals(next.getRole()) || "tool".equals(next.getRole())) {
-                        pairMessages.add(next);
-                    } else if ("user".equals(next.getRole())) {
-                        break; // 遇到下一个用户消息，当前对结束
-                    }
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            ChatMessage message = messages.get(i);
+            if (!protectedMessages.containsKey(i)) {
+                int messageTokens = MessageUtils.countToken(Lists.newArrayList(message));
+                if (currentTokens + messageTokens <= remainingTokens) {
+                    selectedMessages.add(message);
+                    currentTokens += messageTokens;
                 }
-                
-                pairs.add(new MessagePair(pairMessages, i));
+            } else {
+                selectedMessages.push(message);
             }
         }
-        
-        return pairs;
+        List<ChatMessage> finalMessages = buildMessages(selectedMessages);
+        context.getChatMessages().clear();
+        context.getChatMessages().addAll(finalMessages);
     }
-    
+
     /**
-     * 合并受保护消息和选中消息，保持原始顺序
+     * 确保消息一定是 user-assistant 或者 user-assistant-tool-assistant 成对出现
+     * @param selectedMessages
+     * @return
      */
-    private List<ChatMessage> mergeMessages(List<ChatMessage> protectedMessages, 
-                                          List<ChatMessage> selectedMessages,
-                                          List<ChatMessage> originalMessages) {
+    @SuppressWarnings("unchecked")
+    private List<ChatMessage> buildMessages(Stack<ChatMessage> selectedMessages) {
         List<ChatMessage> result = new ArrayList<>();
-        Set<ChatMessage> messageSet = new HashSet<>(protectedMessages);
-        messageSet.addAll(selectedMessages);
-        
-        for (ChatMessage message : originalMessages) {
-            if (messageSet.contains(message)) {
-                result.add(message);
+        Set<String> preToolCallIds = new HashSet<>();
+        while (!selectedMessages.isEmpty()) {
+            ChatMessage current = selectedMessages.pop();
+            if(result.isEmpty()) {
+                // 第一条消息
+                if(current.getRole().equals("system") || current.getRole().equals("user")) {
+                    result.add(current);
+                }
+            } else {
+                if(current.getRole().equals("system")) {
+                    continue;
+                }
+                ChatMessage pre = result.get(result.size() - 1);
+                if(current.getRole().equals("user")) {
+                    if(pre.getRole().equals("assistant")) {
+                        if(!preToolCallIds.isEmpty()) {
+                            // 此情况说明，该工具执行的结果丢失，应该删除此工具调用轮次
+                            result.remove(result.size() - 1);
+                            // 重新加入再次处理
+                            selectedMessages.push(current);
+                            continue;
+                        }
+                    } else if(pre.getRole().equals("user")) {
+                        // 连续的user message合并为一条消息
+                        UserMessage userMessage = (UserMessage) pre;
+                        UserMessage curUserMessage = (UserMessage) current;
+                        Collection<MultiMediaContent> curContents = new ArrayList<>();
+                        if(curUserMessage.getContent() instanceof Collection) {
+                            curContents = (Collection<MultiMediaContent>) curUserMessage.getContent();
+                        } else {
+                            curContents.add(new MultiMediaContent("text", curUserMessage.getTextContent(), null, null, null));
+                        }
+                        if(userMessage.getContent() instanceof Collection) {
+                            ((Collection<MultiMediaContent>) userMessage.getContent()).addAll(curContents);
+                        } else {
+                            List<MultiMediaContent> contents = new ArrayList<>();
+                            contents.add(new MultiMediaContent("text", userMessage.getTextContent(), null, null, null));
+                            contents.addAll(curContents);
+                            userMessage.setContent(contents);
+                        }
+                        continue;
+                    } else if(pre.getRole().equals("tool")) {
+                        // tool之后必须是assistant消息，此时加入user，代表工具后的assistant消息丢失，工具执行的轮次存在但不完整，需要补全
+                        // 先补全工具结果
+                        if(!preToolCallIds.isEmpty()) {
+                            // 补全缺少的工具调用
+                            preToolCallIds.forEach(id -> {
+                                ToolMessage toolMessage = new ToolMessage();
+                                toolMessage.setToolCallId(id);
+                                toolMessage.setContent("工具执行结果——已省略");
+                                result.add(toolMessage);
+                            });
+                        }
+                        // 再补全工具调用后的助手消息
+                        AssistantMessage assistantMessage = new AssistantMessage();
+                        assistantMessage.setContent("助手消息——已省略");
+                        result.add(assistantMessage);
+                    }
+                    result.add(current);
+                    preToolCallIds = new HashSet<>();
+                } else if(current.getRole().equals("assistant")) {
+                    // 此情况代表，消息被截断，缺少前序的user/tool消息，不添加此消息
+                    if(pre.getRole().equals("system")) {
+                        continue;
+                    }
+                    // 异常情况直接跳过，不添加此助手消息
+                    if(pre.getRole().equals("assistant")) {
+                        continue;
+                    }
+                    if(pre.getRole().equals("tool")) {
+                        if(!preToolCallIds.isEmpty()) {
+                            // 补全缺少的工具调用
+                            preToolCallIds.forEach(id -> {
+                                ToolMessage toolMessage = new ToolMessage();
+                                toolMessage.setToolCallId(id);
+                                toolMessage.setContent("工具执行结果——已省略");
+                                result.add(toolMessage);
+                            });
+                        }
+                    }
+                    result.add(current);
+                    preToolCallIds = extractToolCallIds(current);
+                } else if(current.getRole().equals("tool")) {
+                    ToolMessage toolMessage = (ToolMessage) current;
+                    // 此时代表前面的工具调用消息被截断或者工具结果重复，直接跳过，不添加此工具结果
+                    if(!preToolCallIds.contains(toolMessage.getToolCallId())) {
+                        continue;
+                    }
+                    preToolCallIds.remove(toolMessage.getToolCallId());
+                    result.add(current);
+                }
             }
         }
-        
         return result;
     }
-    
+
+
+    private Set<String> extractToolCallIds(ChatMessage assistantMessage) {
+        List<ChatToolCall> toolCalls = new ArrayList<>();
+        if(assistantMessage instanceof AssistantMessage) {
+            toolCalls = ((AssistantMessage) assistantMessage).getToolCalls();
+        }
+        if(assistantMessage instanceof AssistantMultipleMessage) {
+            toolCalls = ((AssistantMultipleMessage) assistantMessage).getToolCalls();
+        }
+        if(toolCalls != null) {
+            return toolCalls.stream().map(ChatToolCall::getId).collect(Collectors.toSet());
+        }
+        return new HashSet<>();
+    }
+
+
     /**
-     * 消息对数据结构
+     * 获取保护的消息索引（不应被截断的消息）
+     * 默认保护第一条系统消息和最后一条用户消息
+     *
+     * @param messages 消息列表
+     * @return 受保护的消息
      */
-    private static class MessagePair {
-        private final List<ChatMessage> messages;
-        private final int startIndex;
-        
-        public MessagePair(List<ChatMessage> messages, int startIndex) {
-            this.messages = messages;
-            this.startIndex = startIndex;
+    private Map<Integer, ChatMessage> getProtectedMessages(List<ChatMessage> messages) {
+        Map<Integer, ChatMessage> protectedMessages = new HashMap<>();
+
+        if (messages == null || messages.isEmpty()) {
+            return new HashMap<>();
         }
-        
-        public List<ChatMessage> getMessages() {
-            return messages;
+
+        // 保护第一条系统消息
+        for (int i = 0; i < messages.size(); i++) {
+            if ("system".equals(messages.get(i).getRole())) {
+                protectedMessages.put(i, messages.get(i));
+                break;
+            }
         }
-        
-        public int getStartIndex() {
-            return startIndex;
+
+        // 保护最后一条用户消息（确保有输入）
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            if ("user".equals(messages.get(i).getRole())) {
+                protectedMessages.put(i, messages.get(i));
+                break;
+            }
         }
+
+        // 如果最后一条消息是tool，需要保护该条消息和assistant的工具调用消息
+        if(messages.get(messages.size() - 1).getRole().equals("tool")) {
+            protectedMessages.put(messages.size() - 1, messages.get(messages.size() - 1));
+            // 最后一条assistant是要求调用此工具的
+            for (int i = messages.size() - 1; i >= 0; i--) {
+                if ("assistant".equals(messages.get(i).getRole())) {
+                    protectedMessages.put(i, messages.get(i));
+                    break;
+                }
+            }
+        }
+
+        return protectedMessages;
+    }
+
+    private boolean needsTruncation(List<ChatMessage> messages, ExecutionContext context) {
+        CompletionModelProperties properties = context.getModelProperties();
+        return MessageUtils.countToken(messages) > properties.getMax_input_context();
     }
 }

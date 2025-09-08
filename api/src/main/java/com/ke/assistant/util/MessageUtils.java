@@ -5,6 +5,8 @@ import com.ke.assistant.core.file.FileInfo;
 import com.ke.assistant.db.generated.tables.pojos.MessageDb;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.ke.bella.openapi.utils.Renders;
+import com.ke.bella.openapi.utils.TokenCounter;
+import com.knuddels.jtokkit.api.EncodingType;
 import com.theokanning.openai.assistants.assistant.FileSearchRankingOptions;
 import com.theokanning.openai.assistants.message.Message;
 import com.theokanning.openai.assistants.message.MessageContent;
@@ -20,14 +22,17 @@ import com.theokanning.openai.completion.chat.AssistantMultipleMessage;
 import com.theokanning.openai.completion.chat.ChatFunctionCall;
 import com.theokanning.openai.completion.chat.ChatMessage;
 import com.theokanning.openai.completion.chat.ChatToolCall;
+import com.theokanning.openai.completion.chat.ImageContent;
 import com.theokanning.openai.completion.chat.MultiMediaContent;
 import com.theokanning.openai.completion.chat.SystemMessage;
 import com.theokanning.openai.completion.chat.ToolMessage;
 import com.theokanning.openai.completion.chat.UserMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.checkerframework.checker.units.qual.C;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -435,6 +440,36 @@ public class MessageUtils {
             return new ArrayList<>();
         }
         return messageRequests.stream().map(MessageRequest::getAttachments).flatMap(List::stream).collect(Collectors.toList());
+    }
+
+    public static Integer countToken(List<ChatMessage> messages) {
+        Integer tokens = 0;
+        for(ChatMessage message : messages) {
+            if(message instanceof UserMessage) {
+                UserMessage userMessage = (UserMessage) message;
+                if(userMessage.getContent() == null) {
+                    continue;
+                }
+                if(userMessage.getContent() instanceof String) {
+                    tokens += TokenCounter.tokenCount((String) userMessage.getContent(), EncodingType.O200K_BASE);
+                } else if(userMessage.getContent() instanceof Collection) {
+                    Collection<?> collections = (Collection<?>) ((UserMessage) message).getContent();
+                    for(Object content : collections) {
+                        if(content instanceof MultiMediaContent) {
+                            MultiMediaContent mmContent = (MultiMediaContent) content;
+                            if(mmContent.getType().equals("text")) {
+                                tokens += TokenCounter.tokenCount(mmContent.getText(), EncodingType.O200K_BASE);
+                            } else {
+                                tokens += TokenCounter.imageToken(1024, 1024, false);
+                            }
+                        }
+                    }
+                }
+            } else {
+                tokens += TokenCounter.tokenCount(message.getTextContent(), EncodingType.O200K_BASE);
+            }
+        }
+        return tokens;
     }
 
 }
