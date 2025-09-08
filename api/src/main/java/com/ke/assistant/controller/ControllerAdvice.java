@@ -22,7 +22,9 @@ public class ControllerAdvice extends RequestBodyAdviceAdapter {
     public Object afterBodyRead(Object body, HttpInputMessage inputMessage, MethodParameter parameter, Type targetType,
             Class<? extends HttpMessageConverter<?>> converterType) {
         if(body instanceof IUssrRequest) {
-            BellaContext.setOperator(Operator.builder().sourceId(((IUssrRequest) body).getUser()).build());
+            if(((IUssrRequest) body).getUser() != null) {
+                BellaContext.setOperator(Operator.builder().sourceId(((IUssrRequest) body).getUser()).build());
+            }
         }
         return body;
     }
