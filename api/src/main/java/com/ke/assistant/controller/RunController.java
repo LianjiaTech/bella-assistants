@@ -5,6 +5,7 @@ import com.ke.assistant.core.run.RunStateManager;
 import com.ke.assistant.db.generated.tables.pojos.MessageDb;
 import com.ke.assistant.model.CommonPage;
 import com.ke.assistant.model.RunCreateResult;
+import com.ke.assistant.model.RunStepListRequest;
 import com.ke.assistant.service.MessageService;
 import com.ke.assistant.service.RunService;
 import com.ke.assistant.service.ThreadService;
@@ -36,6 +37,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -244,9 +246,13 @@ public class RunController {
      * 获取 Run 的 Steps 列表
      */
     @GetMapping("/{run_id}/steps")
-    public List<RunStep> getRunSteps(
+    public CommonPage<RunStep> getRunSteps(
             @PathVariable("thread_id") String threadId,
-            @PathVariable("run_id") String runId) {
+            @PathVariable("run_id") String runId,
+            @RequestParam(value = "after", required = false) String after,
+            @RequestParam(value = "before", required = false) String before,
+            @RequestParam(value = "limit", defaultValue = "20") int limit,
+            @RequestParam(value = "order", defaultValue = "desc") String order) {
 
         // 验证run是否存在且属于指定的thread
         Run existing = runService.getRunById(threadId, runId);
@@ -255,11 +261,42 @@ public class RunController {
         }
 
         if(!threadId.equals(existing.getThreadId())) {
-            throw new BizParamCheckException("Message does not belong to this thread");
+            throw new BizParamCheckException("Run does not belong to this thread");
         }
 
+        List<RunStep> infoList = runService.getRunStepsByCursor(threadId, runId, after, before, limit + 1, order);
 
-        return runService.getRunSteps(threadId, runId);
+        boolean hasMore = infoList.size() > limit;
+        if (hasMore) {
+            infoList.remove(infoList.size() - 1);
+        }
+
+        String firstId = infoList.isEmpty() ? null : infoList.get(0).getId();
+        String lastId = infoList.isEmpty() ? null : infoList.get(infoList.size() - 1).getId();
+
+        return new CommonPage<>(infoList, firstId, lastId, hasMore);
+    }
+
+    /**
+     * 获取多个 Run 的 Steps 列表
+     */
+    @PostMapping("/step/list")
+    public Map<String, List<RunStep>> listRunStepsByRunIds(
+            @PathVariable("thread_id") String threadId,
+            @RequestBody RunStepListRequest request) {
+
+        // 验证请求参数
+        if(request.getRunIds() == null || request.getRunIds().isEmpty()) {
+            throw new BizParamCheckException("runIds cannot be empty");
+        }
+
+        // 验证thread是否存在
+        if(threadService.getThreadById(threadId) == null) {
+            throw new ResourceNotFoundException("Thread not found");
+        }
+
+        // 获取run steps并按run id分组
+        return runService.getRunStepsByRunIds(threadId, request.getRunIds());
     }
 
 }

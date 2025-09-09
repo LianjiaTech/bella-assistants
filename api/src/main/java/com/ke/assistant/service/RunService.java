@@ -292,11 +292,29 @@ public class RunService {
     }
 
     /**
+     * 获取Run的Steps列表（支持游标分页）
+     */
+    public List<RunStep> getRunStepsByCursor(String threadId, String runId, String after, String before, int limit, String order) {
+        List<RunStepDb> runSteps = runStepRepo.findByRunIdWithCursor(threadId, runId, after, before, limit, order);
+        return runSteps.stream().map(RunUtils::convertStepToInfo).collect(Collectors.toList());
+    }
+
+    /**
      * 获取Thread的Steps列表
      */
     public List<RunStep> getThreadSteps(String threadId) {
         List<RunStepDb> runSteps = runStepRepo.findByThreadId(threadId);
         return runSteps.stream().map(RunUtils::convertStepToInfo).collect(Collectors.toList());
+    }
+
+    /**
+     * 根据多个Run ID获取Steps列表并按Run ID分组
+     */
+    public Map<String, List<RunStep>> getRunStepsByRunIds(String threadId, List<String> runIds) {
+        List<RunStepDb> runSteps = runStepRepo.findByRunIds(threadId, runIds);
+        return runSteps.stream()
+                .map(RunUtils::convertStepToInfo)
+                .collect(Collectors.groupingBy(RunStep::getRunId));
     }
 
     /**

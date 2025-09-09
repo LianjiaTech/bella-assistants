@@ -74,6 +74,35 @@ public class RunStepRepo implements BaseRepo {
                 .fetchInto(RunStepDb.class);
     }
 
+    /**
+     * 根据 Thread ID 和 Run IDs 查询 Run Step 列表
+     */
+    public List<RunStepDb> findByRunIds(String threadId, List<String> runIds) {
+        return dsl.selectFrom(RUN_STEP)
+                .where(RUN_STEP.THREAD_ID.eq(threadId))
+                .and(RUN_STEP.RUN_ID.in(runIds))
+                .orderBy(RUN_STEP.CREATED_AT.asc())
+                .fetchInto(RunStepDb.class);
+    }
+
+    /**
+     * 根据 Run ID 查询 Run Step 列表（支持游标分页）
+     */
+    public List<RunStepDb> findByRunIdWithCursor(String threadId, String runId, String after, String before, int limit, String order) {
+        return findWithCursor(
+                dsl,
+                RUN_STEP,
+                RUN_STEP.THREAD_ID.eq(threadId).and(RUN_STEP.RUN_ID.eq(runId)),
+                RUN_STEP.CREATED_AT,
+                after,
+                before,
+                limit,
+                order,
+                id -> findById(threadId, id),
+                RunStepDb.class
+        );
+    }
+
 
     /**
      * 插入 Run Step
