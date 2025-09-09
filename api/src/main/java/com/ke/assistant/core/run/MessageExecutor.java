@@ -190,11 +190,11 @@ public class MessageExecutor implements Runnable {
             if(CollectionUtils.isNotEmpty(chunk.getChoices())) {
                 AssistantMessage assistantMessage = chunk.getChoices().get(0).getMessage();
                 if(assistantMessage != null) {
-                    if(assistantMessage.getReasoningContent() != null) {
+                    if(assistantMessage.getReasoningContent() != null && !assistantMessage.getReasoningContent().isEmpty()) {
                         sendReasoning(assistantMessage.getReasoningContent());
                         reasoning.append(assistantMessage.getReasoningContent());
                     }
-                    if(assistantMessage.getContent() != null) {
+                    if(assistantMessage.getContent() != null && !assistantMessage.getContent().isEmpty()) {
                         sendContent(assistantMessage.getContent());
                         content.append(assistantMessage.getContent());
                     }

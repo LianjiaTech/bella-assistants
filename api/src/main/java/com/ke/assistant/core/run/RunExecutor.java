@@ -243,7 +243,7 @@ public class RunExecutor {
             }
 
             // 工具
-            context.setTools(run.getTools());
+            context.setTools(run.getTools() == null ? new ArrayList<>() : run.getTools());
 
             List<String> fileIds = null;
 
