@@ -93,12 +93,12 @@ public class Assistant extends TableImpl<AssistantRecord> {
     /**
      * The column <code>assistant.response_format</code>. 输出格式
      */
-    public final TableField<AssistantRecord, String> RESPONSE_FORMAT = createField(DSL.name("response_format"), SQLDataType.VARCHAR(50).defaultValue(DSL.inline("auto", SQLDataType.VARCHAR)), this, "输出格式");
+    public final TableField<AssistantRecord, String> RESPONSE_FORMAT = createField(DSL.name("response_format"), SQLDataType.VARCHAR(50).nullable(false).defaultValue(DSL.inline("auto", SQLDataType.VARCHAR)), this, "输出格式");
 
     /**
      * The column <code>assistant.user</code>. user
      */
-    public final TableField<AssistantRecord, String> USER = createField(DSL.name("user"), SQLDataType.VARCHAR(50).defaultValue(DSL.inline("", SQLDataType.VARCHAR)), this, "user");
+    public final TableField<AssistantRecord, String> USER = createField(DSL.name("user"), SQLDataType.VARCHAR(50).nullable(false).defaultValue(DSL.inline("", SQLDataType.VARCHAR)), this, "user");
 
     /**
      * The column <code>assistant.reasoning_effort</code>. 推理参数配置

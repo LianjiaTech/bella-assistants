@@ -73,7 +73,7 @@ public class Message extends TableImpl<MessageRecord> {
     /**
      * The column <code>message.status</code>.
      */
-    public final TableField<MessageRecord, String> STATUS = createField(DSL.name("status"), SQLDataType.VARCHAR(64).nullable(false).defaultValue(DSL.inline("in_progress", SQLDataType.VARCHAR)), this, "");
+    public final TableField<MessageRecord, String> STATUS = createField(DSL.name("status"), SQLDataType.VARCHAR(64).nullable(false).defaultValue(DSL.inline("completed", SQLDataType.VARCHAR)), this, "");
 
     /**
      * The column <code>message.content</code>.
@@ -88,7 +88,7 @@ public class Message extends TableImpl<MessageRecord> {
     /**
      * The column <code>message.attachments</code>. 本轮消息可用的额外的文件和工具
      */
-    public final TableField<MessageRecord, String> ATTACHMENTS = createField(DSL.name("attachments"), SQLDataType.VARCHAR(4096).defaultValue(DSL.inline("[]", SQLDataType.VARCHAR)), this, "本轮消息可用的额外的文件和工具");
+    public final TableField<MessageRecord, String> ATTACHMENTS = createField(DSL.name("attachments"), SQLDataType.VARCHAR(4096).nullable(false).defaultValue(DSL.inline("[]", SQLDataType.VARCHAR)), this, "本轮消息可用的额外的文件和工具");
 
     /**
      * The column <code>message.file_ids</code>.

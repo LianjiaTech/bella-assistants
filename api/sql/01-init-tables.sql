@@ -33,11 +33,11 @@ CREATE TABLE IF NOT EXISTS assistant
     response_format VARCHAR
 (
     50
-) DEFAULT 'auto' NULL COMMENT '输出格式',
+) NOT NULL DEFAULT 'auto' COMMENT '输出格式',
     user VARCHAR
 (
     50
-) DEFAULT '' NULL COMMENT 'user',
+) DEFAULT '' NOT NULL COMMENT 'user',
     reasoning_effort VARCHAR
 (
     100
@@ -118,7 +118,7 @@ CREATE TABLE IF NOT EXISTS thread
     user VARCHAR
 (
     100
-) NULL,
+) NOT NULL,
     environment VARCHAR
 (
     1000
@@ -201,7 +201,7 @@ CREATE TABLE IF NOT EXISTS message
     attachments VARCHAR
 (
     4096
-) DEFAULT '[]' NULL COMMENT '本轮消息可用的额外的文件和工具',
+) DEFAULT '[]' NOT NULL COMMENT '本轮消息可用的额外的文件和工具',
     file_ids VARCHAR
 (
     2048
@@ -301,7 +301,7 @@ CREATE TABLE IF NOT EXISTS run
     user VARCHAR
 (
     100
-) NULL,
+) NOT NULL,
     file_ids VARCHAR
 (
     2048
@@ -348,7 +348,7 @@ CREATE TABLE IF NOT EXISTS run
 (
     100
 ) NOT NULL DEFAULT '1',
-    reasoning_time INT DEFAULT 0 NULL COMMENT '模型推理耗时，以秒为单位',
+    reasoning_time INT DEFAULT 0 NOT NULL COMMENT '模型推理耗时，以秒为单位',
     reasoning_effort VARCHAR
 (
     100
@@ -422,8 +422,7 @@ CREATE TABLE IF NOT EXISTS run_step
     1024
 ) NOT NULL DEFAULT '',
     llm_input LONGTEXT NULL,
-    reasoning_time INT DEFAULT 0 NULL COMMENT '模型推理耗时，以秒为单位',
-    reasoning_content LONGTEXT NULL,
+    reasoning_time INT DEFAULT 0 NOT NULL COMMENT '模型推理耗时，以秒为单位',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

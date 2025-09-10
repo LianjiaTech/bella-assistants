@@ -36,7 +36,6 @@ public class RunStepDb implements Timed, Serializable {
     private String        usage;
     private String        llmInput;
     private Integer       reasoningTime;
-    private String        reasoningContent;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -61,7 +60,6 @@ public class RunStepDb implements Timed, Serializable {
         this.usage = value.usage;
         this.llmInput = value.llmInput;
         this.reasoningTime = value.reasoningTime;
-        this.reasoningContent = value.reasoningContent;
         this.createdAt = value.createdAt;
         this.updatedAt = value.updatedAt;
     }
@@ -85,7 +83,6 @@ public class RunStepDb implements Timed, Serializable {
         String        usage,
         String        llmInput,
         Integer       reasoningTime,
-        String        reasoningContent,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
     ) {
@@ -107,7 +104,6 @@ public class RunStepDb implements Timed, Serializable {
         this.usage = usage;
         this.llmInput = llmInput;
         this.reasoningTime = reasoningTime;
-        this.reasoningContent = reasoningContent;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -365,20 +361,6 @@ public class RunStepDb implements Timed, Serializable {
     }
 
     /**
-     * Getter for <code>run_step.reasoning_content</code>.
-     */
-    public String getReasoningContent() {
-        return this.reasoningContent;
-    }
-
-    /**
-     * Setter for <code>run_step.reasoning_content</code>.
-     */
-    public void setReasoningContent(String reasoningContent) {
-        this.reasoningContent = reasoningContent;
-    }
-
-    /**
      * Getter for <code>run_step.created_at</code>.
      */
     public LocalDateTime getCreatedAt() {
@@ -428,7 +410,6 @@ public class RunStepDb implements Timed, Serializable {
         sb.append(", ").append(usage);
         sb.append(", ").append(llmInput);
         sb.append(", ").append(reasoningTime);
-        sb.append(", ").append(reasoningContent);
         sb.append(", ").append(createdAt);
         sb.append(", ").append(updatedAt);
 

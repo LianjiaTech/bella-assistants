@@ -18,7 +18,7 @@ import org.jooq.ForeignKey;
 import org.jooq.Index;
 import org.jooq.Name;
 import org.jooq.Record;
-import org.jooq.Row21;
+import org.jooq.Row20;
 import org.jooq.Schema;
 import org.jooq.Table;
 import org.jooq.TableField;
@@ -138,12 +138,7 @@ public class RunStep extends TableImpl<RunStepRecord> {
     /**
      * The column <code>run_step.reasoning_time</code>. 模型推理耗时，以秒为单位
      */
-    public final TableField<RunStepRecord, Integer> REASONING_TIME = createField(DSL.name("reasoning_time"), SQLDataType.INTEGER.defaultValue(DSL.inline("0", SQLDataType.INTEGER)), this, "模型推理耗时，以秒为单位");
-
-    /**
-     * The column <code>run_step.reasoning_content</code>.
-     */
-    public final TableField<RunStepRecord, String> REASONING_CONTENT = createField(DSL.name("reasoning_content"), SQLDataType.CLOB, this, "");
+    public final TableField<RunStepRecord, Integer> REASONING_TIME = createField(DSL.name("reasoning_time"), SQLDataType.INTEGER.nullable(false).defaultValue(DSL.inline("0", SQLDataType.INTEGER)), this, "模型推理耗时，以秒为单位");
 
     /**
      * The column <code>run_step.created_at</code>.
@@ -235,11 +230,11 @@ public class RunStep extends TableImpl<RunStepRecord> {
     }
 
     // -------------------------------------------------------------------------
-    // Row21 type methods
+    // Row20 type methods
     // -------------------------------------------------------------------------
 
     @Override
-    public Row21<String, String, String, String, String, String, String, String, String, String, LocalDateTime, LocalDateTime, LocalDateTime, LocalDateTime, String, String, String, Integer, String, LocalDateTime, LocalDateTime> fieldsRow() {
-        return (Row21) super.fieldsRow();
+    public Row20<String, String, String, String, String, String, String, String, String, String, LocalDateTime, LocalDateTime, LocalDateTime, LocalDateTime, String, String, String, Integer, LocalDateTime, LocalDateTime> fieldsRow() {
+        return (Row20) super.fieldsRow();
     }
 }

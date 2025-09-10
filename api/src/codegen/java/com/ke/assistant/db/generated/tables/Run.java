@@ -127,7 +127,7 @@ public class Run extends TableImpl<RunRecord> {
     /**
      * The column <code>run.user</code>.
      */
-    public final TableField<RunRecord, String> USER = createField(DSL.name("user"), SQLDataType.VARCHAR(100), this, "");
+    public final TableField<RunRecord, String> USER = createField(DSL.name("user"), SQLDataType.VARCHAR(100).nullable(false), this, "");
 
     /**
      * The column <code>run.file_ids</code>.
@@ -212,7 +212,7 @@ public class Run extends TableImpl<RunRecord> {
     /**
      * The column <code>run.reasoning_time</code>. 模型推理耗时，以秒为单位
      */
-    public final TableField<RunRecord, Integer> REASONING_TIME = createField(DSL.name("reasoning_time"), SQLDataType.INTEGER.defaultValue(DSL.inline("0", SQLDataType.INTEGER)), this, "模型推理耗时，以秒为单位");
+    public final TableField<RunRecord, Integer> REASONING_TIME = createField(DSL.name("reasoning_time"), SQLDataType.INTEGER.nullable(false).defaultValue(DSL.inline("0", SQLDataType.INTEGER)), this, "模型推理耗时，以秒为单位");
 
     /**
      * The column <code>run.reasoning_effort</code>.

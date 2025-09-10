@@ -365,7 +365,6 @@ public class RunStateManager {
         runStep.setType("tool_calls");
         runStep.setStatus("in_progress");
         runStep.setCreatedAt(LocalDateTime.now());
-        runStep.setReasoningContent(reasoning);
 
         // 构建初始的step_details（不含output）
         String stepDetails = buildInitialStepDetails(Lists.newArrayList(context.getCurrentToolTasks().values()));

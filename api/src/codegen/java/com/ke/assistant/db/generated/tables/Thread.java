@@ -68,7 +68,7 @@ public class Thread extends TableImpl<ThreadRecord> {
     /**
      * The column <code>thread.user</code>.
      */
-    public final TableField<ThreadRecord, String> USER = createField(DSL.name("user"), SQLDataType.VARCHAR(100), this, "");
+    public final TableField<ThreadRecord, String> USER = createField(DSL.name("user"), SQLDataType.VARCHAR(100).nullable(false), this, "");
 
     /**
      * The column <code>thread.environment</code>. 环境信息
