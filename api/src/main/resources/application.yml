@@ -50,8 +50,8 @@ management:
 # Logging
 logging:
   level:
-    com.ke.assistant: DEBUG
-    org.jooq: DEBUG
+    com.ke.assistant: INFO
+    org.jooq: INFO
   pattern:
     file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
