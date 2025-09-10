@@ -41,6 +41,11 @@ public class ChatService {
                 request.setTools(context.getChatTools());
                 request.setToolChoice(context.getToolChoice());
             }
+            // 开启深度思考，通常深度思考模型不支持温度参数
+            if(context.getModelFeatures().isReason_content()) {
+                request.setReasoningEffort("medium");
+                request.setTemperature(null);
+            }
 
             // 启用流式响应
             request.setStream(true);
