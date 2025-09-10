@@ -50,12 +50,12 @@ public class ImageGenerateToolHandler implements BellaToolHandler {
     public ToolResult doExecute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
         // 检查S3服务是否配置
         if (!s3Service.isConfigured()) {
-            return ToolResult.builder().output("S3存储服务未配置，无法生成图片。").build();
+            return new ToolResult("S3存储服务未配置，无法生成图片。");
         }
 
         String model = imageProperties.getModel();
         if(model == null || model.isEmpty()) {
-            return ToolResult.builder().output("模型未配置，无法生成图片。").build();
+            return new ToolResult("模型未配置，无法生成图片。");
         }
         
         try {
@@ -86,7 +86,7 @@ public class ImageGenerateToolHandler implements BellaToolHandler {
             }
             
             log.info("图片生成完成");
-            return ToolResult.builder().output(result).build();
+            return new ToolResult(ToolResult.ToolResultType.image_url, result);
             
         } catch (Exception e) {
             log.error("图片生成或上传到S3失败", e);
@@ -96,7 +96,7 @@ public class ImageGenerateToolHandler implements BellaToolHandler {
                 channel.output(context.getToolId(), errorMsg);
             }
             
-            return ToolResult.builder().output(errorMsg).build();
+            return new ToolResult(errorMsg);
         }
     }
     

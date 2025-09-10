@@ -65,7 +65,7 @@ public class RetrievalToolHandler implements BellaToolHandler {
             channel.output(context.getToolId(), response.getValue());
         }
 
-        return ToolResult.builder().output(response.getValue()).build();
+        return new ToolResult(ToolResult.ToolResultType.text, response.getValue());
     }
     
     /**

@@ -62,7 +62,7 @@ public class WikiSearchToolHandler implements ToolHandler {
         String output = JacksonUtils.serialize(response.getData());
 
         // 直接返回搜索结果数据
-        return ToolResult.builder().output(output).build();
+        return new ToolResult(ToolResult.ToolResultType.text, output);
     }
     
     /**

@@ -48,7 +48,7 @@ public class ImgVisionToolHandler implements BellaToolHandler {
 
         String model = visionToolProperties.getModel();
         if(model == null || model.isEmpty()) {
-            return ToolResult.builder().output("模型未配置，无法生成图片。").build();
+            return new ToolResult("模型未配置，无法生成图片。");
         }
 
         try {
@@ -76,7 +76,7 @@ public class ImgVisionToolHandler implements BellaToolHandler {
             }
             
             log.info("图片分析完成，结果长度: {}", analysisResult.length());
-            return ToolResult.builder().output(analysisResult).build();
+            return new ToolResult(ToolResult.ToolResultType.text, analysisResult);
             
         } catch (Exception e) {
             log.error("图片分析失败", e);
@@ -86,7 +86,7 @@ public class ImgVisionToolHandler implements BellaToolHandler {
                 channel.output(context.getToolId(), errorMsg);
             }
             
-            return ToolResult.builder().output(errorMsg).build();
+            return new ToolResult(errorMsg);
         }
     }
     

@@ -168,11 +168,11 @@ public class ToolExecutor implements Runnable {
         }
         try {
             if(toolCall.getCodeInterpreter() != null) {
-                toolCall.getCodeInterpreter().setOutputs((List<ToolCallCodeInterpreterOutput>) result.getOutput());
+                toolCall.getCodeInterpreter().setOutputs((List<ToolCallCodeInterpreterOutput>) result.getMessage());
             } else if(toolCall.getFileSearch() != null) {
-                toolCall.getFileSearch().setResults((List<ToolCallFileSearchResult>) result.getOutput());
+                toolCall.getFileSearch().setResults((List<ToolCallFileSearchResult>) result.getMessage());
             } else if(toolCall.getFunction() != null) {
-                toolCall.getFunction().setOutput((String) result.getOutput());
+                toolCall.getFunction().setOutput(JacksonUtils.serialize(result));
             }
             runStateManager.finishToolCall(context, toolCall, null);
         } catch (Exception e) {

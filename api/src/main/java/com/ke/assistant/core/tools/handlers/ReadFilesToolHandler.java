@@ -57,7 +57,7 @@ public class ReadFilesToolHandler implements BellaToolHandler {
         }
 
         String output = JacksonUtils.serialize(filesContent);
-        return ToolResult.builder().output(output).build();
+        return new ToolResult(ToolResult.ToolResultType.text, output);
     }
     
     /**

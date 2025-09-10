@@ -79,7 +79,7 @@ public class WebCrawlerToolHandler implements ToolHandler {
         String output = JacksonUtils.serialize(webCrawlerUrlContent);
 
         // 直接返回爬取结果
-        return ToolResult.builder().output(output).build();
+        return new ToolResult(ToolResult.ToolResultType.text, output);
     }
     
     /**

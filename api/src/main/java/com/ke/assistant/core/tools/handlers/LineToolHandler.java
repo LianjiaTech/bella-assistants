@@ -56,7 +56,7 @@ public class LineToolHandler implements ToolHandler {
             Map<String, String> metas = new HashMap<>();
             outputData.put("meta", metas);
             
-            return ToolResult.builder().output(JacksonUtils.serialize(outputData)).build();
+            return new ToolResult(JacksonUtils.serialize(outputData));
         }
         
         // 解析数据
@@ -85,7 +85,7 @@ public class LineToolHandler implements ToolHandler {
         
         // 检查S3服务是否配置
         if (!s3Service.isConfigured()) {
-            return ToolResult.builder().output(JacksonUtils.serialize("S3存储服务未配置，无法生成折线图。")).build();
+            return new ToolResult(JacksonUtils.serialize("S3存储服务未配置，无法生成折线图。"));
         }
 
         String title = Optional.ofNullable(arguments.get("title")).map(Object::toString).orElse("折线图");
@@ -115,7 +115,7 @@ public class LineToolHandler implements ToolHandler {
             log.error("Failed to generate line chart or upload to S3", e);
             
             // 返回错误消息
-            return ToolResult.builder().output("生成折线图或上传到S3失败: " + e.getMessage()).build();
+            return new ToolResult("生成折线图或上传到S3失败: " + e.getMessage());
         }
         
         // 构建返回结果
@@ -126,7 +126,7 @@ public class LineToolHandler implements ToolHandler {
             channel.output(context.getToolId(), output);
         }
         
-        return ToolResult.builder().output(imageUrl).build();
+        return new ToolResult(ToolResult.ToolResultType.image_url, imageUrl);
     }
     
     @Override

@@ -69,7 +69,7 @@ public class WebSearchTavilyToolHandler implements ToolHandler {
         // 构建输出内容
         String output = JacksonUtils.serialize(resultData);
 
-        return ToolResult.builder().output(output).build();
+        return new ToolResult(ToolResult.ToolResultType.text, output);
     }
     
     /**
@@ -173,8 +173,11 @@ public class WebSearchTavilyToolHandler implements ToolHandler {
     // 输出结果实体类
     @Data
     public static class TavilySearchResult {
+        @JsonProperty("Title")
         private String title;
+        @JsonProperty("Result")
         private String result;
+        @JsonProperty("URL")
         private String url;
     }
 }

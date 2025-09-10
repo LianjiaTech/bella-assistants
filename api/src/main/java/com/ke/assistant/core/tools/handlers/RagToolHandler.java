@@ -80,9 +80,7 @@ public class RagToolHandler implements BellaToolHandler {
             // 获取完整输出
             String output = listener.getOutput();
             
-            return ToolResult.builder()
-                .output(output)
-                .build();
+            return new ToolResult(ToolResult.ToolResultType.text, output);
                 
         } catch (Exception e) {
             log.error("RAG tool execution failed", e);
