@@ -26,6 +26,7 @@ import com.theokanning.openai.assistants.run_step.RunStep;
 import com.theokanning.openai.assistants.run_step.StepDetails;
 import com.theokanning.openai.common.LastError;
 import com.theokanning.openai.completion.chat.ChatToolCall;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -310,7 +311,8 @@ public class RunStateManager {
             }
             if(outputMap.containsKey(toolCall.getId())) {
                  if(toolCall.getFunction() != null) {
-                    toolCall.getFunction().setOutput(outputMap.get(toolCall.getId()).getFunction().getOutput());
+                    String output = outputMap.get(toolCall.getId()).getFunction().getOutput();
+                    toolCall.getFunction().setOutput(StringUtils.isBlank(output) ? "未获取到结果" : output);
                 }
             } else {
                 throw new BizParamCheckException("tool call id is not exist");
@@ -510,8 +512,8 @@ public class RunStateManager {
     @Transactional
     public Message updateMessageStatus(ExecutionContext context, String status, boolean hidden) {
         Message message = messageService.updateStatus(context.getThreadId(), context.getAssistantMessageId(), status, hidden);
-       context.publish(message);
-       return message;
+        context.publish(message);
+        return message;
     }
 
 

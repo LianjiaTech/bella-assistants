@@ -227,6 +227,7 @@ public class ExecutionContext {
      */
     public void addHistoryToolStep(RunStep runStep) {
         historyToolSteps.add(runStep);
+        incrementStep();
     }
 
     /**

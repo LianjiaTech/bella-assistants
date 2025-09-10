@@ -42,7 +42,7 @@ public class TemplateContextBuilder {
      * Build user information from context
      */
     private static TemplateContext.UserInfo buildUserInfo(ExecutionContext context) {
-        return null;
+        return TemplateContext.UserInfo.builder().id(context.getUser()).build();
     }
 
     /**

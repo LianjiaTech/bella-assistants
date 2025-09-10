@@ -1,14 +1,11 @@
 package com.ke.assistant.mesh;
 
-import com.ke.bella.openapi.utils.JacksonUtils;
-import com.theokanning.openai.assistants.run.SubmitToolOutputs;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.Instant;
-import java.util.HashMap;
+import java.time.LocalDateTime;
 import java.util.Map;
 
 /**
@@ -39,7 +36,7 @@ public class Event {
      * 事件创建时间
      */
     @Builder.Default
-    private Instant timestamp = Instant.now();
+    private LocalDateTime timestamp = LocalDateTime.now();
     
     /**
      * 源实例ID

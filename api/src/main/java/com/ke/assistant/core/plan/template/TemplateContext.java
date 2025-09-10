@@ -36,10 +36,11 @@ public class TemplateContext {
     @Builder
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class UserInfo {
+        private String id;
         private String gender;
         private Integer age;
         private String job;
-        private Map<String, String> others;
+        private String others;
     }
     
     @Data

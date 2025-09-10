@@ -24,6 +24,9 @@
 
 {% if user != null %}
 ## 用户信息
+{% if user.id != null %}
+用户ID：{{ user.id }}
+{% endif %}
 {% if user.gender != null %}
 性别：{{ user.gender }}
 {% endif %}
@@ -32,6 +35,9 @@
 {% endif %}
 {% if user.job != null %}
 工作：{{ user.job }}
+{% endif %}
+{% if user.other != null %}
+其他信息：{{ user.other }}
 {% endif %}
 {% endif %}
 
