@@ -456,73 +456,59 @@ public class RunRecord extends UpdatableRecordImpl<RunRecord> implements Timed {
     }
 
     /**
-     * Setter for <code>run.stream</code>.
-     */
-    public void setStream(String value) {
-        set(31, value);
-    }
-
-    /**
-     * Getter for <code>run.stream</code>.
-     */
-    public String getStream() {
-        return (String) get(31);
-    }
-
-    /**
      * Setter for <code>run.reasoning_time</code>. 模型推理耗时，以秒为单位
      */
     public void setReasoningTime(Integer value) {
-        set(32, value);
+        set(31, value);
     }
 
     /**
      * Getter for <code>run.reasoning_time</code>. 模型推理耗时，以秒为单位
      */
     public Integer getReasoningTime() {
-        return (Integer) get(32);
+        return (Integer) get(31);
     }
 
     /**
      * Setter for <code>run.reasoning_effort</code>.
      */
     public void setReasoningEffort(String value) {
-        set(33, value);
+        set(32, value);
     }
 
     /**
      * Getter for <code>run.reasoning_effort</code>.
      */
     public String getReasoningEffort() {
-        return (String) get(33);
+        return (String) get(32);
     }
 
     /**
      * Setter for <code>run.created_at</code>.
      */
     public void setCreatedAt(LocalDateTime value) {
-        set(34, value);
+        set(33, value);
     }
 
     /**
      * Getter for <code>run.created_at</code>.
      */
     public LocalDateTime getCreatedAt() {
-        return (LocalDateTime) get(34);
+        return (LocalDateTime) get(33);
     }
 
     /**
      * Setter for <code>run.updated_at</code>.
      */
     public void setUpdatedAt(LocalDateTime value) {
-        set(35, value);
+        set(34, value);
     }
 
     /**
      * Getter for <code>run.updated_at</code>.
      */
     public LocalDateTime getUpdatedAt() {
-        return (LocalDateTime) get(35);
+        return (LocalDateTime) get(34);
     }
 
     // -------------------------------------------------------------------------
@@ -548,7 +534,7 @@ public class RunRecord extends UpdatableRecordImpl<RunRecord> implements Timed {
     /**
      * Create a detached, initialised RunRecord
      */
-    public RunRecord(String id, String object, String assistantId, String threadId, String status, String model, String instructions, Double temperature, Double topP, Integer maxPromptTokens, Integer maxCompletionTokens, String truncationStrategy, String toolChoice, Byte parallelToolCalls, String responseFormat, String user, String fileIds, String metadata, String lastError, String requiredAction, String incompleteDetails, String usage, LocalDateTime startedAt, LocalDateTime completedAt, LocalDateTime cancelledAt, LocalDateTime expiresAt, LocalDateTime failedAt, String authorizationHeader, String taskId, Byte saveMessage, String additionalMessageIds, String stream, Integer reasoningTime, String reasoningEffort, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public RunRecord(String id, String object, String assistantId, String threadId, String status, String model, String instructions, Double temperature, Double topP, Integer maxPromptTokens, Integer maxCompletionTokens, String truncationStrategy, String toolChoice, Byte parallelToolCalls, String responseFormat, String user, String fileIds, String metadata, String lastError, String requiredAction, String incompleteDetails, String usage, LocalDateTime startedAt, LocalDateTime completedAt, LocalDateTime cancelledAt, LocalDateTime expiresAt, LocalDateTime failedAt, String authorizationHeader, String taskId, Byte saveMessage, String additionalMessageIds, Integer reasoningTime, String reasoningEffort, LocalDateTime createdAt, LocalDateTime updatedAt) {
         super(Run.RUN);
 
         setId(id);
@@ -582,7 +568,6 @@ public class RunRecord extends UpdatableRecordImpl<RunRecord> implements Timed {
         setTaskId(taskId);
         setSaveMessage(saveMessage);
         setAdditionalMessageIds(additionalMessageIds);
-        setStream(stream);
         setReasoningTime(reasoningTime);
         setReasoningEffort(reasoningEffort);
         setCreatedAt(createdAt);

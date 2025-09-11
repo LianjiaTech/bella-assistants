@@ -205,11 +205,6 @@ public class Run extends TableImpl<RunRecord> {
     public final TableField<RunRecord, String> ADDITIONAL_MESSAGE_IDS = createField(DSL.name("additional_message_ids"), SQLDataType.VARCHAR(200).nullable(false).defaultValue(DSL.inline("", SQLDataType.VARCHAR)), this, "本轮 run 的 additional message ids");
 
     /**
-     * The column <code>run.stream</code>.
-     */
-    public final TableField<RunRecord, String> STREAM = createField(DSL.name("stream"), SQLDataType.VARCHAR(100).nullable(false).defaultValue(DSL.inline("1", SQLDataType.VARCHAR)), this, "");
-
-    /**
      * The column <code>run.reasoning_time</code>. 模型推理耗时，以秒为单位
      */
     public final TableField<RunRecord, Integer> REASONING_TIME = createField(DSL.name("reasoning_time"), SQLDataType.INTEGER.nullable(false).defaultValue(DSL.inline("0", SQLDataType.INTEGER)), this, "模型推理耗时，以秒为单位");

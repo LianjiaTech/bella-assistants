@@ -73,6 +73,10 @@ public class AssistantRepo implements BaseRepo {
 
         fillCreateTime(assistant);
 
+        if(assistant.getInstructions() == null) {
+            assistant.setInstructions("");
+        }
+
         AssistantRecord record = dsl.newRecord(ASSISTANT, assistant);
         record.store();
 

@@ -49,7 +49,6 @@ public class RunDb implements Timed, Serializable {
     private String        taskId;
     private Byte          saveMessage;
     private String        additionalMessageIds;
-    private String        stream;
     private Integer       reasoningTime;
     private String        reasoningEffort;
     private LocalDateTime createdAt;
@@ -89,7 +88,6 @@ public class RunDb implements Timed, Serializable {
         this.taskId = value.taskId;
         this.saveMessage = value.saveMessage;
         this.additionalMessageIds = value.additionalMessageIds;
-        this.stream = value.stream;
         this.reasoningTime = value.reasoningTime;
         this.reasoningEffort = value.reasoningEffort;
         this.createdAt = value.createdAt;
@@ -128,7 +126,6 @@ public class RunDb implements Timed, Serializable {
         String        taskId,
         Byte          saveMessage,
         String        additionalMessageIds,
-        String        stream,
         Integer       reasoningTime,
         String        reasoningEffort,
         LocalDateTime createdAt,
@@ -165,7 +162,6 @@ public class RunDb implements Timed, Serializable {
         this.taskId = taskId;
         this.saveMessage = saveMessage;
         this.additionalMessageIds = additionalMessageIds;
-        this.stream = stream;
         this.reasoningTime = reasoningTime;
         this.reasoningEffort = reasoningEffort;
         this.createdAt = createdAt;
@@ -607,20 +603,6 @@ public class RunDb implements Timed, Serializable {
     }
 
     /**
-     * Getter for <code>run.stream</code>.
-     */
-    public String getStream() {
-        return this.stream;
-    }
-
-    /**
-     * Setter for <code>run.stream</code>.
-     */
-    public void setStream(String stream) {
-        this.stream = stream;
-    }
-
-    /**
      * Getter for <code>run.reasoning_time</code>. 模型推理耗时，以秒为单位
      */
     public Integer getReasoningTime() {
@@ -711,7 +693,6 @@ public class RunDb implements Timed, Serializable {
         sb.append(", ").append(taskId);
         sb.append(", ").append(saveMessage);
         sb.append(", ").append(additionalMessageIds);
-        sb.append(", ").append(stream);
         sb.append(", ").append(reasoningTime);
         sb.append(", ").append(reasoningEffort);
         sb.append(", ").append(createdAt);

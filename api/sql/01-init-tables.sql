@@ -344,10 +344,6 @@ CREATE TABLE IF NOT EXISTS run
 (
     200
 ) NOT NULL DEFAULT '' COMMENT '本轮 run 的 additional message ids',
-    stream VARCHAR
-(
-    100
-) NOT NULL DEFAULT '1',
     reasoning_time INT DEFAULT 0 NOT NULL COMMENT '模型推理耗时，以秒为单位',
     reasoning_effort VARCHAR
 (
