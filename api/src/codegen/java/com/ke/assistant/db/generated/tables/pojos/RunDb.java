@@ -45,7 +45,6 @@ public class RunDb implements Timed, Serializable {
     private LocalDateTime cancelledAt;
     private LocalDateTime expiresAt;
     private LocalDateTime failedAt;
-    private String        authorizationHeader;
     private String        taskId;
     private Byte          saveMessage;
     private String        additionalMessageIds;
@@ -84,7 +83,6 @@ public class RunDb implements Timed, Serializable {
         this.cancelledAt = value.cancelledAt;
         this.expiresAt = value.expiresAt;
         this.failedAt = value.failedAt;
-        this.authorizationHeader = value.authorizationHeader;
         this.taskId = value.taskId;
         this.saveMessage = value.saveMessage;
         this.additionalMessageIds = value.additionalMessageIds;
@@ -122,7 +120,6 @@ public class RunDb implements Timed, Serializable {
         LocalDateTime cancelledAt,
         LocalDateTime expiresAt,
         LocalDateTime failedAt,
-        String        authorizationHeader,
         String        taskId,
         Byte          saveMessage,
         String        additionalMessageIds,
@@ -158,7 +155,6 @@ public class RunDb implements Timed, Serializable {
         this.cancelledAt = cancelledAt;
         this.expiresAt = expiresAt;
         this.failedAt = failedAt;
-        this.authorizationHeader = authorizationHeader;
         this.taskId = taskId;
         this.saveMessage = saveMessage;
         this.additionalMessageIds = additionalMessageIds;
@@ -547,20 +543,6 @@ public class RunDb implements Timed, Serializable {
     }
 
     /**
-     * Getter for <code>run.authorization_header</code>. 模型调用身份认证信息
-     */
-    public String getAuthorizationHeader() {
-        return this.authorizationHeader;
-    }
-
-    /**
-     * Setter for <code>run.authorization_header</code>. 模型调用身份认证信息
-     */
-    public void setAuthorizationHeader(String authorizationHeader) {
-        this.authorizationHeader = authorizationHeader;
-    }
-
-    /**
      * Getter for <code>run.task_id</code>. celery中对应的任务id
      */
     public String getTaskId() {
@@ -689,7 +671,6 @@ public class RunDb implements Timed, Serializable {
         sb.append(", ").append(cancelledAt);
         sb.append(", ").append(expiresAt);
         sb.append(", ").append(failedAt);
-        sb.append(", ").append(authorizationHeader);
         sb.append(", ").append(taskId);
         sb.append(", ").append(saveMessage);
         sb.append(", ").append(additionalMessageIds);

@@ -328,10 +328,6 @@ CREATE TABLE IF NOT EXISTS run
     cancelled_at DATETIME NOT NULL DEFAULT '1970-01-01 08:00:00',
     expires_at DATETIME NOT NULL DEFAULT '1970-01-01 09:00:00',
     failed_at DATETIME NOT NULL DEFAULT '1970-01-01 08:00:00',
-    authorization_header VARCHAR
-(
-    128
-) NOT NULL DEFAULT '' COMMENT '模型调用身份认证信息',
     task_id VARCHAR
 (
     64

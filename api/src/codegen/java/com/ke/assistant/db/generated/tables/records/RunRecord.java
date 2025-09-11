@@ -400,115 +400,101 @@ public class RunRecord extends UpdatableRecordImpl<RunRecord> implements Timed {
     }
 
     /**
-     * Setter for <code>run.authorization_header</code>. 模型调用身份认证信息
-     */
-    public void setAuthorizationHeader(String value) {
-        set(27, value);
-    }
-
-    /**
-     * Getter for <code>run.authorization_header</code>. 模型调用身份认证信息
-     */
-    public String getAuthorizationHeader() {
-        return (String) get(27);
-    }
-
-    /**
      * Setter for <code>run.task_id</code>. celery中对应的任务id
      */
     public void setTaskId(String value) {
-        set(28, value);
+        set(27, value);
     }
 
     /**
      * Getter for <code>run.task_id</code>. celery中对应的任务id
      */
     public String getTaskId() {
-        return (String) get(28);
+        return (String) get(27);
     }
 
     /**
      * Setter for <code>run.save_message</code>. 是否保存本轮生成 message
      */
     public void setSaveMessage(Byte value) {
-        set(29, value);
+        set(28, value);
     }
 
     /**
      * Getter for <code>run.save_message</code>. 是否保存本轮生成 message
      */
     public Byte getSaveMessage() {
-        return (Byte) get(29);
+        return (Byte) get(28);
     }
 
     /**
      * Setter for <code>run.additional_message_ids</code>. 本轮 run 的 additional message ids
      */
     public void setAdditionalMessageIds(String value) {
-        set(30, value);
+        set(29, value);
     }
 
     /**
      * Getter for <code>run.additional_message_ids</code>. 本轮 run 的 additional message ids
      */
     public String getAdditionalMessageIds() {
-        return (String) get(30);
+        return (String) get(29);
     }
 
     /**
      * Setter for <code>run.reasoning_time</code>. 模型推理耗时，以秒为单位
      */
     public void setReasoningTime(Integer value) {
-        set(31, value);
+        set(30, value);
     }
 
     /**
      * Getter for <code>run.reasoning_time</code>. 模型推理耗时，以秒为单位
      */
     public Integer getReasoningTime() {
-        return (Integer) get(31);
+        return (Integer) get(30);
     }
 
     /**
      * Setter for <code>run.reasoning_effort</code>.
      */
     public void setReasoningEffort(String value) {
-        set(32, value);
+        set(31, value);
     }
 
     /**
      * Getter for <code>run.reasoning_effort</code>.
      */
     public String getReasoningEffort() {
-        return (String) get(32);
+        return (String) get(31);
     }
 
     /**
      * Setter for <code>run.created_at</code>.
      */
     public void setCreatedAt(LocalDateTime value) {
-        set(33, value);
+        set(32, value);
     }
 
     /**
      * Getter for <code>run.created_at</code>.
      */
     public LocalDateTime getCreatedAt() {
-        return (LocalDateTime) get(33);
+        return (LocalDateTime) get(32);
     }
 
     /**
      * Setter for <code>run.updated_at</code>.
      */
     public void setUpdatedAt(LocalDateTime value) {
-        set(34, value);
+        set(33, value);
     }
 
     /**
      * Getter for <code>run.updated_at</code>.
      */
     public LocalDateTime getUpdatedAt() {
-        return (LocalDateTime) get(34);
+        return (LocalDateTime) get(33);
     }
 
     // -------------------------------------------------------------------------
@@ -534,7 +520,7 @@ public class RunRecord extends UpdatableRecordImpl<RunRecord> implements Timed {
     /**
      * Create a detached, initialised RunRecord
      */
-    public RunRecord(String id, String object, String assistantId, String threadId, String status, String model, String instructions, Double temperature, Double topP, Integer maxPromptTokens, Integer maxCompletionTokens, String truncationStrategy, String toolChoice, Byte parallelToolCalls, String responseFormat, String user, String fileIds, String metadata, String lastError, String requiredAction, String incompleteDetails, String usage, LocalDateTime startedAt, LocalDateTime completedAt, LocalDateTime cancelledAt, LocalDateTime expiresAt, LocalDateTime failedAt, String authorizationHeader, String taskId, Byte saveMessage, String additionalMessageIds, Integer reasoningTime, String reasoningEffort, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public RunRecord(String id, String object, String assistantId, String threadId, String status, String model, String instructions, Double temperature, Double topP, Integer maxPromptTokens, Integer maxCompletionTokens, String truncationStrategy, String toolChoice, Byte parallelToolCalls, String responseFormat, String user, String fileIds, String metadata, String lastError, String requiredAction, String incompleteDetails, String usage, LocalDateTime startedAt, LocalDateTime completedAt, LocalDateTime cancelledAt, LocalDateTime expiresAt, LocalDateTime failedAt, String taskId, Byte saveMessage, String additionalMessageIds, Integer reasoningTime, String reasoningEffort, LocalDateTime createdAt, LocalDateTime updatedAt) {
         super(Run.RUN);
 
         setId(id);
@@ -564,7 +550,6 @@ public class RunRecord extends UpdatableRecordImpl<RunRecord> implements Timed {
         setCancelledAt(cancelledAt);
         setExpiresAt(expiresAt);
         setFailedAt(failedAt);
-        setAuthorizationHeader(authorizationHeader);
         setTaskId(taskId);
         setSaveMessage(saveMessage);
         setAdditionalMessageIds(additionalMessageIds);

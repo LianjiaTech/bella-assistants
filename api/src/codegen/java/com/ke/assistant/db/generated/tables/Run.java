@@ -185,11 +185,6 @@ public class Run extends TableImpl<RunRecord> {
     public final TableField<RunRecord, LocalDateTime> FAILED_AT = createField(DSL.name("failed_at"), SQLDataType.LOCALDATETIME(0).nullable(false).defaultValue(DSL.inline("1970-01-01 08:00:00", SQLDataType.LOCALDATETIME)), this, "");
 
     /**
-     * The column <code>run.authorization_header</code>. 模型调用身份认证信息
-     */
-    public final TableField<RunRecord, String> AUTHORIZATION_HEADER = createField(DSL.name("authorization_header"), SQLDataType.VARCHAR(128).nullable(false).defaultValue(DSL.inline("", SQLDataType.VARCHAR)), this, "模型调用身份认证信息");
-
-    /**
      * The column <code>run.task_id</code>. celery中对应的任务id
      */
     public final TableField<RunRecord, String> TASK_ID = createField(DSL.name("task_id"), SQLDataType.VARCHAR(64).nullable(false).defaultValue(DSL.inline("", SQLDataType.VARCHAR)), this, "celery中对应的任务id");
