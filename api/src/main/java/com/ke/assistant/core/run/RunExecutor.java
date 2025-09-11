@@ -5,6 +5,7 @@ import com.ke.assistant.core.TaskExecutor;
 import com.ke.assistant.core.ai.ChatService;
 import com.ke.assistant.core.file.FileInfo;
 import com.ke.assistant.core.file.FileProvider;
+import com.ke.assistant.core.log.RunLogger;
 import com.ke.assistant.core.plan.Planner;
 import com.ke.assistant.core.plan.PlannerDecision;
 import com.ke.assistant.core.tools.ToolExecutor;
@@ -69,7 +70,7 @@ public class RunExecutor {
     private FileProvider fileProvider;
 
     @Autowired
-    private OpenapiClient client;
+    private RunLogger runLogger;
     @Autowired
     private OpenapiClient openapiClient;
 
@@ -134,6 +135,7 @@ public class RunExecutor {
             // 通知所有辅助线程退出
             context.end();
             BellaContext.clearAll();
+            runLogger.log(context);
         }
     }
     

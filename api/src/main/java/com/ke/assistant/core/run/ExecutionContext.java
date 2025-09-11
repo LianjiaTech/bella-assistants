@@ -1,10 +1,12 @@
 package com.ke.assistant.core.run;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.ke.assistant.core.file.FileInfo;
 import com.ke.bella.openapi.protocol.completion.CompletionModelFeatures;
 import com.ke.bella.openapi.protocol.completion.CompletionModelProperties;
 import com.ke.bella.openapi.utils.DateTimeUtils;
+import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.Usage;
 import com.theokanning.openai.assistants.assistant.Tool;
 import com.theokanning.openai.assistants.message.Message;
@@ -213,9 +215,16 @@ public class ExecutionContext {
                 origin.getFunction().setName(
                         Optional.ofNullable(origin.getFunction().getName()).orElse("") + Optional.ofNullable(chatToolCall.getFunction().getName())
                                 .orElse(""));
+                JsonNode argNodes = Optional.ofNullable(
+                        chatToolCall.getFunction().getArguments()).orElse(new TextNode(""));
+                String args;
+                if(argNodes instanceof TextNode) {
+                    args = argNodes.asText();
+                } else {
+                    args = JacksonUtils.serialize(argNodes);
+                }
                 origin.getFunction().setArguments(new TextNode(
-                        Optional.ofNullable(origin.getFunction().getArguments()).orElse(new TextNode("")).asText() + Optional.ofNullable(
-                                chatToolCall.getFunction().getArguments()).orElse(new TextNode("")).asText()));
+                        Optional.ofNullable(origin.getFunction().getArguments()).orElse(new TextNode("")).asText() + args));
             }
         } else {
             currentToolTasks.put(chatToolCall.getIndex(), chatToolCall);
@@ -481,7 +490,7 @@ public class ExecutionContext {
     public void end() {
         end.set(true);
         // 唤醒工具执行线程
-        toolCondition.signal();
+        signal(toolCondition);
         // 唤醒消息执行线程
         publish("[END]");
     }
