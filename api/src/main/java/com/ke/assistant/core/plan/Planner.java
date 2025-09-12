@@ -187,8 +187,8 @@ public class Planner {
         // 如果不是第一次构建，只需要把工具相关的消息加入
         if(!context.getChatMessages().isEmpty()) {
             if(context.getCurrentToolResults() != null && !context.getCurrentToolResults().isEmpty()) {
-                MessageUtils.convertToolCallMessages(context.getCurrentToolResults(), null).forEach(context::addChatMessage);
-                context.clearToolCallsResult();
+                MessageUtils.convertToolCallMessages(context.getCurrentToolResults(), null, context.getCurrentMetaData(), context.isSupportReasonInput()).forEach(context::addChatMessage);
+                context.clearCurrentRunStepCache();
             }
             return;
         }
@@ -212,13 +212,13 @@ public class Planner {
 
         for(Message message : messages) {
             if(message.getRole().equals("user")) {
-                ChatMessage chatMessage = MessageUtils.formatChatCompletionMessage(message, context.getFileInfos(), context.isVisionModel());
+                ChatMessage chatMessage = MessageUtils.formatChatCompletionMessage(message, context.getFileInfos(), context.isVisionModel(), context.isSupportReasonInput());
                 if(chatMessage != null) {
                     context.addChatMessage(chatMessage);
                 }
             }
             if(message.getRole().equals("assistant")) {
-                ChatMessage assistantMessage = MessageUtils.formatChatCompletionMessage(message, context.getFileInfos(), context.isVisionModel());
+                ChatMessage assistantMessage = MessageUtils.formatChatCompletionMessage(message, context.getFileInfos(), context.isVisionModel(), context.isSupportReasonInput());
                 if(message.getRunId() != null && runStepMap.containsKey(message.getRunId())) {
                     for (RunStep runStep : runStepMap.get(message.getRunId())) {
                         buildToolMessage(context, runStep);
@@ -235,7 +235,7 @@ public class Planner {
                 if(stepDetails.getToolCalls() == null) {
                     continue;
                 }
-                MessageUtils.convertToolCallMessages(stepDetails.getToolCalls(), runStep.getLastError()).forEach(context::addChatMessage);
+                MessageUtils.convertToolCallMessages(stepDetails.getToolCalls(), runStep.getLastError(), context.getCurrentMetaData(), context.isSupportReasonInput()).forEach(context::addChatMessage);
             }
         }
     }
@@ -246,7 +246,7 @@ public class Planner {
             return;
         }
         if("tool_calls".equals(stepDetails.getType())) {
-            MessageUtils.convertToolCallMessages(stepDetails.getToolCalls(), runStep.getLastError()).forEach(context::addChatMessage);
+            MessageUtils.convertToolCallMessages(stepDetails.getToolCalls(), runStep.getLastError(), context.getCurrentMetaData(), context.isSupportReasonInput()).forEach(context::addChatMessage);
         }
     }
 

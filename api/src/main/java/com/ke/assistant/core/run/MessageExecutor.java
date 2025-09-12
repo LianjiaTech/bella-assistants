@@ -3,6 +3,9 @@ package com.ke.assistant.core.run;
 import com.google.common.collect.Lists;
 import com.ke.assistant.core.TaskExecutor;
 import com.ke.assistant.util.MessageUtils;
+import com.ke.assistant.util.MetaConstants;
+import com.ke.bella.openapi.protocol.OpenapiResponse;
+import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.OpenAiError;
 import com.theokanning.openai.Usage;
 import com.theokanning.openai.assistants.StreamEvent;
@@ -30,7 +33,9 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 public class MessageExecutor implements Runnable {
@@ -39,6 +44,8 @@ public class MessageExecutor implements Runnable {
     private SseEmitter sseEmitter;
     private StringBuilder content;
     private StringBuilder reasoning;
+    private StringBuilder reasoningSignature;
+    private StringBuilder redactedReasoningContent;
     // 助手消息中的内容序号
     private Integer index;
     private Usage usage;
@@ -49,6 +56,8 @@ public class MessageExecutor implements Runnable {
         this.sseEmitter = sseEmitter;
         this.content = new StringBuilder();
         this.reasoning = new StringBuilder();
+        this.reasoningSignature = new StringBuilder();
+        this.redactedReasoningContent = new StringBuilder();
         this.index = 0;
     }
 
@@ -96,20 +105,39 @@ public class MessageExecutor implements Runnable {
             }
             // llm处理结束
             if(msg.equals("[LLM_DONE]")) {
+                if(context.isError()) {
+                    return;
+                }
+                Map<String, String> meatData = new HashMap<>();
+                if(reasoningSignature.length() > 0) {
+                    meatData.put(MetaConstants.REASONING_SIG, reasoningSignature.toString());
+                }
+                if(redactedReasoningContent.length() > 0) {
+                    meatData.put(MetaConstants.REDACTED_REASONING, redactedReasoningContent.toString());
+                }
                 context.addUsage(usage);
                 // 没有工具调用，代表助手消息创建完毕
                 if(!context.hasInProgressToolCalls()) {
                     MessageContent messageContent = new MessageContent();
                     messageContent.setType("text");
                     messageContent.setText(new Text(content.toString(), new ArrayList<>()));
-                    runStateManager.finishMessageCreation(context, messageContent, reasoning.toString(), usage);
+                    runStateManager.finishMessageCreation(context, messageContent, reasoning.toString(), usage, meatData);
                     ++index;
                 } else {
-                    runStateManager.startToolCalls(context, reasoning.toString(), usage);
+                    if(content.length() > 0) {
+                        meatData.put(MetaConstants.TEXT, content.toString());
+                    }
+                    if(reasoning.length() > 0) {
+                        meatData.put(MetaConstants.REASONING, reasoning.toString());
+                    }
+                    runStateManager.startToolCalls(context, usage, meatData);
+                    context.getCurrentMetaData().putAll(meatData);
                 }
                 usage = null;
                 content = new StringBuilder();
                 reasoning = new StringBuilder();
+                reasoningSignature = new StringBuilder();
+                redactedReasoningContent = new StringBuilder();
                 return;
             }
             // 工具处理结束时，存在content输出的工具会发送此消息，需要将输出加入到助手消息中
@@ -118,7 +146,7 @@ public class MessageExecutor implements Runnable {
                     MessageContent messageContent = new MessageContent();
                     messageContent.setType("text");
                     messageContent.setText(new Text(content.toString(), new ArrayList<>()));
-                    runStateManager.addContent(context, messageContent, null);
+                    runStateManager.addContent(context, messageContent, null, null);
                 }
                 content = new StringBuilder();
                 // 新增内容，序号 +1
@@ -194,6 +222,12 @@ public class MessageExecutor implements Runnable {
                         sendReasoning(assistantMessage.getReasoningContent());
                         reasoning.append(assistantMessage.getReasoningContent());
                     }
+                    if(assistantMessage.getReasoningContentSignature() != null && !assistantMessage.getReasoningContentSignature().isEmpty()) {
+                        reasoningSignature.append(assistantMessage.getReasoningContentSignature());
+                    }
+                    if(assistantMessage.getRedactedReasoningContent() != null && !assistantMessage.getRedactedReasoningContent().isEmpty()) {
+                        redactedReasoningContent.append(assistantMessage.getRedactedReasoningContent());
+                    }
                     if(assistantMessage.getContent() != null && !assistantMessage.getContent().isEmpty()) {
                         sendContent(assistantMessage.getContent());
                         content.append(assistantMessage.getContent());
@@ -209,6 +243,9 @@ public class MessageExecutor implements Runnable {
             if(chunk.getUsage() != null) {
                 usage = chunk.getUsage();
             }
+            if(chunk.getError() != null) {
+                context.setError(chunk.getError().getCode(), chunk.getError().getMessage());
+            }
             return;
         }
         //以下是Tool为isFinal会发送的多模态消息
@@ -218,7 +255,7 @@ public class MessageExecutor implements Runnable {
             MessageContent messageContent = new MessageContent();
             messageContent.setType("image_file");
             messageContent.setImageFile(imageFile);
-            runStateManager.addContent(context, messageContent, null);
+            runStateManager.addContent(context, messageContent, null, null);
             // 新增内容，序号 +1
             index++;
             context.finishToolCallOutput();
@@ -230,7 +267,7 @@ public class MessageExecutor implements Runnable {
             MessageContent messageContent = new MessageContent();
             messageContent.setType("image_url");
             messageContent.setImageUrl(imageUrl);
-            runStateManager.addContent(context, messageContent, null);
+            runStateManager.addContent(context, messageContent, null, null);
             // 新增内容，序号 +1
             index++;
             context.finishToolCallOutput();

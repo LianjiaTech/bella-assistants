@@ -254,7 +254,7 @@ public class MessageUtils {
     /**
      * 格式化消息，将内容转换为用于chat completion的Message
      */
-    public static ChatMessage formatChatCompletionMessage(Message messageInfo, Map<String, FileInfo> fileInfoMap, boolean supportVision) {
+    public static ChatMessage formatChatCompletionMessage(Message messageInfo, Map<String, FileInfo> fileInfoMap, boolean supportVision, boolean supportReasoningInput) {
 
         if (messageInfo == null || messageInfo.getRole() == null) {
             return null;
@@ -268,7 +268,21 @@ public class MessageUtils {
             userMessage.setContent(content);
             return userMessage;
         case "assistant":
-            return new AssistantMultipleMessage(content);
+            AssistantMultipleMessage message = new AssistantMultipleMessage(content);
+            if(supportReasoningInput) {
+                if(message.getReasoningContent() != null && !message.getReasoningContent().isEmpty()) {
+                    message.setReasoningContent(message.getReasoningContent());
+                }
+                if(messageInfo.getMetadata() != null && !messageInfo.getMetadata().isEmpty()) {
+                    if(messageInfo.getMetadata().containsKey(MetaConstants.REASONING_SIG)) {
+                        message.setReasoningContentSignature(messageInfo.getMetadata().get(MetaConstants.REASONING_SIG));
+                    }
+                    if(messageInfo.getMetadata().containsKey(MetaConstants.REDACTED_REASONING)) {
+                        message.setRedactedReasoningContent(messageInfo.getMetadata().get(MetaConstants.REDACTED_REASONING));
+                    }
+                }
+            }
+            return message;
         case "system":
             return new SystemMessage((String) content);
         default:
@@ -384,7 +398,7 @@ public class MessageUtils {
                 .build();
     }
 
-    public static List<ChatMessage> convertToolCallMessages(List<ToolCall> toolCalls, LastError lastError) {
+    public static List<ChatMessage> convertToolCallMessages(List<ToolCall> toolCalls, LastError lastError, Map<String, String> metaData, boolean supportReasoningInput) {
         List<ChatMessage> result = new ArrayList<>();
         AssistantMessage toolCallMessage = new AssistantMessage();
         List<ChatToolCall> chatToolCalls = new ArrayList<>();
@@ -430,6 +444,20 @@ public class MessageUtils {
             toolResultMessages.add(toolResultMessage);
         }
         toolCallMessage.setToolCalls(chatToolCalls);
+        if(supportReasoningInput && metaData != null && !metaData.isEmpty()) {
+            if(metaData.containsKey(MetaConstants.TEXT)) {
+                toolCallMessage.setContent(metaData.get(MetaConstants.TEXT));
+            }
+            if(metaData.containsKey(MetaConstants.REASONING)) {
+                toolCallMessage.setReasoningContent(metaData.get(MetaConstants.REASONING));
+            }
+            if(metaData.containsKey(MetaConstants.REASONING_SIG)) {
+                toolCallMessage.setReasoningContentSignature(metaData.get(MetaConstants.REASONING_SIG));
+            }
+            if(metaData.containsKey(MetaConstants.REDACTED_REASONING)) {
+                toolCallMessage.setRedactedReasoningContent(metaData.get(MetaConstants.REDACTED_REASONING));
+            }
+        }
         result.add(toolCallMessage);
         result.addAll(toolResultMessages);
         return result;

@@ -346,8 +346,8 @@ public class RunStateManager {
      * 开始工具调用
      */
     @Transactional
-    public void startToolCalls(ExecutionContext context, String reasoning, Usage usage) {
-        RunStepDb db = createToolCallsRunStep(context, reasoning, usage);
+    public void startToolCalls(ExecutionContext context, Usage usage, Map<String, String> metaData) {
+        RunStepDb db = createToolCallsRunStep(context, usage, metaData);
         context.setCurrentToolCallStepId(db.getId());
         // 开启工具调用
         context.signalToolCall();
@@ -357,11 +357,12 @@ public class RunStateManager {
     /**
      * 创建工具调用RunStep
      */
-    private RunStepDb createToolCallsRunStep(ExecutionContext context, String reasoning, Usage usage) {
+    private RunStepDb createToolCallsRunStep(ExecutionContext context, Usage usage, Map<String, String> metaData) {
         RunStepDb runStep = new RunStepDb();
         runStep.setRunId(context.getRunId());
         runStep.setThreadId(context.getThreadId());
         runStep.setAssistantId(context.getAssistantId());
+        runStep.setMetadata(JacksonUtils.serialize(metaData));
         runStep.setType("tool_calls");
         runStep.setStatus("in_progress");
         runStep.setCreatedAt(LocalDateTime.now());
@@ -501,8 +502,8 @@ public class RunStateManager {
      * 完成Assistant Message
      */
     @Transactional
-    public void finishMessageCreation(ExecutionContext context, MessageContent content, String reasoning, Usage usage) {
-        addContent(context, content, reasoning);
+    public void finishMessageCreation(ExecutionContext context, MessageContent content, String reasoning, Usage usage, Map<String, String> metaData) {
+        addContent(context, content, reasoning, metaData);
         updateRunStep(context.getCurrentRunStep().getId(), RunStatus.COMPLETED, null, context, usage);
         // 创建助手消息，意味着llm处理结束，开启下一轮planning
         context.signalRunner();
@@ -517,8 +518,8 @@ public class RunStateManager {
 
 
     @Transactional
-    public Message addContent(ExecutionContext context, MessageContent content, String reasoning) {
-        return messageService.addContent(context.getThreadId(), context.getAssistantMessageId(), content, reasoning);
+    public Message addContent(ExecutionContext context, MessageContent content, String reasoning, Map<String, String> metaDate) {
+        return messageService.addContent(context.getThreadId(), context.getAssistantMessageId(), content, reasoning, metaDate);
     }
 
 

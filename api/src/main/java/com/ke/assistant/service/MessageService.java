@@ -213,7 +213,7 @@ public class MessageService {
      * 更新Message的内容 + reasoning
      */
     @Transactional
-    public Message addContent(String threadId, String id, MessageContent content, String reasoning) {
+    public Message addContent(String threadId, String id, MessageContent content, String reasoning, Map<String, String> metaData) {
         MessageDb existing = messageRepo.findByIdForUpdate(threadId, id);
         if(existing == null) {
             throw new IllegalArgumentException("Message not found: " + id);
@@ -244,6 +244,16 @@ public class MessageService {
 
         // 修改内容可能会影响MessageType
         existing.setMessageType(MessageUtils.recognizeMessageType(existing.getContent()));
+
+        if(metaData != null && !metaData.isEmpty()) {
+            if(existing.getMetadata() != null) {
+                existing.setMetadata(JacksonUtils.serialize(metaData));
+            } else {
+                Map<String, String> matas = JacksonUtils.deserialize(existing.getMetadata(), new TypeReference<Map<String, String>>() {});
+                matas.putAll(metaData);
+                existing.setMetadata(JacksonUtils.serialize(matas));
+            }
+        }
 
         messageRepo.update(existing);
         return convertToInfo(existing);

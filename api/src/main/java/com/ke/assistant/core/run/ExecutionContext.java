@@ -101,6 +101,8 @@ public class ExecutionContext {
     private final List<ChatTool> chatTools;                          // 当前聊天构建的Tools
     // 工具并行，存在并发写入
     private final CopyOnWriteArrayList<ToolCall> currentToolResults;  // 当前工具调用的结果
+    // 当前runStep的信息
+    private final Map<String, String> currentMetaData;
     // {index, ChatToolCall}
     private final ConcurrentHashMap<Integer, ChatToolCall> currentToolTasks;  // 当前待执行的工具
     // 本次run的总消耗
@@ -128,6 +130,7 @@ public class ExecutionContext {
         this.lastUpdateTime = LocalDateTime.now();
         this.chatMessages = new ArrayList<>();
         this.currentToolResults = new CopyOnWriteArrayList<>();
+        this.currentMetaData = new HashMap<>();
         this.chatTools = new ArrayList<>();
         this.currentToolTasks = new ConcurrentHashMap<>();
         this.historyToolSteps = new ArrayList<>();
@@ -189,10 +192,11 @@ public class ExecutionContext {
     }
 
     /**
-     * 清除当前工具执行结果
+     * 清除当前runStep的缓存信息
      */
-    public void clearToolCallsResult() {
+    public void clearCurrentRunStepCache() {
         currentToolResults.clear();
+        currentMetaData.clear();
     }
 
     /**
@@ -540,5 +544,9 @@ public class ExecutionContext {
 
     public boolean isVisionModel() {
         return modelFeatures == null || modelFeatures.isVision();
+    }
+
+    public boolean isSupportReasonInput() {
+        return modelFeatures == null || modelFeatures.isReason_content_input();
     }
 }
