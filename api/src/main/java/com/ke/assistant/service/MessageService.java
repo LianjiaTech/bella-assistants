@@ -5,8 +5,10 @@ import com.ke.assistant.db.generated.tables.pojos.MessageDb;
 import com.ke.assistant.db.repo.MessageRepo;
 import com.ke.assistant.util.BeanUtils;
 import com.ke.assistant.util.MessageUtils;
+import com.ke.assistant.util.MetaConstants;
 import com.ke.bella.openapi.common.exception.ResourceNotFoundException;
 import com.ke.bella.openapi.utils.JacksonUtils;
+import com.theokanning.openai.assistants.message.IncompleteDetails;
 import com.theokanning.openai.assistants.message.Message;
 import com.theokanning.openai.assistants.message.MessageContent;
 import com.theokanning.openai.assistants.message.MessageRequest;
@@ -21,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -260,15 +263,34 @@ public class MessageService {
     }
 
     @Transactional
-    public Message updateStatus(String threadId, String id, String status, boolean hidden) {
+    public Message updateStatus(String threadId, String id, String status, boolean hidden, IncompleteDetails details) {
         MessageDb existing = messageRepo.findByIdForUpdate(threadId, id);
         if(existing == null) {
             throw new IllegalArgumentException("Message not found: " + id);
         }
 
+        if(existing.getStatus().equals("incomplete")) {
+            log.warn("Invalid status transition for message {}: {} -> {}",
+                    id, existing.getStatus(), status);
+            return convertToInfo(existing);
+        }
+
         existing.setStatus(status);
 
         existing.setMessageStatus(hidden ? "hidden" : "original");
+
+        if(details != null) {
+            Map<String, String> matas;
+            if(existing.getMetadata() != null) {
+                matas = new HashMap<>();
+            } else {
+                matas = JacksonUtils.deserialize(existing.getMetadata(), new TypeReference<Map<String, String>>() {
+                });
+
+            }
+            matas.put(MetaConstants.INCOMPLETE_REASON, details.getReason());
+            existing.setMetadata(JacksonUtils.serialize(matas));
+        }
 
         messageRepo.update(existing);
         return convertToInfo(existing);
@@ -319,6 +341,11 @@ public class MessageService {
         if(StringUtils.isNotBlank(messageDb.getAttachments())) {
             info.setAttachments(JacksonUtils.deserialize(messageDb.getAttachments(), new TypeReference<List<Attachment>>() {
             }));
+        }
+
+        if(info.getMetadata() != null && info.getMetadata().containsKey(MetaConstants.INCOMPLETE_REASON)) {
+            IncompleteDetails incompleteDetails = new IncompleteDetails(info.getMetadata().get(MetaConstants.INCOMPLETE_REASON));
+            info.setIncompleteDetails(incompleteDetails);
         }
 
         return info;

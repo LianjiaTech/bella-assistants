@@ -547,6 +547,9 @@ public class ExecutionContext {
     }
 
     public boolean isSupportReasonInput() {
+        if(run.getReasoningEffort() == null) {
+            return false;
+        }
         return modelFeatures == null || modelFeatures.isReason_content_input();
     }
 }

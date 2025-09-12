@@ -17,6 +17,7 @@ import com.ke.bella.openapi.common.exception.BizParamCheckException;
 import com.ke.bella.openapi.utils.DateTimeUtils;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.Usage;
+import com.theokanning.openai.assistants.message.IncompleteDetails;
 import com.theokanning.openai.assistants.message.Message;
 import com.theokanning.openai.assistants.message.MessageContent;
 import com.theokanning.openai.assistants.run.RequiredAction;
@@ -221,9 +222,9 @@ public class RunStateManager {
     public boolean toFailed(ExecutionContext context) {
         LastError lastError = context.getLastError();
         if(context.getCurrentToolCallStepId() != null) {
-            updateRunStepStatus(context.getCurrentToolCallStepId(), RunStatus.FAILED, lastError, context);
+            updateToolRunStepStatus(context.getCurrentToolCallStepId(), RunStatus.FAILED, lastError, context);
         }
-        updateRunStepStatus(context.getCurrentRunStep().getId(), RunStatus.FAILED, lastError, context);
+        updateRunStepStatus(context.getCurrentRunStep().getId(), RunStatus.FAILED, lastError, context, JacksonUtils.serialize(lastError));
         boolean success = updateRunStatus(context, RunStatus.FAILED, lastError);
         if(success) {
             context.publish(context.getLastError());
@@ -237,9 +238,9 @@ public class RunStateManager {
     @Transactional
     public boolean toExpired(ExecutionContext context) {
         if(context.getCurrentToolCallStepId() != null) {
-            updateRunStepStatus(context.getCurrentToolCallStepId(), RunStatus.EXPIRED, null, context);
+            updateToolRunStepStatus(context.getCurrentToolCallStepId(), RunStatus.EXPIRED, null, context);
         }
-        updateRunStepStatus(context.getCurrentRunStep().getId(), RunStatus.EXPIRED, null, context);
+        updateRunStepStatus(context.getCurrentRunStep().getId(), RunStatus.EXPIRED, null, context, "run has expired");
         return updateRunStatus(context, RunStatus.EXPIRED, context.getLastError());
     }
     
@@ -270,9 +271,9 @@ public class RunStateManager {
     @Transactional
     public boolean toCanceled(ExecutionContext context) {
         if(context.getCurrentToolCallStepId() != null) {
-            updateRunStepStatus(context.getCurrentToolCallStepId(), RunStatus.CANCELLED, null, context);
+            updateToolRunStepStatus(context.getCurrentToolCallStepId(), RunStatus.CANCELLED, null, context);
         }
-        updateRunStepStatus(context.getCurrentRunStep().getId(), RunStatus.CANCELLED, null, context);
+        updateRunStepStatus(context.getCurrentRunStep().getId(), RunStatus.CANCELLED, null, context, "run has been canceled");
         return updateRunStatus(context, RunStatus.CANCELLED);
     }
 
@@ -410,12 +411,12 @@ public class RunStateManager {
         runStepRepo.updateStepDetails(context.getThreadId(), stepId, stepDetailsJson);
         if(errorMessage != null) {
             LastError lastError = new LastError("tool_execute_error", errorMessage);
-            updateRunStepStatus(stepId, RunStatus.FAILED, lastError, context);
+            updateToolRunStepStatus(stepId, RunStatus.FAILED, lastError, context);
         }
         if(!context.hasInProgressToolCalls() && results.size() == context.getCurrentToolResults().size()) {
             boolean signal = true;
             if(errorMessage == null) {
-                signal = updateRunStepStatus(stepId, RunStatus.COMPLETED, null, context);
+                signal = updateToolRunStepStatus(stepId, RunStatus.COMPLETED, null, context);
             }
             context.setCurrentToolCallStepId(null);
             if(signal) {
@@ -428,25 +429,35 @@ public class RunStateManager {
      * 修改runStep的状态
      */
     @Transactional
-    public boolean updateRunStepStatus(String runStepId, RunStatus newStatus, LastError lastError, ExecutionContext context) {
-        return updateRunStep(runStepId, newStatus, lastError, context, null);
+    public boolean updateRunStepStatus(String runStepId, RunStatus newStatus, LastError lastError, ExecutionContext context, String reason) {
+        return updateRunStep(runStepId, newStatus, lastError, context, null, reason, false);
+    }
+
+    /**
+     * 修改runStep的状态
+     */
+    @Transactional
+    public boolean updateToolRunStepStatus(String runStepId, RunStatus newStatus, LastError lastError, ExecutionContext context) {
+        return updateRunStep(runStepId, newStatus, lastError, context, null, null, true);
     }
 
     @Transactional
-    public boolean updateRunStep(String runStepId, RunStatus newStatus, LastError lastError, ExecutionContext context, Usage usage) {
+    public boolean updateRunStep(String runStepId, RunStatus newStatus, LastError lastError, ExecutionContext context, Usage usage, String reason, boolean isToolStep) {
         if(runStepId == null) {
             return false;
         }
-        RunStepDb db = runStepRepo.findByIdForUpdate(context.getThreadId(), runStepId);
 
+        // 防止死锁，所有需要加锁的操作都是先修改message，再修改runStep和run
         // 失败时先修改message的状态
-        if(newStatus.isTerminal() && db.getType().equals("message_creation")) {
+        if(newStatus.isTerminal() && !isToolStep) {
             if(newStatus != RunStatus.COMPLETED) {
-                updateMessageStatus(context, "incomplete", context.isNoExecute());
+                updateMessageStatus(context, "incomplete", context.isNoExecute(), reason);
             } else {
-                updateMessageStatus(context, "completed", context.isNoExecute());
+                updateMessageStatus(context, "completed", context.isNoExecute(), null);
             }
         }
+
+        RunStepDb db = runStepRepo.findByIdForUpdate(context.getThreadId(), runStepId);
 
         RunStatus currentStatus = RunStatus.fromValue(db.getStatus());
         if(!currentStatus.canTransitionTo(newStatus)) {
@@ -504,14 +515,18 @@ public class RunStateManager {
     @Transactional
     public void finishMessageCreation(ExecutionContext context, MessageContent content, String reasoning, Usage usage, Map<String, String> metaData) {
         addContent(context, content, reasoning, metaData);
-        updateRunStep(context.getCurrentRunStep().getId(), RunStatus.COMPLETED, null, context, usage);
+        updateRunStep(context.getCurrentRunStep().getId(), RunStatus.COMPLETED, null, context, usage, null, false);
         // 创建助手消息，意味着llm处理结束，开启下一轮planning
         context.signalRunner();
     }
 
     @Transactional
-    public Message updateMessageStatus(ExecutionContext context, String status, boolean hidden) {
-        Message message = messageService.updateStatus(context.getThreadId(), context.getAssistantMessageId(), status, hidden);
+    public Message updateMessageStatus(ExecutionContext context, String status, boolean hidden, String reason) {
+        IncompleteDetails incompleteDetails = null;
+        if("incomplete".equals(status)) {
+            incompleteDetails = new IncompleteDetails(reason == null ? "unexpected error" : reason);
+        }
+        Message message = messageService.updateStatus(context.getThreadId(), context.getAssistantMessageId(), status, hidden, incompleteDetails);
         context.publish(message);
         return message;
     }
@@ -532,7 +547,7 @@ public class RunStateManager {
             logger.warn("no current tool call step");
             return false;
         }
-        updateRunStepStatus(context.getCurrentToolCallStepId(), RunStatus.REQUIRES_ACTION, null, context);
+        updateToolRunStepStatus(context.getCurrentToolCallStepId(), RunStatus.REQUIRES_ACTION, null, context);
         context.requiredAction(requiredAction);
         return true;
     }

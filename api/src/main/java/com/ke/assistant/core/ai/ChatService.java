@@ -4,6 +4,7 @@ import com.ke.assistant.core.run.ExecutionContext;
 import com.ke.bella.openapi.BellaContext;
 import com.ke.bella.openapi.server.OpenAiServiceFactory;
 import com.theokanning.openai.completion.chat.ChatCompletionRequest;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,8 +43,8 @@ public class ChatService {
                 request.setToolChoice(context.getToolChoice());
             }
             // 开启深度思考，通常深度思考模型不支持温度参数
-            if(context.getModelFeatures().isReason_content()) {
-                request.setReasoningEffort("medium");
+            if(context.getModelFeatures().isReason_content() && StringUtils.isNotBlank(context.getRun().getReasoningEffort())) {
+                request.setReasoningEffort(context.getRun().getReasoningEffort());
                 request.setTemperature(null);
             }
 

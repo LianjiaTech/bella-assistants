@@ -108,15 +108,10 @@ public class ThreadService {
      * 更新Thread
      */
     @Transactional
-    public Thread updateThread(String id, ThreadDb updateData, List<Map<String, String>> toolResources, String owner) {
+    public Thread updateThread(String id, ThreadDb updateData, List<Map<String, String>> toolResources) {
         ThreadDb existing = threadRepo.findById(id);
         if(existing == null) {
             throw new IllegalArgumentException("Thread not found: " + id);
-        }
-
-        // 权限检查在Service中进行
-        if(!checkOwnership(id, owner)) {
-            throw new IllegalArgumentException("Permission denied");
         }
 
         existing.setObject("thread");

@@ -96,16 +96,10 @@ public class AssistantService {
      * 更新Assistant
      */
     @Transactional
-    public Assistant updateAssistant(String id, AssistantDb updateData, List<String> fileIds, List<Tool> tools,
-            List<Map<String, String>> toolResourceFiles, String owner) {
+    public Assistant updateAssistant(String id, AssistantDb updateData, List<String> fileIds, List<Tool> tools, List<Map<String, String>> toolResourceFiles) {
         AssistantDb existing = assistantRepo.findById(id);
         if(existing == null) {
             throw new IllegalArgumentException("Assistant not found: " + id);
-        }
-
-        // 权限检查在Service中进行
-        if(!checkOwnership(id, owner)) {
-            throw new IllegalArgumentException("Permission denied");
         }
 
         BeanUtils.copyNonNullProperties(updateData, existing);

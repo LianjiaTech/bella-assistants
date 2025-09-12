@@ -20,6 +20,7 @@ import com.theokanning.openai.assistants.thread.Attachment;
 import com.theokanning.openai.assistants.thread.Thread;
 import com.theokanning.openai.assistants.thread.ThreadRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.NotImplementedException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -134,9 +135,7 @@ public class ThreadController {
             updateData.setEnvironment(JacksonUtils.serialize(request.getEnvironment()));
         }
 
-        String owner = BellaContext.getOwnerCode();
-
-        return threadService.updateThread(threadId, updateData, ToolResourceUtils.toolResourceToFiles(request.getToolResources()), owner);
+        return threadService.updateThread(threadId, updateData, ToolResourceUtils.toolResourceToFiles(request.getToolResources()));
     }
 
     /**
@@ -145,10 +144,7 @@ public class ThreadController {
     @DeleteMapping("/{thread_id}")
     public DeleteResponse deleteThread(
             @PathVariable("thread_id") String threadId) {
-
-        String owner = BellaContext.getOwnerCode();
-        boolean deleted = threadService.deleteThread(threadId, owner);
-        return new DeleteResponse(threadId, "thread", deleted);
+        throw new NotImplementedException("not implemented temporarily");
     }
 
     /**

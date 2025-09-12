@@ -268,21 +268,14 @@ public class MessageUtils {
             userMessage.setContent(content);
             return userMessage;
         case "assistant":
-            AssistantMultipleMessage message = new AssistantMultipleMessage(content);
-            if(supportReasoningInput) {
-                if(message.getReasoningContent() != null && !message.getReasoningContent().isEmpty()) {
-                    message.setReasoningContent(message.getReasoningContent());
-                }
-                if(messageInfo.getMetadata() != null && !messageInfo.getMetadata().isEmpty()) {
-                    if(messageInfo.getMetadata().containsKey(MetaConstants.REASONING_SIG)) {
-                        message.setReasoningContentSignature(messageInfo.getMetadata().get(MetaConstants.REASONING_SIG));
-                    }
-                    if(messageInfo.getMetadata().containsKey(MetaConstants.REDACTED_REASONING)) {
-                        message.setRedactedReasoningContent(messageInfo.getMetadata().get(MetaConstants.REDACTED_REASONING));
-                    }
+            if("".equals(content)) {
+                if(messageInfo.getIncompleteDetails() == null) {
+                    content = "unexpected error";
+                } else {
+                    content = messageInfo.getIncompleteDetails().getReason();
                 }
             }
-            return message;
+            return new AssistantMultipleMessage(content);
         case "system":
             return new SystemMessage((String) content);
         default:

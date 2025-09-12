@@ -7,7 +7,6 @@
   "top_p": 0.9,
   "response_format": "auto",
   "reasoning_effort": "medium",
-  "user": "test_user",
   "metadata": {
     "version": "1.0",
     "environment": "test",

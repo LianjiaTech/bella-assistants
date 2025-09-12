@@ -13,6 +13,7 @@ import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.assistants.assistant.Assistant;
 import com.theokanning.openai.assistants.assistant.AssistantRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.NotImplementedException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -126,8 +127,7 @@ public class AssistantController {
 
         ToolUtils.checkTools(request.getTools());
 
-        return assistantService.updateAssistant(assistantId, updateData, request.getFileIds(), request.getTools(), toolResourceFiles,
-                BellaContext.getOwnerCode());
+        return assistantService.updateAssistant(assistantId, updateData, request.getFileIds(), request.getTools(), toolResourceFiles);
     }
 
     /**
@@ -136,8 +136,6 @@ public class AssistantController {
     @DeleteMapping("/{assistant_id}")
     public DeleteResponse deleteAssistant(
             @PathVariable("assistant_id") String assistantId) {
-        String owner = BellaContext.getOwnerCode();
-        boolean deleted = assistantService.deleteAssistant(assistantId, owner);
-        return new DeleteResponse(assistantId, "assistant", deleted);
+        throw new NotImplementedException("not implemented temporarily");
     }
 }

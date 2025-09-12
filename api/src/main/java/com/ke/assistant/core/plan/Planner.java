@@ -245,8 +245,9 @@ public class Planner {
         if(stepDetails == null) {
             return;
         }
+        // 非当前run轮次的工具调用不需要带上思考过程
         if("tool_calls".equals(stepDetails.getType())) {
-            MessageUtils.convertToolCallMessages(stepDetails.getToolCalls(), runStep.getLastError(), context.getCurrentMetaData(), context.isSupportReasonInput()).forEach(context::addChatMessage);
+            MessageUtils.convertToolCallMessages(stepDetails.getToolCalls(), runStep.getLastError(), context.getCurrentMetaData(), false).forEach(context::addChatMessage);
         }
     }
 

@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -226,30 +225,6 @@ class AssistantControllerTest extends BaseControllerTest {
     @DisplayName("查询不存在的Assistant")
     void shouldReturn404WhenAssistantNotFound() throws Exception {
         mockMvc.perform(addAuthHeader(get("/v1/assistants/asst_nonexistent_id")))
-                .andExpect(status().isNotFound());
-    }
-
-    @Test
-    @DisplayName("删除Assistant - 验证关联数据清理")
-    void shouldDeleteAssistantAndRelations() throws Exception {
-        // 1. 创建带关联数据的Assistant
-        String createBody = loadTestData("assistant-create-full.json");
-        MvcResult createResult = mockMvc.perform(addAuthHeader(post("/v1/assistants")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(createBody)))
-                .andReturn();
-
-        String assistantId = objectMapper.readTree(createResult.getResponse().getContentAsString())
-                .get("id").asText();
-
-        // 2. 删除Assistant
-        mockMvc.perform(addAuthHeader(delete("/v1/assistants/" + assistantId)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(assistantId))
-                .andExpect(jsonPath("$.deleted").value(true));
-
-        // 3. 验证Assistant和关联数据都被删除
-        mockMvc.perform(addAuthHeader(get("/v1/assistants/" + assistantId)))
                 .andExpect(status().isNotFound());
     }
 
