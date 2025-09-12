@@ -157,7 +157,7 @@ public class Run extends TableImpl<RunRecord> {
     /**
      * The column <code>run.usage</code>.
      */
-    public final TableField<RunRecord, String> USAGE = createField(DSL.name("usage"), SQLDataType.VARCHAR(256).nullable(false).defaultValue(DSL.inline("", SQLDataType.VARCHAR)), this, "");
+    public final TableField<RunRecord, String> USAGE = createField(DSL.name("usage"), SQLDataType.VARCHAR(512).nullable(false).defaultValue(DSL.inline("", SQLDataType.VARCHAR)), this, "");
 
     /**
      * The column <code>run.started_at</code>.
