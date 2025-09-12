@@ -10,7 +10,6 @@ public class ToolProperties {
     private ImageGenerateToolProperties imageVision = new ImageGenerateToolProperties();
     private WebCrawlerToolProperties webCrawler = new WebCrawlerToolProperties();
     private WeatherSearchToolProperties weatherSearch = new WeatherSearchToolProperties();
-    private WikiSearchToolProperties wikiSearch = new WikiSearchToolProperties();
     private ReadFilesToolProperties readFiles = new ReadFilesToolProperties();
     private ImgVisionToolProperties imgVision = new ImgVisionToolProperties();
     private RetrievalToolProperties retrieval = new RetrievalToolProperties();
@@ -57,13 +56,6 @@ public class ToolProperties {
         private String apiKey;
         private String units = "metric";
         private String language = "zh";
-    }
-    
-    @Data
-    public static class WikiSearchToolProperties {
-        private String url = "https://zh.wikipedia.org/api/rest_v1/page/summary/";
-        private String language = "zh";
-        private int limit = 10;
     }
     
     @Data

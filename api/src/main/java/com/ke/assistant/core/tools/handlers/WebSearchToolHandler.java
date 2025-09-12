@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 
 /**
- * 网页搜索工具处理器
+ * 网页搜索工具处理器 - 使用Tavily搜索工具处理器
  */
 @Component
 public class WebSearchToolHandler implements ToolHandler {

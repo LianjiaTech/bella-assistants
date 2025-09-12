@@ -125,10 +125,6 @@ bella:
         api-key: ${WEATHER_SEARCH_APIKEY:}
         units: metric
         language: zh
-      wiki-search:
-        url: https://zh.wikipedia.org/api/rest_v1/page/summary/
-        language: zh
-        limit: 10
       read-files:
         url: ${READ_FILES_URL:}
       img-vision:
