@@ -112,6 +112,9 @@ public class RunStepRepo implements BaseRepo {
         if(StringUtils.isBlank(runStep.getId())) {
             runStep.setId(idGenerator.generateRunStepId());
         }
+        if(runStep.getMetadata() == null) {
+            runStep.setMetadata("{}");
+        }
 
         fillCreateTime(runStep);
 
