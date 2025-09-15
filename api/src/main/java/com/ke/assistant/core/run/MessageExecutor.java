@@ -4,8 +4,7 @@ import com.google.common.collect.Lists;
 import com.ke.assistant.core.TaskExecutor;
 import com.ke.assistant.util.MessageUtils;
 import com.ke.assistant.util.MetaConstants;
-import com.ke.bella.openapi.protocol.OpenapiResponse;
-import com.ke.bella.openapi.utils.JacksonUtils;
+import com.ke.bella.openapi.utils.DateTimeUtils;
 import com.theokanning.openai.OpenAiError;
 import com.theokanning.openai.Usage;
 import com.theokanning.openai.assistants.StreamEvent;
@@ -34,6 +33,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -41,6 +41,7 @@ import java.util.Map;
 public class MessageExecutor implements Runnable {
     private final ExecutionContext context;
     private final RunStateManager runStateManager;
+    private final HashSet<String> created;
     private SseEmitter sseEmitter;
     private StringBuilder content;
     private StringBuilder reasoning;
@@ -49,10 +50,12 @@ public class MessageExecutor implements Runnable {
     // 助手消息中的内容序号
     private Integer index;
     private Usage usage;
+    private boolean sendFirstAssistantPackage;
 
     public MessageExecutor(ExecutionContext context, RunStateManager runStateManager, SseEmitter sseEmitter) {
         this.context = context;
         this.runStateManager = runStateManager;
+        this.created = new HashSet<>();
         this.sseEmitter = sseEmitter;
         this.content = new StringBuilder();
         this.reasoning = new StringBuilder();
@@ -195,19 +198,32 @@ public class MessageExecutor implements Runnable {
         }
         if(msg instanceof RunStep) {
             RunStatus status = RunStatus.fromValue(((RunStep) msg).getStatus());
-            if(status == RunStatus.IN_PROGRESS) {
+            if(status == RunStatus.IN_PROGRESS && !created.contains(((RunStep) msg).getId())) {
                 send(StreamEvent.THREAD_RUN_STEP_CREATED, msg);
+                created.add(((RunStep) msg).getId());
             }
-            send(status.getRunStepStreamEvent(), msg);
+            if(created.contains(((RunStep) msg).getId())) {
+                send(status.getRunStepStreamEvent(), msg);
+            }
             return;
         }
         if(msg instanceof Message) {
             if(((Message) msg).getStatus().equals("incomplete")) {
-                send(StreamEvent.THREAD_MESSAGE_INCOMPLETE, msg);
+                if(created.contains(((Message) msg).getId())) {
+                    send(StreamEvent.THREAD_MESSAGE_INCOMPLETE, msg);
+                }
             } else if(((Message) msg).getStatus().equals("completed")){
-                send(StreamEvent.THREAD_MESSAGE_COMPLETED, msg);
+                if(created.contains(((Message) msg).getId())) {
+                    send(StreamEvent.THREAD_MESSAGE_COMPLETED, msg);
+                }
             } else {
-                send(StreamEvent.THREAD_MESSAGE_CREATED, msg);
+                if(!created.contains(((Message) msg).getId())) {
+                    Message message = (Message) msg;
+                    if(message.getContent() == null || message.getContent().stream().allMatch(MessageContent::empty)) {
+                        send(StreamEvent.THREAD_MESSAGE_CREATED, msg);
+                    }
+                    created.add(message.getId());
+                }
                 send(StreamEvent.THREAD_MESSAGE_IN_PROGRESS, msg);
             }
             return;
@@ -234,7 +250,13 @@ public class MessageExecutor implements Runnable {
                     }
                     if(assistantMessage.getToolCalls() != null) {
                         for(ChatToolCall chatToolCall : assistantMessage.getToolCalls()) {
-                            sendToolCall(context.getCurrentRunStep().getId(), chatToolCall);
+                            // 第一个tool call
+                            if(context.getCurrentToolTasks().isEmpty()) {
+                                if(context.generateCurrentToolCallStepId()) {
+                                    sendFirstToolCall(context.getCurrentToolCallStepId(), context.getRunId(), context.getThreadId(), context.getAssistantId());
+                                }
+                            }
+                            sendToolCall(context.getCurrentToolCallStepId(), chatToolCall);
                             context.addToolCallTask(chatToolCall);
                         }
                     }
@@ -287,6 +309,7 @@ public class MessageExecutor implements Runnable {
         if(sseEmitter == null) {
             return;
         }
+        sendFirstMessage();
         MessageDelta messageDelta = new MessageDelta();
         messageDelta.setId(context.getAssistantMessageId());
         messageDelta.setObject("thread.message.delta");
@@ -307,6 +330,7 @@ public class MessageExecutor implements Runnable {
         if(sseEmitter == null) {
             return;
         }
+        sendFirstMessage();
         MessageDelta messageDelta = new MessageDelta();
         messageDelta.setId(context.getAssistantMessageId());
         messageDelta.setObject("thread.message.delta");
@@ -315,6 +339,26 @@ public class MessageExecutor implements Runnable {
         delta.setReasoningContent(reasoning);
         messageDelta.setDelta(delta);
         send(StreamEvent.THREAD_MESSAGE_DELTA, messageDelta);
+    }
+
+    private void sendFirstToolCall(String stepId, String runId, String threadId, String assistantId) throws IOException {
+        if(sseEmitter == null) {
+            return;
+        }
+        RunStep runStep = new RunStep();
+        runStep.setId(stepId);
+        runStep.setRunId(runId);
+        runStep.setThreadId(threadId);
+        runStep.setAssistantId(assistantId);
+        runStep.setType("tool_calls");
+        runStep.setStatus("in_progress");
+        runStep.setCreatedAt((int) DateTimeUtils.getCurrentSeconds());
+
+        StepDetails stepDetails = new StepDetails();
+        stepDetails.setType("tool_calls");
+        stepDetails.setToolCalls(Lists.newArrayList());
+        runStep.setStepDetails(stepDetails);
+        process(runStep);
     }
 
     private void sendToolCall(String stepId, ChatToolCall chatToolCall) throws IOException {
@@ -335,6 +379,10 @@ public class MessageExecutor implements Runnable {
     }
 
     private void sendImageFile(ImageFile imageFile) throws IOException {
+        if(sseEmitter == null) {
+            return;
+        }
+        sendFirstMessage();
         MessageDelta messageDelta = new MessageDelta();
         messageDelta.setId(context.getAssistantMessageId());
         messageDelta.setObject("thread.message.delta");
@@ -352,6 +400,10 @@ public class MessageExecutor implements Runnable {
     }
 
     private void sendImageUrl(ImageUrl imageUrl) throws IOException {
+        if(sseEmitter == null) {
+            return;
+        }
+        sendFirstMessage();
         MessageDelta messageDelta = new MessageDelta();
         messageDelta.setId(context.getAssistantMessageId());
         messageDelta.setObject("thread.message.delta");
@@ -376,4 +428,11 @@ public class MessageExecutor implements Runnable {
         sseEmitter.send(builder);
     }
 
+    private void sendFirstMessage() throws IOException {
+        if(!sendFirstAssistantPackage) {
+            process(context.getCurrentRunStep());
+            process(context.getAssistantMessage());
+            sendFirstAssistantPackage = true;
+        }
+    }
 }

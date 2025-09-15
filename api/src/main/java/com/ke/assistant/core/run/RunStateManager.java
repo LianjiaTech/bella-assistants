@@ -170,7 +170,7 @@ public class RunStateManager {
     @Transactional
     public boolean toInProgress(ExecutionContext context) {
 
-        Message message = messageService.getMessageById(context.getThreadId(), context.getAssistantMessageId());
+        Message message = context.getAssistantMessage();
 
         RunStep runStep = context.getCurrentRunStep();
 
@@ -186,8 +186,6 @@ public class RunStateManager {
         if(success) {
             context.getRun().setStatus(RunStatus.IN_PROGRESS.getValue());
             context.publish(context.getRun());
-            context.publish(runStep);
-            context.publish(message);
             serviceMesh.addRunningRun(context.getRunId(), (int) (DateTimeUtils.getCurrentSeconds() + context.getExecutionSeconds()));
             processingCache.put(context.getRunId(), context);
         }
@@ -360,6 +358,7 @@ public class RunStateManager {
      */
     private RunStepDb createToolCallsRunStep(ExecutionContext context, Usage usage, Map<String, String> metaData) {
         RunStepDb runStep = new RunStepDb();
+        runStep.setId(context.getCurrentToolCallStepId());
         runStep.setRunId(context.getRunId());
         runStep.setThreadId(context.getThreadId());
         runStep.setAssistantId(context.getAssistantId());
@@ -459,6 +458,10 @@ public class RunStateManager {
 
         RunStepDb db = runStepRepo.findByIdForUpdate(context.getThreadId(), runStepId);
 
+        if(db == null) {
+            return true;
+        }
+
         RunStatus currentStatus = RunStatus.fromValue(db.getStatus());
         if(!currentStatus.canTransitionTo(newStatus)) {
             logger.warn("Invalid status transition for run step {}: {} -> {}",
@@ -490,7 +493,7 @@ public class RunStateManager {
         if(db.getType().equals("message_creation")) {
             context.getCurrentRunStep().setStatus(newStatus.getValue());
         }
-        if(newStatus.getRunStepStreamEvent() != null && db.getType().equals("message_creation")) {
+        if(newStatus.getRunStepStreamEvent() != null) {
             // 发送客户端消息
             RunStep runStep = RunUtils.convertStepToInfo(db);
             context.publish(runStep);

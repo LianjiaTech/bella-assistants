@@ -10,6 +10,8 @@ import com.ke.assistant.core.plan.Planner;
 import com.ke.assistant.core.plan.PlannerDecision;
 import com.ke.assistant.core.tools.ToolExecutor;
 import com.ke.assistant.core.tools.ToolFetcher;
+import com.ke.assistant.db.IdGenerator;
+import com.ke.assistant.service.MessageService;
 import com.ke.assistant.service.RunService;
 import com.ke.assistant.service.ThreadService;
 import com.ke.bella.openapi.BellaContext;
@@ -64,6 +66,9 @@ public class RunExecutor {
     private ThreadService threadService;
 
     @Autowired
+    private MessageService messageService;
+
+    @Autowired
     private AssistantProperties assistantProperties;
 
     @Autowired
@@ -71,8 +76,12 @@ public class RunExecutor {
 
     @Autowired
     private RunLogger runLogger;
+
     @Autowired
     private OpenapiClient openapiClient;
+
+    @Autowired
+    private IdGenerator idGenerator;
 
     /**
      * 开启run
@@ -209,9 +218,7 @@ public class RunExecutor {
      */
     private ExecutionContext buildExecutionContext(String threadId, String runId, String assistantMessageId, RunType type, List<Message> additionalMessages, Map<String, Object> bellaContext) {
 
-        ExecutionContext context = new ExecutionContext(bellaContext);
-
-        context.setAssistantMessageId(assistantMessageId);
+        ExecutionContext context = new ExecutionContext(bellaContext, () -> idGenerator.generateRunStepId());
 
         context.setAdditionalMessages(additionalMessages == null ? new ArrayList<>() : additionalMessages);
 
@@ -233,6 +240,10 @@ public class RunExecutor {
                 return context;
             }
             context.setRun(run);
+
+            Message message = messageService.getMessageById(context.getThreadId(), assistantMessageId);
+
+            context.setAssistantMessage(message);
 
             try {
                 Model model = openapiClient.getModelInfo(run.getModel());

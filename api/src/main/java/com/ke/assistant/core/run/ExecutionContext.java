@@ -23,6 +23,7 @@ import com.theokanning.openai.completion.chat.ChatToolCall;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import org.springframework.util.Assert;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -39,6 +40,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Supplier;
 
 /**
  * Run执行上下文
@@ -68,13 +70,15 @@ public class ExecutionContext {
     // run的执行线程的结束标识
     private final AtomicBoolean end;
 
+    private final Supplier<String> toolCallStepIdSupplier;
+
     private Run run;
     private List<Tool> tools;
     private ToolFiles toolFiles;
     private Map<String, FileInfo> fileInfos;
     private RunStep currentRunStep;
     private String currentToolCallStepId;
-    private String assistantMessageId;
+    private Message assistantMessage;
 
     // 超时时间
     private LocalDateTime expiredAt;
@@ -114,8 +118,9 @@ public class ExecutionContext {
     // 模型属性
     private CompletionModelProperties modelProperties;
 
-    public ExecutionContext(Map<String, Object> bellaContext) {
+    public ExecutionContext(Map<String, Object> bellaContext, Supplier<String> toolCallStepIdSupplier) {
         this.bellaContext = bellaContext;
+        this.toolCallStepIdSupplier = toolCallStepIdSupplier;
         this.senderQueue = new LinkedBlockingQueue<>();
         this.sendDone = new AtomicBoolean(true);
         this.lock = new ReentrantLock();
@@ -551,5 +556,18 @@ public class ExecutionContext {
             return false;
         }
         return modelFeatures == null || modelFeatures.isReason_content_input();
+    }
+
+    public String getAssistantMessageId() {
+        Assert.notNull(assistantMessage, "assistantMessage is null");
+        return assistantMessage.getId();
+    }
+
+    public synchronized boolean generateCurrentToolCallStepId() {
+        if(this.getCurrentToolCallStepId() == null) {
+            this.setCurrentToolCallStepId(toolCallStepIdSupplier.get());
+            return true;
+        }
+        return false;
     }
 }
