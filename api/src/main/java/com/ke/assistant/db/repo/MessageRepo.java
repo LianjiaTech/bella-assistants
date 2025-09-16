@@ -136,6 +136,18 @@ public class MessageRepo implements BaseRepo {
     }
 
     /**
+     * 根据 Thread ID 获取最近的消息（倒序）
+     */
+    public List<MessageDb> findRecentByThreadId(String threadId, int limit) {
+        return dsl.selectFrom(MESSAGE)
+                .where(MESSAGE.THREAD_ID.eq(threadId))
+                .and(MESSAGE.MESSAGE_STATUS.eq("original"))
+                .orderBy(MESSAGE.CREATED_AT.desc())
+                .limit(limit)
+                .fetchInto(MessageDb.class);
+    }
+
+    /**
      * 删除 Thread 下的所有 Message
      */
     public int deleteByThreadId(String threadId) {
