@@ -87,6 +87,20 @@ public class AssistantFileRelationRepo implements BaseRepo {
                 .execute();
     }
 
+    public int deleteByAssistantIdWithAllTools(String assistantId) {
+        return dsl.deleteFrom(ASSISTANT_FILE_RELATION)
+                .where(ASSISTANT_FILE_RELATION.ASSISTANT_ID.eq(assistantId))
+                .and(ASSISTANT_FILE_RELATION.TOOL_NAME.eq("_all"))
+                .execute();
+    }
+
+    public int deleteByAssistantIdWithToolResources(String assistantId) {
+        return dsl.deleteFrom(ASSISTANT_FILE_RELATION)
+                .where(ASSISTANT_FILE_RELATION.ASSISTANT_ID.eq(assistantId))
+                .and(ASSISTANT_FILE_RELATION.TOOL_NAME.ne("_all"))
+                .execute();
+    }
+
     public boolean existsById(Integer id) {
         return dsl.fetchExists(
                 dsl.selectFrom(ASSISTANT_FILE_RELATION)

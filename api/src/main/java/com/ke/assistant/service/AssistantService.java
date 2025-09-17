@@ -162,12 +162,11 @@ public class AssistantService {
     @Transactional
     public void updateAssistantFilesAndTools(String assistantId, List<String> fileIds, List<Tool> tools,
             List<Map<String, String>> toolResourceFiles) {
-        // 删除现有的文件关联和工具配置
-        assistantFileRepo.deleteByAssistantId(assistantId);
-        assistantToolRepo.deleteByAssistantId(assistantId);
 
         // 处理普通文件关联（file_ids参数，tool_name="_all"）
-        if(fileIds != null && !fileIds.isEmpty()) {
+        if(fileIds != null) {
+            // 删除现有的文件关联
+            assistantFileRepo.deleteByAssistantIdWithAllTools(assistantId);
             for (String fileId : fileIds) {
                 AssistantFileRelationDb assistantFile = new AssistantFileRelationDb();
                 assistantFile.setFileId(fileId);
@@ -180,7 +179,9 @@ public class AssistantService {
 
         // 处理工具资源文件（tool_resources参数，不同的tool_name）
         // 重要：只处理那些不在 file_ids 中的文件
-        if(toolResourceFiles != null && !toolResourceFiles.isEmpty()) {
+        if(toolResourceFiles != null) {
+            // 删除现有的文件关联
+            assistantFileRepo.deleteByAssistantIdWithToolResources(assistantId);
             for (Map<String, String> fileRequest : toolResourceFiles) {
                 String fileId = fileRequest.get("file_id");
                 String toolName = fileRequest.get("tool_name");
@@ -197,7 +198,9 @@ public class AssistantService {
         }
 
         // 处理工具配置
-        if(tools != null && !tools.isEmpty()) {
+        if(tools != null) {
+            // 删除现有的工具配置
+            assistantToolRepo.deleteByAssistantId(assistantId);
             for (Tool tool : tools) {
                 AssistantToolDb assistantTool = new AssistantToolDb();
                 assistantTool.setAssistantId(assistantId);
