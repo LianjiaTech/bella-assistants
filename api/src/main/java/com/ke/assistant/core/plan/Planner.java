@@ -12,6 +12,7 @@ import com.ke.bella.openapi.utils.JacksonUtils;
 import com.ke.bella.openapi.utils.Renders;
 import com.theokanning.openai.assistants.assistant.Tool;
 import com.theokanning.openai.assistants.message.Message;
+import com.theokanning.openai.assistants.message.MessageContent;
 import com.theokanning.openai.assistants.run_step.RunStep;
 import com.theokanning.openai.assistants.run_step.StepDetails;
 import com.theokanning.openai.completion.chat.ChatMessage;
@@ -212,19 +213,20 @@ public class Planner {
 
         for(Message message : messages) {
             if(message.getRole().equals("user")) {
-                ChatMessage chatMessage = MessageUtils.formatChatCompletionMessage(message, context.getFileInfos(), context.isVisionModel(), context.isSupportReasonInput());
+                ChatMessage chatMessage = MessageUtils.formatChatCompletionMessage(message, context.getFileInfos(), context.isVisionModel());
                 if(chatMessage != null) {
                     context.addChatMessage(chatMessage);
                 }
-            }
-            if(message.getRole().equals("assistant")) {
-                ChatMessage assistantMessage = MessageUtils.formatChatCompletionMessage(message, context.getFileInfos(), context.isVisionModel(), context.isSupportReasonInput());
+            } else if(message.getRole().equals("assistant")) {
+                ChatMessage assistantMessage = MessageUtils.formatChatCompletionMessage(message, context.getFileInfos(), context.isVisionModel());
                 if(message.getRunId() != null && runStepMap.containsKey(message.getRunId())) {
                     for (RunStep runStep : runStepMap.get(message.getRunId())) {
                         buildToolMessage(context, runStep);
                     }
                 }
                 context.addChatMessage(assistantMessage);
+            } else if(message.getRole().equals("tool")) {
+                message.getContent().stream().map(MessageContent::getToolResult).forEach(context::addChatMessage);
             }
         }
 

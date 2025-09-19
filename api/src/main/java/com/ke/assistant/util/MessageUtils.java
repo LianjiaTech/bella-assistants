@@ -3,6 +3,7 @@ package com.ke.assistant.util;
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.ke.assistant.core.file.FileInfo;
 import com.ke.assistant.db.generated.tables.pojos.MessageDb;
+import com.ke.bella.openapi.common.exception.BizParamCheckException;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.ke.bella.openapi.utils.Renders;
 import com.ke.bella.openapi.utils.TokenCounter;
@@ -22,14 +23,12 @@ import com.theokanning.openai.completion.chat.AssistantMultipleMessage;
 import com.theokanning.openai.completion.chat.ChatFunctionCall;
 import com.theokanning.openai.completion.chat.ChatMessage;
 import com.theokanning.openai.completion.chat.ChatToolCall;
-import com.theokanning.openai.completion.chat.ImageContent;
 import com.theokanning.openai.completion.chat.MultiMediaContent;
 import com.theokanning.openai.completion.chat.SystemMessage;
 import com.theokanning.openai.completion.chat.ToolMessage;
 import com.theokanning.openai.completion.chat.UserMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.checkerframework.checker.units.qual.C;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -37,6 +36,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -226,7 +226,7 @@ public class MessageUtils {
                 mmContent.setText(content.getText().getValue() + attachInfo);
                 // 只在一条消息中添加即可
                 attachInfo = "";
-            } else {
+            } else if(content.isVision()){
                 // 目前的chat completion，只支持多模态输入，不支持多模态输出
                 if(role.equals("user") && supportVision) {
                     mmContent.setType(content.getType());
@@ -254,7 +254,7 @@ public class MessageUtils {
     /**
      * 格式化消息，将内容转换为用于chat completion的Message
      */
-    public static ChatMessage formatChatCompletionMessage(Message messageInfo, Map<String, FileInfo> fileInfoMap, boolean supportVision, boolean supportReasoningInput) {
+    public static ChatMessage formatChatCompletionMessage(Message messageInfo, Map<String, FileInfo> fileInfoMap, boolean supportVision) {
 
         if (messageInfo == null || messageInfo.getRole() == null) {
             return null;
@@ -263,6 +263,9 @@ public class MessageUtils {
         Object content = formatChatCompletionContent(messageInfo.getContent(), messageInfo.getRole(), messageInfo.getAttachments(), fileInfoMap, supportVision);
 
         switch (messageInfo.getRole()) {
+        case "system":
+        case "developer":
+            return new SystemMessage((String) content);
         case "user":
             UserMessage userMessage = new UserMessage();
             userMessage.setContent(content);
@@ -275,9 +278,23 @@ public class MessageUtils {
                     content = messageInfo.getIncompleteDetails().getReason();
                 }
             }
-            return new AssistantMultipleMessage(content);
-        case "system":
-            return new SystemMessage((String) content);
+            // 返回string时一定不存在tool call
+            if(content instanceof String) {
+                return new AssistantMessage((String) content);
+            }
+            if(content instanceof List) {
+                List<ChatToolCall> toolCalls = messageInfo.getContent().stream().filter(messageContent -> messageContent.getType().equals("tool_call"))
+                        .map(MessageContent::getToolCall).filter(Objects::nonNull).collect(Collectors.toList());
+                if(toolCalls.isEmpty()) {
+                    return new AssistantMultipleMessage(((List<?>) content).isEmpty() ? "get no answers" : content);
+                }
+                AssistantMultipleMessage assistantMessage = new AssistantMultipleMessage();
+                if(!((List<?>) content).isEmpty()) {
+                    assistantMessage.setContent(content);
+                }
+                assistantMessage.setToolCalls(toolCalls);
+                return assistantMessage;
+            }
         default:
             log.warn("Unknown message role: {}", messageInfo.getRole());
             return null;
@@ -456,6 +473,57 @@ public class MessageUtils {
         return result;
     }
 
+
+    public static ChatToolCall convertToChatToolCall(ToolCall toolCall) {
+        ChatToolCall chatToolCall = new ChatToolCall();
+        chatToolCall.setId(toolCall.getId());
+        chatToolCall.setIndex(toolCall.getIndex());
+        chatToolCall.setType("function");
+        ChatFunctionCall function = new ChatFunctionCall();
+        if(toolCall.getCodeInterpreter() != null) {
+            function.setName("code_interpreter");
+            function.setArguments(new TextNode(toolCall.getCodeInterpreter().getInput()));
+        } else if(toolCall.getFileSearch() != null) {
+            if(toolCall.getCodeInterpreter() != null) {
+                function.setName("file_search");
+                function.setArguments(JacksonUtils.toJsonNode(toolCall.getFileSearch().getRankingOptions()));
+            }
+        } else {
+            function.setName(toolCall.getFunction().getName());
+            function.setArguments(toolCall.getFunction().getArguments());
+        }
+        chatToolCall.setFunction(function);
+        return chatToolCall;
+    }
+
+    public static ToolMessage convertToToolMessage(ToolCall toolCall, LastError lastError) {
+        ToolMessage toolResultMessage = new ToolMessage();
+        toolResultMessage.setToolCallId(toolCall.getId());
+        if(toolCall.getCodeInterpreter() != null) {
+            if(toolCall.getCodeInterpreter().getOutputs() != null) {
+                toolResultMessage.setContent(JacksonUtils.serialize(toolCall.getCodeInterpreter().getOutputs()));
+            }
+        } else if(toolCall.getFileSearch() != null) {
+            if(toolCall.getCodeInterpreter() != null) {
+                if(toolCall.getFileSearch().getResults() != null) {
+                    toolResultMessage.setContent(JacksonUtils.serialize(toolCall.getFileSearch().getResults()));
+                }
+            }
+        } else {
+            if(toolCall.getFunction().getOutput() != null) {
+                toolResultMessage.setContent(toolCall.getFunction().getOutput());
+            }
+        }
+        if(StringUtils.isBlank(toolResultMessage.getContent())) {
+            if(lastError != null) {
+                toolResultMessage.setContent(JacksonUtils.serialize(lastError));
+            } else {
+                toolResultMessage.setContent("tool call output is null");
+            }
+        }
+        return toolResultMessage;
+    }
+
     public static List<Attachment> getAttachments(List<MessageRequest> messageRequests) {
         if(messageRequests == null || messageRequests.isEmpty()) {
             return new ArrayList<>();
@@ -491,6 +559,46 @@ public class MessageUtils {
             }
         }
         return tokens;
+    }
+
+    public static void checkPre(Message pre, Message cur) {
+        if(pre == null) {
+            return;
+        }
+        if(cur.getRole().equals("system") || cur.getRole().equals("developer")) {
+            throw new BizParamCheckException("system or developer message must be the first message");
+        }
+        if(cur.getRole().equals("user")) {
+            if(!pre.getRole().equals("user")) {
+                return;
+            }
+            throw new BizParamCheckException("user message can not follow a user message");
+        }
+        if(cur.getRole().equals("assistant")) {
+            if(pre.getRole().equals("tool") || pre.getRole().equals("user")) {
+                return;
+            }
+            throw new BizParamCheckException("assistant message must follow a tool or user message");
+        }
+        if(cur.getRole().equals("tool")) {
+            if(!pre.getRole().equals("assistant")) {
+                throw new BizParamCheckException("tool message must follow a assistant message");
+            }
+            Set<String> toolResultIds = cur.getContent().stream().map(MessageContent::getToolResult).map(ToolMessage::getToolCallId).collect(Collectors.toSet());
+            Set<String> toolCallIds = pre.getContent().stream().map(MessageContent::getToolCall).map(ChatToolCall::getId).collect(Collectors.toSet());
+            if(toolCallIds.containsAll(toolResultIds) && toolResultIds.containsAll(toolCallIds)) {
+                return;
+            }
+            throw new BizParamCheckException("tool message must follow a assistant message");
+        }
+        throw new BizParamCheckException("message role must be system or developer or user or assistant or tool");
+    }
+
+    public static void checkFirst(MessageRequest messageRequest) {
+        if(messageRequest.getRole().equals("user")) {
+            return;
+        }
+        throw new BizParamCheckException("The first message role must be user");
     }
 
 }

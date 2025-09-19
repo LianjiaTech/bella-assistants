@@ -33,6 +33,15 @@ public class RunStepRepo implements BaseRepo {
     }
 
     /**
+     * 根据 ID list 查询 Run Step
+     */
+    public List<RunStepDb> findByIds(String threadId, List<String> ids) {
+        return dsl.selectFrom(RUN_STEP)
+                .where(RUN_STEP.ID.in(ids))
+                .fetchInto(RunStepDb.class);
+    }
+
+    /**
      * 根据 ID 查询 Run Step forUpdate
      */
     public RunStepDb findByIdForUpdate(String threadId, String id) {

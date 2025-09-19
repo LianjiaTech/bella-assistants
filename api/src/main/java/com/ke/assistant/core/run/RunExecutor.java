@@ -25,6 +25,7 @@ import com.theokanning.openai.assistants.run.ToolFiles;
 import com.theokanning.openai.assistants.run_step.RunStep;
 import com.theokanning.openai.assistants.run_step.StepDetails;
 import com.theokanning.openai.assistants.thread.Thread;
+import com.theokanning.openai.response.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -99,6 +100,14 @@ public class RunExecutor {
         TaskExecutor.addRunner(()->executeRun(context, sseEmitter));
     }
 
+    /**
+     * 开启Response API run
+     */
+    public void startResponseRun(String threadId, String runId, String assistantMessageId, List<Message> additionalMessages, boolean withThreadCreation, Response response, SseEmitter sseEmitter, Map<String, Object> bellaContext) {
+        ExecutionContext context = buildExecutionContext(threadId, runId, assistantMessageId, withThreadCreation ? RunType.CREATE_THREAD_AND_RUN : RunType.CREATE_RUN, additionalMessages, bellaContext);
+        context.setResponse(response);
+        TaskExecutor.addRunner(()->executeRun(context, sseEmitter));
+    }
 
     /**
      * 执行Run
@@ -111,11 +120,15 @@ public class RunExecutor {
 
             BellaContext.replace(context.getBellaContext());
 
-            // 启动消息管理器
-            MessageExecutor.start(context, stateManager, sseEmitter);
-
             // 启动工具执行器
-            ToolExecutor.start(context, stateManager, toolFetcher);
+            ToolExecutor toolExecutor = ToolExecutor.start(context, stateManager, toolFetcher);
+
+            // 启动消息管理器 - 根据是否为Response API选择不同的消息执行器
+            if (context.isResponseApi()) {
+                ResponseMessageExecutor.start(context, stateManager, toolExecutor, sseEmitter);
+            } else {
+                MessageExecutor.start(context, stateManager, sseEmitter);
+            }
 
             // 构建执行上下文
             if(context.isError()) {

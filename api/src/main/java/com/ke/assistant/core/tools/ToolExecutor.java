@@ -40,16 +40,17 @@ public class ToolExecutor implements Runnable {
         this.toolDefinite = new HashMap<>();
     }
 
-    public static void start(ExecutionContext context, RunStateManager runStateManager, ToolFetcher toolFetcher) {
+    public static ToolExecutor start(ExecutionContext context, RunStateManager runStateManager, ToolFetcher toolFetcher) {
         ToolExecutor toolExecutor = new ToolExecutor(context, runStateManager);
         if(CollectionUtils.isNotEmpty(context.getTools())) {
-            context.getTools().forEach( tool -> {
+            context.getTools().stream().filter(tool -> !tool.getType().equals("function")).forEach( tool -> {
                         ToolHandler handler = toolFetcher.getToolHandler(tool.getType());
                         toolExecutor.register(tool, handler);
                     }
             );
         }
         TaskExecutor.addExecutor(toolExecutor);
+        return toolExecutor;
     }
 
     @Override
@@ -193,5 +194,9 @@ public class ToolExecutor implements Runnable {
             toolHandlers.put(toolName, handler);
         }
         toolDefinite.put(toolName, tool);
+    }
+
+    public boolean canExecute(String toolName) {
+        return toolHandlers.containsKey(toolName);
     }
 }

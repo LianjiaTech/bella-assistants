@@ -420,12 +420,16 @@ public class MessageExecutor implements Runnable {
         send(StreamEvent.THREAD_MESSAGE_DELTA, messageDelta);
     }
 
-    private void send(StreamEvent type, Object data) throws IOException {
+    private void send(StreamEvent type, Object data) {
         if(sseEmitter == null) {
             return;
         }
         SseEmitter.SseEventBuilder builder = SseEmitter.event().name(type.eventName).data(data);
-        sseEmitter.send(builder);
+        try {
+            sseEmitter.send(builder);
+        } catch (IOException e) {
+            log.warn(e.getMessage(), e);
+        }
     }
 
     private void sendFirstMessage() throws IOException {

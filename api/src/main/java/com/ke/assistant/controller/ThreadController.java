@@ -5,18 +5,14 @@ import com.ke.assistant.db.generated.tables.pojos.ThreadDb;
 import com.ke.assistant.model.CommonPage;
 import com.ke.assistant.model.DeleteResponse;
 import com.ke.assistant.model.RunCreateResult;
-import com.ke.assistant.service.RunService;
 import com.ke.assistant.service.ThreadService;
 import com.ke.assistant.util.BeanUtils;
-import com.ke.assistant.util.MessageUtils;
 import com.ke.assistant.util.ToolResourceUtils;
 import com.ke.assistant.util.ToolUtils;
 import com.ke.bella.openapi.BellaContext;
 import com.ke.bella.openapi.common.exception.ResourceNotFoundException;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.assistants.run.CreateThreadAndRunRequest;
-import com.theokanning.openai.assistants.run.RunCreateRequest;
-import com.theokanning.openai.assistants.thread.Attachment;
 import com.theokanning.openai.assistants.thread.Thread;
 import com.theokanning.openai.assistants.thread.ThreadRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -44,8 +40,6 @@ public class ThreadController {
 
     @Autowired
     private ThreadService threadService;
-    @Autowired
-    private RunService runService;
     @Autowired
     private RunExecutor runExecutor;
 
@@ -185,24 +179,16 @@ public class ThreadController {
     public Object createThreadAndRun(@RequestBody CreateThreadAndRunRequest request) {
         ToolUtils.checkTools(request.getTools());
 
-        Thread thread = createThread(request.getThread());
-
-        RunCreateRequest runCreateRequest = new RunCreateRequest();
-
-        BeanUtils.copyProperties(request, runCreateRequest);
-
-        List<Attachment> attachments = MessageUtils.getAttachments(request.getThread().getMessages());
-
-        attachments.addAll(MessageUtils.getAttachments(request.getAdditionalMessages()));
-
-        RunCreateResult result = runService.createRun(thread.getId(), runCreateRequest, attachments);
+        // 在事务中创建 thread 和 run (调用 service 层的事务方法)
+        RunCreateResult result = threadService.createThreadAndRun(request);
 
         SseEmitter emitter = null;
         // 如果是流式请求，返回SseEmitter
         if(Boolean.TRUE.equals(request.getStream())) {
-            emitter = new SseEmitter(300000L); // 5分钟超时
+            emitter = new SseEmitter(600000L); // 10分钟超时
         }
-        runExecutor.startRun(thread.getId(), result.getRun().getId(), result.getAssistantMessageId(), result.getAdditionalMessages(),true, emitter, BellaContext.snapshot());
+        // 异步执行不在事务中
+        runExecutor.startRun(result.getRun().getThreadId(), result.getRun().getId(), result.getAssistantMessageId(), result.getAdditionalMessages(),true, emitter, BellaContext.snapshot());
         return Boolean.TRUE.equals(request.getStream()) ? emitter : result.getRun();
     }
 }

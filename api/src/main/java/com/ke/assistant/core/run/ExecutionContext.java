@@ -20,6 +20,7 @@ import com.theokanning.openai.common.LastError;
 import com.theokanning.openai.completion.chat.ChatMessage;
 import com.theokanning.openai.completion.chat.ChatTool;
 import com.theokanning.openai.completion.chat.ChatToolCall;
+import com.theokanning.openai.response.Response;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -117,6 +118,9 @@ public class ExecutionContext {
     private CompletionModelFeatures modelFeatures;
     // 模型属性
     private CompletionModelProperties modelProperties;
+    
+    // Response API相关字段
+    private Response response; // 用于区分是否为Response API调用
 
     public ExecutionContext(Map<String, Object> bellaContext, Supplier<String> toolCallStepIdSupplier) {
         this.bellaContext = bellaContext;
@@ -570,4 +574,12 @@ public class ExecutionContext {
         }
         return false;
     }
+    
+    /**
+     * 判断是否为Response API调用
+     */
+    public boolean isResponseApi() {
+        return response != null;
+    }
+
 }

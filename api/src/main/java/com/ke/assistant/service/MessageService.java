@@ -14,6 +14,7 @@ import com.theokanning.openai.assistants.message.MessageContent;
 import com.theokanning.openai.assistants.message.MessageRequest;
 import com.theokanning.openai.assistants.thread.Attachment;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
@@ -50,16 +51,21 @@ public class MessageService {
      */
     @Transactional
     public Message createMessage(String threadId, MessageRequest request) {
-        return createMessage(threadId, request, "completed", false);
+        return createMessage(threadId, request, "completed", false, null);
+    }
+
+    @Transactional
+    public Message createMessage(String threadId, MessageRequest request, Message pre) {
+        return createMessage(threadId, request, "completed", false, pre);
     }
 
     @Transactional
     public Message createRunStepMessage(String threadId, MessageRequest request) {
-        return createMessage(threadId, request, "in_progress", true);
+        return createMessage(threadId, request, "in_progress", true, null);
     }
 
     @Transactional
-    public Message createMessage(String threadId, MessageRequest request, String status, boolean hidden) {
+    public Message createMessage(String threadId, MessageRequest request, String status, boolean hidden, Message pre) {
         // 验证Thread是否存在
         if (!threadService.existsById(threadId)) {
             throw new ResourceNotFoundException("Thread not found: " + threadId);
@@ -94,8 +100,28 @@ public class MessageService {
         // 设置默认值
         message.setObject("thread.message");
 
+        MessageUtils.checkPre(pre, convertToInfo(message));
+
         // 只有实际的数据库插入操作需要加读锁
         MessageDb savedMessage = threadLockService.executeWithReadLock(threadId, () -> messageRepo.insert(message));
+
+        return convertToInfo(savedMessage);
+    }
+
+
+    @Transactional
+    public Message createMessage(String threadId, Message message, boolean hidden) {
+        // 验证Thread是否存在
+        if (!threadService.existsById(threadId)) {
+            throw new ResourceNotFoundException("Thread not found: " + threadId);
+        }
+
+        MessageDb db = convertToDb(message);
+        message.setThreadId(threadId);
+        db.setMessageStatus(hidden ? "hidden" : "original");
+
+        // 只有实际的数据库插入操作需要加读锁
+        MessageDb savedMessage = threadLockService.executeWithReadLock(threadId, () -> messageRepo.insert(db));
 
         return convertToInfo(savedMessage);
     }
@@ -323,7 +349,9 @@ public class MessageService {
         Message info = new Message();
         BeanUtils.copyProperties(messageDb, info);
 
-        info.setCreatedAt((int) messageDb.getCreatedAt().toEpochSecond(ZoneOffset.ofHours(8)));
+        if(messageDb.getCreatedAt() != null) {
+            info.setCreatedAt((int) messageDb.getCreatedAt().toEpochSecond(ZoneOffset.ofHours(8)));
+        }
 
         // 转换metadata从JSON字符串到Map
         if(StringUtils.isNotBlank(messageDb.getMetadata())) {
@@ -351,6 +379,27 @@ public class MessageService {
         return info;
     }
 
+    private MessageDb convertToDb(Message message) {
+        if(message == null) {
+            return null;
+        }
+
+        MessageDb db = new MessageDb();
+        BeanUtils.copyProperties(message, db);
+
+
+        db.setObject("thread.message");
+
+        db.setMetadata(JacksonUtils.serialize(message.getMetadata()));
+
+        db.setContent(JacksonUtils.serialize(message.getContent()));
+
+        // attachments字段反序列化
+        db.setAttachments(JacksonUtils.serialize(message.getAttachments()));
+
+        return db;
+    }
+
     /**
      * 直接保存MessageDb，供ThreadService的复制操作使用（不加锁，用于批量操作内部调用）
      */
@@ -361,6 +410,14 @@ public class MessageService {
         
         // 批量操作已经持有写锁，这里不需要再加锁
         messageRepo.insert(message);
+    }
+
+    public Message getTheLastMessage(String threadId) {
+        List<MessageDb> messageDbs = messageRepo.findRecentByThreadId(threadId, 1);
+        if(CollectionUtils.isEmpty(messageDbs)) {
+            return null;
+        }
+        return convertToInfo(messageDbs.get(0));
     }
 
 }

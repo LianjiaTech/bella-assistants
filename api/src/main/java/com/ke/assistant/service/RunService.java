@@ -5,11 +5,14 @@ import com.ke.assistant.db.generated.tables.pojos.RunDb;
 import com.ke.assistant.db.generated.tables.pojos.RunStepDb;
 import com.ke.assistant.db.generated.tables.pojos.RunToolDb;
 import com.ke.assistant.db.generated.tables.pojos.ThreadFileRelationDb;
+import com.ke.assistant.db.repo.ResponseIdMappingRepo;
 import com.ke.assistant.db.repo.RunRepo;
 import com.ke.assistant.db.repo.RunStepRepo;
 import com.ke.assistant.db.repo.RunToolRepo;
 import com.ke.assistant.model.RunCreateResult;
 import com.ke.assistant.util.BeanUtils;
+import com.ke.assistant.util.MessageUtils;
+import com.ke.assistant.util.MetaConstants;
 import com.ke.assistant.util.RunUtils;
 import com.ke.assistant.util.ToolResourceUtils;
 import com.ke.bella.openapi.BellaContext;
@@ -74,22 +77,41 @@ public class RunService {
     private ThreadService threadService;
     @Autowired
     private ThreadLockService threadLockService;
+    @Autowired
+    private ResponseIdMappingRepo responseIdMappingRepo;
 
     @Transactional
     public RunCreateResult createRun(String threadId, RunCreateRequest request, List<Attachment> attachments) {
-        return threadLockService.executeWithWriteLock(threadId, () -> doCreateRun(threadId, request, attachments));
+        if(responseIdMappingRepo.findByThreadId(threadId) != null) {
+            throw new BizParamCheckException("This conversation only supports Response API");
+        }
+        return threadLockService.executeWithWriteLock(threadId, () -> doCreateRun(threadId, null, request, attachments, null));
+    }
+
+    /**
+     * responseAPI创建run前，先创建mapping
+     */
+    @Transactional
+    public RunCreateResult createRun(String threadId, String runId, RunCreateRequest request, List<Attachment> attachments, List<Message> additionalMessages) {
+        return threadLockService.executeWithWriteLock(threadId, () -> doCreateRun(threadId, runId, request, attachments, additionalMessages));
     }
 
     /**
      * 创建Run
      */
-    private RunCreateResult doCreateRun(String threadId, RunCreateRequest request, List<Attachment> attachments) {
+    private RunCreateResult doCreateRun(String threadId, String runId, RunCreateRequest request, List<Attachment> attachments, List<Message> additionalMessages) {
 
-        Assistant assistant = assistantService.getAssistantById(request.getAssistantId());
+        Assistant assistant = null;
 
-        // 验证assistant是否存在
-        if(assistant == null) {
-            throw new ResourceNotFoundException("Assistant not found: " + request.getAssistantId());
+        String responseId = request.getMetadata().get(MetaConstants.RESPONSE_ID);
+
+        if(responseId == null) {
+            assistant = assistantService.getAssistantById(request.getAssistantId());
+
+            // 验证assistant是否存在
+            if(assistant == null) {
+                throw new ResourceNotFoundException("Assistant not found: " + request.getAssistantId());
+            }
         }
 
         Map<String, Set<String>> toolFilesMap = new HashMap<>();
@@ -97,9 +119,7 @@ public class RunService {
         if(!attachments.isEmpty()) {
             attachments.forEach(attachment -> {
                 if(attachment.getTools() != null && !attachment.getTools().isEmpty()) {
-                    attachment.getTools().forEach(tool -> {
-                        toolFilesMap.computeIfAbsent(tool.getType(), k -> new HashSet<>()).add(attachment.getFileId());
-                    });
+                    attachment.getTools().forEach(tool -> toolFilesMap.computeIfAbsent(tool.getType(), k -> new HashSet<>()).add(attachment.getFileId()));
                 } else {
                     toolFilesMap.computeIfAbsent("_all", k -> new HashSet<>()).add(attachment.getFileId());
                 }
@@ -108,41 +128,42 @@ public class RunService {
 
         // 创建run记录
         RunDb runDb = new RunDb();
+        runDb.setId(runId);
         BeanUtils.copyProperties(request, runDb);
         runDb.setThreadId(threadId);
         runDb.setUser(BellaContext.getOwnerCode());
-        if(runDb.getModel() == null) {
+        if(runDb.getModel() == null && assistant != null) {
             runDb.setModel(assistant.getModel());
         }
         if(runDb.getModel() == null) {
             throw new BizParamCheckException("model is null");
         }
-        if(runDb.getInstructions() == null) {
+        if(runDb.getInstructions() == null && assistant != null) {
             runDb.setInstructions(assistant.getInstructions());
         }
-        if(runDb.getReasoningEffort() == null) {
+        if(runDb.getReasoningEffort() == null && assistant != null) {
             runDb.setReasoningEffort(assistant.getReasoningEffort());
         }
         if(request.getAdditionalInstructions() != null) {
             if(runDb.getInstructions() != null) {
-                runDb.setInstructions(runDb.getInstructions() + request.getAdditionalInstructions());
+                runDb.setInstructions(runDb.getInstructions().concat("\n").concat(request.getAdditionalInstructions()));
             } else {
                 runDb.setInstructions(request.getAdditionalInstructions());
             }
         }
         runDb.setStatus("queued");
 
-        if(runDb.getTemperature() == null) {
+        if(runDb.getTemperature() == null && assistant != null) {
             runDb.setTemperature(assistant.getTemperature());
         }
 
-        if(runDb.getTopP() == null) {
+        if(runDb.getTopP() == null && assistant != null) {
             runDb.setTopP(assistant.getTopP());
         }
 
         if(request.getResponseFormat() != null) {
             runDb.setResponseFormat(JacksonUtils.serialize(request.getResponseFormat()));
-        } else if(assistant.getResponseFormat() != null) {
+        } else if(assistant != null && assistant.getResponseFormat() != null) {
             runDb.setResponseFormat(JacksonUtils.serialize(assistant.getResponseFormat()));
         }
 
@@ -158,13 +179,13 @@ public class RunService {
         }
 
         // 保存file
-        if(assistant.getToolResources() != null) {
+        if(assistant != null && assistant.getToolResources() != null) {
             ToolResourceUtils.toolResourcesToToolFiles(assistant.getToolResources()).forEach((tool ,fileIds) -> {
                 toolFilesMap.computeIfAbsent(tool, k -> new HashSet<>()).addAll(fileIds);
             });
         }
 
-        if(assistant.getFileIds() != null) {
+        if(assistant != null && assistant.getFileIds() != null) {
             toolFilesMap.computeIfAbsent("_all", k -> new HashSet<>()).addAll(assistant.getFileIds());
         }
 
@@ -189,22 +210,31 @@ public class RunService {
         // 保存tools
         if(request.getTools() != null && !request.getTools().isEmpty()) {
             createRunTool(request.getTools(), runDb.getId());
-        } else if(assistant.getTools() != null && !assistant.getTools().isEmpty()) {
+        } else if(assistant != null && assistant.getTools() != null && !assistant.getTools().isEmpty()) {
             createRunTool(assistant.getTools(), runDb.getId());
         }
 
+        Message preMessage = messageService.getTheLastMessage(threadId);
 
         // 处理additional_messages - 创建时间在run和assistantMessage之间
         // 查询 additional_messages 使用时间范围即可
-        List<Message> additionalMessages = new ArrayList<>();
+        if(additionalMessages == null) {
+            additionalMessages = new ArrayList<>();
+        } else {
+            additionalMessages.forEach(msg -> messageService.createMessage(threadId, msg, Boolean.FALSE == request.getSaveMessage()));
+        }
         if(request.getAdditionalMessages() != null && !request.getAdditionalMessages().isEmpty()) {
             for(MessageRequest additionalMsg : request.getAdditionalMessages()) {
+                if(preMessage == null && additionalMessages.isEmpty()) {
+                    MessageUtils.checkFirst(additionalMsg);
+                }
                 // 只有run产生的消息才可以设置runId
                 additionalMsg.setRunId(null);
-                additionalMessages.add(messageService.createMessage(threadId, additionalMsg, "completed", Boolean.FALSE == request.getSaveMessage()));
+                additionalMessages.add(messageService.createMessage(threadId, additionalMsg, "completed",
+                        Boolean.FALSE == request.getSaveMessage(),
+                        additionalMessages.isEmpty() ? preMessage : additionalMessages.get(additionalMessages.size() - 1)));
             }
         }
-
 
         // 创建初始的assistant消息
         MessageRequest messageRequest = MessageRequest.builder()
@@ -218,7 +248,9 @@ public class RunService {
         RunStepDb runStep = new RunStepDb();
         runStep.setRunId(runDb.getId());
         runStep.setThreadId(threadId);
-        runStep.setAssistantId(assistant.getId());
+        if(assistant != null) {
+            runStep.setAssistantId(assistant.getId());
+        }
         runStep.setType("message_creation");
         runStep.setStatus("in_progress");
         runStep.setCreatedAt(LocalDateTime.now());
@@ -244,6 +276,17 @@ public class RunService {
     public Run getRunById(String threadId, String id) {
         RunDb runDb = runRepo.findById(threadId, id);
         return runDb != null ? convertToInfo(runDb) : null;
+    }
+
+    /**
+     * Find run by response ID (stored in metadata)
+     */
+    public Run findRunByResponseId(String responseId) {
+        List<RunDb> runs = runRepo.findByMetadataContaining("response_id", responseId);
+        if (runs.isEmpty()) {
+            return null;
+        }
+        return convertToInfo(runs.get(0));
     }
 
     /**
@@ -281,6 +324,22 @@ public class RunService {
 
         runRepo.update(existing);
         return convertToInfo(existing);
+    }
+
+    /**
+     * 获取RunStep
+     */
+    public RunStep getRunStep(String threadId, String runStepId) {
+        RunStepDb runStep = runStepRepo.findById(threadId, runStepId);
+        return RunUtils.convertStepToInfo(runStep);
+    }
+
+    /**
+     * 获取Steps列表
+     */
+    public List<RunStep> getRunSteps(String threadId, List<String> runStepIds) {
+        List<RunStepDb> runSteps = runStepRepo.findByIds(threadId, runStepIds);
+        return runSteps.stream().map(RunUtils::convertStepToInfo).collect(Collectors.toList());
     }
 
     /**

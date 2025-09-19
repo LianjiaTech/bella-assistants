@@ -207,7 +207,7 @@ public class Run extends TableImpl<RunRecord> {
     /**
      * The column <code>run.reasoning_effort</code>.
      */
-    public final TableField<RunRecord, String> REASONING_EFFORT = createField(DSL.name("reasoning_effort"), SQLDataType.VARCHAR(100).nullable(false).defaultValue(DSL.inline("\"\"", SQLDataType.VARCHAR)), this, "");
+    public final TableField<RunRecord, String> REASONING_EFFORT = createField(DSL.name("reasoning_effort"), SQLDataType.VARCHAR(100).nullable(false).defaultValue(DSL.inline("", SQLDataType.VARCHAR)), this, "");
 
     /**
      * The column <code>run.created_at</code>.

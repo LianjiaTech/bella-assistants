@@ -344,7 +344,7 @@ CREATE TABLE IF NOT EXISTS run
     reasoning_effort VARCHAR
 (
     100
-) NOT NULL DEFAULT '""',
+) NOT NULL DEFAULT '',
     created_at DATETIME
 (
     3

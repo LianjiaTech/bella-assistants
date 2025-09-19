@@ -59,20 +59,7 @@ public class ReadFilesToolHandler implements BellaToolHandler {
         String output = JacksonUtils.serialize(filesContent);
         return new ToolResult(ToolResult.ToolResultType.text, output);
     }
-    
-    /**
-     * 解析文件ID列表
-     */
-    //    private List<String> parseFileIds(JsonNode fileIdsNode) {
-    //        List<String> fileIds = new ArrayList<>();
-    //        for (JsonNode fileIdNode : fileIdsNode) {
-    //            String fileId = fileIdNode.asText();
-    //            if(fileId != null && !fileId.trim().isEmpty()) {
-    //                fileIds.add(fileId);
-    //            }
-    //        }
-    //        return fileIds;
-    //    }
+
     
     /**
      * 读取单个文件

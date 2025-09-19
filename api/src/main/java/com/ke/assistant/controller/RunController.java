@@ -80,7 +80,7 @@ public class RunController {
         SseEmitter emitter = null;
         // 如果是流式请求，返回SseEmitter
         if(Boolean.TRUE.equals(request.getStream())) {
-            emitter = new SseEmitter(300000L); // 5分钟超时
+            emitter = new SseEmitter(600000L); // 10分钟超时
             // 启动流式执行
         }
         runExecutor.startRun(threadId, result.getRun().getId(), result.getAssistantMessageId(), result.getAdditionalMessages(),false, emitter, BellaContext.snapshot());

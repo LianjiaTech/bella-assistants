@@ -9,6 +9,8 @@ import org.jooq.DSLContext;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static com.ke.assistant.db.generated.Tables.RESPONSE_ID_MAPPING;
 
@@ -21,10 +23,19 @@ public class ResponseIdMappingRepo implements BaseRepo {
 
     private final DSLContext dsl;
     private final IdGenerator idGenerator;
+    
+    // Thread locks for concurrency control
+    private final ConcurrentHashMap<String, ReentrantLock> threadLocks = new ConcurrentHashMap<>();
 
     public ResponseIdMappingDb findByResponseId(String responseId) {
         return dsl.selectFrom(RESPONSE_ID_MAPPING)
                 .where(RESPONSE_ID_MAPPING.RESPONSE_ID.eq(responseId))
+                .fetchOneInto(ResponseIdMappingDb.class);
+    }
+
+    public ResponseIdMappingDb findByPreviousResponseId(String responseId) {
+        return dsl.selectFrom(RESPONSE_ID_MAPPING)
+                .where(RESPONSE_ID_MAPPING.PREVIOUS_RESPONSE_ID.eq(responseId))
                 .fetchOneInto(ResponseIdMappingDb.class);
     }
 

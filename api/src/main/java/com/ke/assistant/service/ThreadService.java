@@ -6,15 +6,23 @@ import com.ke.assistant.db.generated.tables.pojos.ThreadFileRelationDb;
 import com.ke.assistant.db.repo.MessageRepo;
 import com.ke.assistant.db.repo.ThreadFileRelationRepo;
 import com.ke.assistant.db.repo.ThreadRepo;
+import com.ke.assistant.model.RunCreateResult;
 import com.ke.assistant.util.BeanUtils;
 import com.ke.assistant.util.MessageUtils;
 import com.ke.assistant.util.ToolResourceUtils;
+import com.ke.bella.openapi.BellaContext;
 import com.ke.bella.openapi.utils.JacksonUtils;
+import com.theokanning.openai.assistants.message.Message;
 import com.theokanning.openai.assistants.message.MessageRequest;
+import com.theokanning.openai.assistants.run.CreateThreadAndRunRequest;
+import com.theokanning.openai.assistants.run.RunCreateRequest;
+import com.theokanning.openai.assistants.thread.Attachment;
 import com.theokanning.openai.assistants.thread.Thread;
+import com.theokanning.openai.assistants.thread.ThreadRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,6 +50,9 @@ public class ThreadService {
     private MessageService messageService;
     @Autowired
     private ThreadLockService threadLockService;
+    @Autowired
+    @Lazy
+    private RunService runService;
 
     /**
      * 创建 Thread
@@ -64,8 +75,12 @@ public class ThreadService {
 
         // 处理初始消息
         if(messageOps != null && !messageOps.isEmpty()) {
+            Message pre = null;
             for (MessageRequest messageOp : messageOps) {
-                messageService.createMessage(savedThread.getId(), messageOp);
+                if(pre == null) {
+                    MessageUtils.checkFirst(messageOp);
+                }
+                pre = messageService.createMessage(savedThread.getId(), messageOp, pre);
             }
         }
 
@@ -334,5 +349,41 @@ public class ThreadService {
                 }
             }
         });
+    }
+
+    /**
+     * 在事务中创建 Thread 和 Run
+     * 用于 createThreadAndRun 接口
+     */
+    @Transactional
+    public RunCreateResult createThreadAndRun(CreateThreadAndRunRequest request) {
+        // 创建 Thread
+        ThreadRequest threadRequest = request.getThread();
+        ThreadDb threadDb = new ThreadDb();
+        BeanUtils.copyProperties(threadRequest, threadDb);
+        
+        threadDb.setUser(BellaContext.getOwnerCode());
+        threadDb.setOwner(BellaContext.getOwnerCode());
+        
+        // 将metadata Map转换为JSON字符串
+        if(threadRequest.getMetadata() != null) {
+            threadDb.setMetadata(JacksonUtils.serialize(threadRequest.getMetadata()));
+        }
+        
+        // 将environment Map转换为JSON字符串
+        if(threadRequest.getEnvironment() != null) {
+            threadDb.setEnvironment(JacksonUtils.serialize(threadRequest.getEnvironment()));
+        }
+        
+        Thread thread = createThread(threadDb, ToolResourceUtils.toolResourceToFiles(threadRequest.getToolResources()), threadRequest.getMessages());
+        
+        // 创建 Run
+        RunCreateRequest runCreateRequest = new RunCreateRequest();
+        BeanUtils.copyProperties(request, runCreateRequest);
+        
+        List<Attachment> attachments = MessageUtils.getAttachments(threadRequest.getMessages());
+        attachments.addAll(MessageUtils.getAttachments(request.getAdditionalMessages()));
+        
+        return runService.createRun(thread.getId(), runCreateRequest, attachments);
     }
 }
