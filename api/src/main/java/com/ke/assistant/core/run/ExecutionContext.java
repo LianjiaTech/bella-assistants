@@ -33,10 +33,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
@@ -122,6 +125,8 @@ public class ExecutionContext {
     // Response API相关字段
     private Response response; // 用于区分是否为Response API调用
 
+    private CompletableFuture<Object> future; // 用于block模式，获取结果
+
     public ExecutionContext(Map<String, Object> bellaContext, Supplier<String> toolCallStepIdSupplier) {
         this.bellaContext = bellaContext;
         this.toolCallStepIdSupplier = toolCallStepIdSupplier;
@@ -146,6 +151,7 @@ public class ExecutionContext {
         this.end = new AtomicBoolean(false);
         this.currentOutputToolCallId = new AtomicReference<>();
         this.fileInfos = new HashMap<>();
+        this.future = new CompletableFuture<>();
     }
     
     /**
@@ -580,6 +586,14 @@ public class ExecutionContext {
      */
     public boolean isResponseApi() {
         return response != null;
+    }
+
+    public Object blockingGetResult(long seconds) throws ExecutionException, InterruptedException, TimeoutException {
+        return future.get(seconds, TimeUnit.SECONDS);
+    }
+
+    public void complete(Object response) {
+        future.complete(response);
     }
 
 }

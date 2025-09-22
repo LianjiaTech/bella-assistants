@@ -1,7 +1,7 @@
 
 
 {% if files != null %}
-有如下文档参考：
+文档摘要如下，如果需要更多信息，请使用文档查询或文档阅读工具进行信息获取
 <KnowledgeBase>
 {% for file in files %}
 <knowledge>

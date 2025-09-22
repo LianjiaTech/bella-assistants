@@ -9,6 +9,7 @@ import com.theokanning.openai.common.LastError;
 import org.apache.commons.lang3.StringUtils;
 
 import java.time.ZoneOffset;
+import java.util.HashMap;
 
 public class RunUtils {
     /**
@@ -39,10 +40,25 @@ public class RunUtils {
 
         if(StringUtils.isNotBlank(runDb.getMetadata())) {
             info.setMetadata(JacksonUtils.toMap(runDb.getMetadata()));
+        } else {
+            info.setMetadata(new HashMap<>());
         }
 
         if(StringUtils.isNotBlank(runDb.getStepDetails())) {
-            info.setStepDetails(JacksonUtils.deserialize(runDb.getStepDetails(), StepDetails.class));
+            StepDetails stepDetails = JacksonUtils.deserialize(runDb.getStepDetails(), StepDetails.class);
+            info.setStepDetails(stepDetails);
+            if(StringUtils.isNotBlank(stepDetails.getText())) {
+                info.getMetadata().put(MetaConstants.TEXT, stepDetails.getText());
+            }
+            if(StringUtils.isNotBlank(stepDetails.getReasoningContent())) {
+                info.getMetadata().put(MetaConstants.REASONING, stepDetails.getReasoningContent());
+            }
+            if(StringUtils.isNotBlank(stepDetails.getReasoningContentSignature())) {
+                info.getMetadata().put(MetaConstants.REASONING_SIG, stepDetails.getReasoningContentSignature());
+            }
+            if(StringUtils.isNotBlank(stepDetails.getRedactedReasoningContent())) {
+                info.getMetadata().put(MetaConstants.REDACTED_REASONING, stepDetails.getRedactedReasoningContent());
+            }
         }
 
         if(StringUtils.isNotBlank(runDb.getUsage())) {

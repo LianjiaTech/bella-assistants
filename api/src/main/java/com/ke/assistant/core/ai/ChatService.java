@@ -3,6 +3,7 @@ package com.ke.assistant.core.ai;
 import com.ke.assistant.core.run.ExecutionContext;
 import com.ke.bella.openapi.BellaContext;
 import com.ke.bella.openapi.server.OpenAiServiceFactory;
+import com.theokanning.openai.OpenAiHttpException;
 import com.theokanning.openai.completion.chat.ChatCompletionRequest;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -55,8 +56,19 @@ public class ChatService {
             openAiServiceFactory.create().streamChatCompletion(request)
                     .subscribe(context::publish, throwable -> {
                         logger.warn(throwable.getMessage(), throwable);
-                        if(finalTime > maxTimes) {
-                            context.setError("llm_error", throwable.getMessage());
+                        String code = "llm_error";
+                        String message = throwable.getMessage();
+                        boolean retry = true;
+                        if(throwable instanceof OpenAiHttpException) {
+                            OpenAiHttpException httpException = (OpenAiHttpException) throwable;
+                            code = httpException.type;
+                            message = httpException.getMessage();
+                            retry = httpException.statusCode == 499 ||
+                                    httpException.statusCode == 429 ||
+                                    (httpException.statusCode > 500 && httpException.statusCode != 503);
+                        }
+                        if(!retry || finalTime > maxTimes) {
+                            context.setError(code, message);
                         } else {
                             try {
                                 BellaContext.replace(context.getBellaContext());
@@ -74,7 +86,7 @@ public class ChatService {
                 return;
             }
             logger.error("Stream chat completion failed for model: {}", context.getModel(), e);
-            context.setError("llm_error", e.getMessage());
+            context.setError("server_error", e.getMessage());
         }
     }
 }

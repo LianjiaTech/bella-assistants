@@ -81,9 +81,6 @@ public class MessageExecutor implements Runnable {
             } catch (Exception e) {
                 context.setError("server_error", e.getMessage());
                 log.warn(e.getMessage(), e);
-                if(sseEmitter != null) {
-                    sseEmitter.completeWithError(e);
-                }
             }
         }
         try {

@@ -1,5 +1,6 @@
 package com.ke.assistant.controller;
 
+import com.ke.assistant.core.run.ExecutionContext;
 import com.ke.assistant.core.run.RunExecutor;
 import com.ke.assistant.model.ResponseCreateResult;
 import com.ke.assistant.service.ResponseService;
@@ -15,6 +16,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Response API Controller
@@ -36,7 +40,7 @@ public class ResponseController {
      * POST /v1/responses
      */
     @PostMapping
-    public Object createResponse(@RequestBody CreateResponseRequest request) {
+    public Object createResponse(@RequestBody CreateResponseRequest request) throws ExecutionException, InterruptedException, TimeoutException {
         log.info("Creating response with model: {}, stream: {}", request.getModel(), request.getStream());
 
         request.setUser(BellaContext.getOwnerCode());
@@ -47,11 +51,11 @@ public class ResponseController {
         SseEmitter emitter = null;
         // If streaming is requested, return SseEmitter
         if (Boolean.TRUE.equals(request.getStream())) {
-            emitter = new SseEmitter(300000L); // 5 minute timeout
+            emitter = new SseEmitter(600000L); // 10 minute timeout
         }
         
         // Start response execution
-        runExecutor.startResponseRun(
+        ExecutionContext context = runExecutor.startResponseRun(
             result.getThreadId(),
             result.getRunId(), 
             result.getAssistantMessageId(),
@@ -62,7 +66,8 @@ public class ResponseController {
             BellaContext.snapshot()
         );
         
-        return Boolean.TRUE.equals(request.getStream()) ? emitter : result.getResponse();
+        return Boolean.TRUE.equals(request.getStream()) ? emitter :
+                Boolean.TRUE.equals(request.getBackground()) ? result.getResponse() : context.blockingGetResult(600);
     }
     
 }

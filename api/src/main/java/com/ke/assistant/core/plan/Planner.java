@@ -4,6 +4,7 @@ import com.ke.assistant.core.memory.ContextTruncator;
 import com.ke.assistant.core.plan.template.TemplateContext;
 import com.ke.assistant.core.plan.template.TemplateContextBuilder;
 import com.ke.assistant.core.run.ExecutionContext;
+import com.ke.assistant.core.run.RunStatus;
 import com.ke.assistant.core.tools.ToolFetcher;
 import com.ke.assistant.service.MessageService;
 import com.ke.assistant.service.RunService;
@@ -237,7 +238,8 @@ public class Planner {
                 if(stepDetails.getToolCalls() == null) {
                     continue;
                 }
-                MessageUtils.convertToolCallMessages(stepDetails.getToolCalls(), runStep.getLastError(), context.getCurrentMetaData(), context.isSupportReasonInput()).forEach(context::addChatMessage);
+                RunStatus status = RunStatus.fromValue(runStep.getStatus());
+                MessageUtils.convertToolCallMessages(stepDetails.getToolCalls(), runStep.getLastError(), runStep.getMetadata(), context.isSupportReasonInput(), status == RunStatus.REQUIRES_ACTION).forEach(context::addChatMessage);
             }
         }
     }
@@ -249,7 +251,7 @@ public class Planner {
         }
         // 非当前run轮次的工具调用不需要带上思考过程
         if("tool_calls".equals(stepDetails.getType())) {
-            MessageUtils.convertToolCallMessages(stepDetails.getToolCalls(), runStep.getLastError(), context.getCurrentMetaData(), false).forEach(context::addChatMessage);
+            MessageUtils.convertToolCallMessages(stepDetails.getToolCalls(), runStep.getLastError(), runStep.getMetadata(), false).forEach(context::addChatMessage);
         }
     }
 

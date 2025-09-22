@@ -44,8 +44,32 @@ public class ToolUtils {
                 definition.setParameters(functionTool.getParameters());
                 definition.setDescription(functionTool.getDescription());
                 function.setFunction(definition);
+                return function;
             }
             return null;
         }).filter(Objects::nonNull).collect(Collectors.toList());
+    }
+
+    public static List<ToolDefinition> convertToToolDefinition(List<Tool> tools) {
+        if(CollectionUtils.isEmpty(tools)) {
+            return new ArrayList<>();
+        }
+        return tools.stream()
+                .filter(tool -> !tool.hidden())
+                .map(tool -> {
+                    if(tool.definition() != null) {
+                        return tool.definition();
+                    }
+                    if(tool instanceof Tool.Function) {
+                        Tool.Function function = (Tool.Function) tool;
+                        FunctionTool functionTool = new FunctionTool();
+                        functionTool.setName(function.getFunction().getName());
+                        functionTool.setDescription(function.getFunction().getDescription());
+                        functionTool.setStrict(function.getFunction().getStrict());
+                        functionTool.setParameters(function.getFunction().getParameters());
+                        return functionTool;
+                    }
+                    return null;
+                }).filter(Objects::nonNull).collect(Collectors.toList());
     }
 }

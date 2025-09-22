@@ -117,7 +117,7 @@ public class MessageService {
         }
 
         MessageDb db = convertToDb(message);
-        message.setThreadId(threadId);
+        db.setThreadId(threadId);
         db.setMessageStatus(hidden ? "hidden" : "original");
 
         // 只有实际的数据库插入操作需要加读锁

@@ -88,7 +88,7 @@ public class RunStep extends TableImpl<RunStepRecord> {
     /**
      * The column <code>run_step.metadata</code>.
      */
-    public final TableField<RunStepRecord, String> METADATA = createField(DSL.name("metadata"), SQLDataType.VARCHAR(2048).nullable(false).defaultValue(DSL.inline("", SQLDataType.VARCHAR)), this, "");
+    public final TableField<RunStepRecord, String> METADATA = createField(DSL.name("metadata"), SQLDataType.VARCHAR(2048).nullable(false).defaultValue(DSL.inline("{}", SQLDataType.VARCHAR)), this, "");
 
     /**
      * The column <code>run_step.last_error</code>.
@@ -190,7 +190,7 @@ public class RunStep extends TableImpl<RunStepRecord> {
 
     @Override
     public List<Index> getIndexes() {
-        return Arrays.<Index>asList(Indexes.RUN_STEP_IDX_STEP_ASSISTANT_ID, Indexes.RUN_STEP_IDX_STEP_RUN_ID, Indexes.RUN_STEP_IDX_STEP_THREAD_ID);
+        return Arrays.<Index>asList(Indexes.RUN_STEP_IDX_STEP_ASSISTANT_ID, Indexes.RUN_STEP_IDX_STEP_CREAT_AT, Indexes.RUN_STEP_IDX_STEP_RUN_ID, Indexes.RUN_STEP_IDX_STEP_THREAD_ID);
     }
 
     @Override

@@ -395,7 +395,7 @@ CREATE TABLE IF NOT EXISTS run_step
     metadata VARCHAR
 (
     2048
-) NOT NULL DEFAULT '',
+) NOT NULL DEFAULT '{}',
     last_error VARCHAR
 (
     4096
@@ -422,6 +422,7 @@ CREATE TABLE IF NOT EXISTS run_step
 CREATE INDEX idx_step_assistant_id ON run_step (assistant_Id);
 CREATE INDEX idx_step_run_id ON run_step (run_id);
 CREATE INDEX idx_step_thread_id ON run_step (thread_id);
+CREATE INDEX idx_step_creat_at ON run_step (created_at);
 
 -- Assistant Tool 表
 CREATE TABLE IF NOT EXISTS assistant_tool

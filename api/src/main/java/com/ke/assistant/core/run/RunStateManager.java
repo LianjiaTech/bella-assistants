@@ -11,7 +11,9 @@ import com.ke.assistant.mesh.Event;
 import com.ke.assistant.mesh.EventConstants;
 import com.ke.assistant.mesh.ServiceMesh;
 import com.ke.assistant.service.MessageService;
+import com.ke.assistant.service.RunService;
 import com.ke.assistant.util.MessageUtils;
+import com.ke.assistant.util.MetaConstants;
 import com.ke.assistant.util.RunUtils;
 import com.ke.bella.openapi.common.exception.BizParamCheckException;
 import com.ke.bella.openapi.utils.DateTimeUtils;
@@ -21,6 +23,7 @@ import com.theokanning.openai.assistants.message.IncompleteDetails;
 import com.theokanning.openai.assistants.message.Message;
 import com.theokanning.openai.assistants.message.MessageContent;
 import com.theokanning.openai.assistants.run.RequiredAction;
+import com.theokanning.openai.assistants.run.Run;
 import com.theokanning.openai.assistants.run.SubmitToolOutputs;
 import com.theokanning.openai.assistants.run.ToolCall;
 import com.theokanning.openai.assistants.run_step.RunStep;
@@ -65,6 +68,8 @@ public class RunStateManager {
     private final Cache<String, ExecutionContext> processingCache = CacheBuilder.newBuilder()
             .expireAfterWrite(10, TimeUnit.MINUTES)
             .build();
+    @Autowired
+    private RunService runService;
 
     @PostConstruct
     public void init() {
@@ -80,12 +85,12 @@ public class RunStateManager {
      * @return 是否更新成功
      */
     @Transactional
-    public boolean updateRun(String threadId, String runId, RunStatus newStatus, LastError lastError, Usage usage) {
+    public Run updateRun(String threadId, String runId, RunStatus newStatus, LastError lastError, Usage usage) {
         try {
             RunDb run = runRepo.findByIdForUpdate(threadId, runId);
             if (run == null) {
                 logger.error("Run not found: {}", runId);
-                return false;
+                return null;
             }
             
             RunStatus currentStatus = RunStatus.fromValue(run.getStatus());
@@ -94,13 +99,16 @@ public class RunStateManager {
             if (!currentStatus.canTransitionTo(newStatus)) {
                 logger.warn("Invalid status transition for run {}: {} -> {}", 
                     runId, currentStatus, newStatus);
-                return false;
+                return null;
             }
             
             // 更新状态
             run.setStatus(newStatus.getValue());
             if(lastError != null) {
                 run.setLastError(JacksonUtils.serialize(lastError));
+                IncompleteDetails incompleteDetails = new IncompleteDetails();
+                incompleteDetails.setReason(lastError.getMessage());
+                run.setIncompleteDetails(JacksonUtils.serialize(incompleteDetails));
             }
             run.setUpdatedAt(LocalDateTime.now());
             
@@ -111,6 +119,15 @@ public class RunStateManager {
 
             if(newStatus.isCanceled()) {
                 run.setCancelledAt(LocalDateTime.now());
+                IncompleteDetails incompleteDetails = new IncompleteDetails();
+                incompleteDetails.setReason("user cancel run");
+                run.setIncompleteDetails(JacksonUtils.serialize(incompleteDetails));
+            }
+
+            if(newStatus == RunStatus.EXPIRED) {
+                IncompleteDetails incompleteDetails = new IncompleteDetails();
+                incompleteDetails.setReason("run has expired");
+                run.setIncompleteDetails(JacksonUtils.serialize(incompleteDetails));
             }
 
             if(usage != null) {
@@ -126,11 +143,11 @@ public class RunStateManager {
                 serviceMesh.removeRunningRun(runId);
             }
 
-            return true;
+            return runService.convertToInfo(run);
             
         } catch (Exception e) {
             logger.error("Failed to update run status for {}", runId, e);
-            return false;
+            return null;
         }
     }
 
@@ -138,7 +155,7 @@ public class RunStateManager {
      * 更新Run状态
      */
     @Transactional
-    public boolean updateRunStatus(String threadId, String runId, RunStatus newStatus) {
+    public Run updateRunStatus(String threadId, String runId, RunStatus newStatus) {
         return updateRun(threadId, runId, newStatus, null, null);
     }
 
@@ -146,20 +163,20 @@ public class RunStateManager {
      * 更新Run状态
      */
     @Transactional
-    public boolean updateRunStatus(ExecutionContext context, RunStatus newStatus, LastError lastError) {
-        boolean success = updateRun(context.getThreadId(), context.getRunId(), newStatus, lastError, context.getUsage());
-        context.getRun().setStatus(newStatus.getValue());
+    public Run updateRunStatus(ExecutionContext context, RunStatus newStatus, LastError lastError) {
+        Run run = updateRun(context.getThreadId(), context.getRunId(), newStatus, lastError, context.getUsage());
+        context.setRun(run);
         if(newStatus.getRunStreamEvent() != null) {
             context.publish(context.getRun());
         }
-        return success;
+        return run;
     }
     
     /**
      * 更新Run状态（无错误信息）
      */
     @Transactional
-    public boolean updateRunStatus(ExecutionContext context, RunStatus newStatus) {
+    public Run updateRunStatus(ExecutionContext context, RunStatus newStatus) {
         return updateRunStatus(context, newStatus, null);
     }
 
@@ -182,7 +199,7 @@ public class RunStateManager {
             throw new IllegalStateException("invalid run step");
         }
 
-        boolean success = updateRunStatus(context.getThreadId(), context.getRunId(), RunStatus.IN_PROGRESS);
+        boolean success = updateRunStatus(context.getThreadId(), context.getRunId(), RunStatus.IN_PROGRESS) != null;
         if(success) {
             context.getRun().setStatus(RunStatus.IN_PROGRESS.getValue());
             context.publish(context.getRun());
@@ -209,7 +226,7 @@ public class RunStateManager {
     @Transactional
     public boolean toCompleted(ExecutionContext context) {
         context.setCompleted(true);
-        return updateRunStatus(context, RunStatus.COMPLETED);
+        return updateRunStatus(context, RunStatus.COMPLETED) != null;
     }
 
     
@@ -223,7 +240,7 @@ public class RunStateManager {
             updateToolRunStepStatus(context.getCurrentToolCallStepId(), RunStatus.FAILED, lastError, context);
         }
         updateRunStepStatus(context.getCurrentRunStep().getId(), RunStatus.FAILED, lastError, context, JacksonUtils.serialize(lastError));
-        boolean success = updateRunStatus(context, RunStatus.FAILED, lastError);
+        boolean success = updateRunStatus(context, RunStatus.FAILED, lastError) != null;
         if(success) {
             context.publish(context.getLastError());
         }
@@ -239,7 +256,7 @@ public class RunStateManager {
             updateToolRunStepStatus(context.getCurrentToolCallStepId(), RunStatus.EXPIRED, null, context);
         }
         updateRunStepStatus(context.getCurrentRunStep().getId(), RunStatus.EXPIRED, null, context, "run has expired");
-        return updateRunStatus(context, RunStatus.EXPIRED, context.getLastError());
+        return updateRunStatus(context, RunStatus.EXPIRED, context.getLastError()) != null;
     }
     
     /**
@@ -247,7 +264,7 @@ public class RunStateManager {
      */
     @Transactional
     public boolean toCancelling(String threadId, String runId) {
-        boolean success = updateRunStatus(threadId, runId, RunStatus.CANCELLING);
+        boolean success = updateRunStatus(threadId, runId, RunStatus.CANCELLING) != null;
         if(success) {
             String instantId = serviceMesh.getRunningRunInstanceId(runId);
             Event event = Event.cancelEvent(runId);
@@ -272,7 +289,7 @@ public class RunStateManager {
             updateToolRunStepStatus(context.getCurrentToolCallStepId(), RunStatus.CANCELLED, null, context);
         }
         updateRunStepStatus(context.getCurrentRunStep().getId(), RunStatus.CANCELLED, null, context, "run has been canceled");
-        return updateRunStatus(context, RunStatus.CANCELLED);
+        return updateRunStatus(context, RunStatus.CANCELLED) != null;
     }
 
     
@@ -322,7 +339,7 @@ public class RunStateManager {
         runStepDb.setStatus(RunStatus.COMPLETED.getValue());
         runStepRepo.update(runStepDb);
         runRepo.updateRequireAction(threadId, runId, null);
-        return updateRunStatus(threadId, runId, RunStatus.QUEUED);
+        return updateRunStatus(threadId, runId, RunStatus.QUEUED) != null;
     }
 
     /**
@@ -362,13 +379,12 @@ public class RunStateManager {
         runStep.setRunId(context.getRunId());
         runStep.setThreadId(context.getThreadId());
         runStep.setAssistantId(context.getAssistantId());
-        runStep.setMetadata(JacksonUtils.serialize(metaData));
         runStep.setType("tool_calls");
         runStep.setStatus("in_progress");
         runStep.setCreatedAt(LocalDateTime.now());
 
         // 构建初始的step_details（不含output）
-        String stepDetails = buildInitialStepDetails(Lists.newArrayList(context.getCurrentToolTasks().values()));
+        String stepDetails = buildInitialStepDetails(Lists.newArrayList(context.getCurrentToolTasks().values()), metaData);
         runStep.setStepDetails(stepDetails);
 
         if(usage != null) {
@@ -381,8 +397,12 @@ public class RunStateManager {
     /**
      * 构建初始步骤详情（工具调用但无output）
      */
-    private String buildInitialStepDetails(List<ChatToolCall> toolCalls) {
+    private String buildInitialStepDetails(List<ChatToolCall> toolCalls, Map<String, String> metaData) {
         StepDetails stepDetails = StepDetails.builder()
+                .text(metaData.get(MetaConstants.TEXT))
+                .reasoningContent(metaData.get(MetaConstants.REASONING))
+                .reasoningContentSignature(metaData.get(MetaConstants.REASONING_SIG))
+                .redactedReasoningContent(metaData.get(MetaConstants.REDACTED_REASONING))
                 .type("tool_calls")
                 .toolCalls(convertToToolCalls(toolCalls))
                 .build();

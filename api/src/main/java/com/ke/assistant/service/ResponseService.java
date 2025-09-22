@@ -3,7 +3,6 @@ package com.ke.assistant.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.Lists;
 import com.ke.assistant.core.run.RunStatus;
-import com.ke.assistant.core.tools.ToolFetcher;
 import com.ke.assistant.db.IdGenerator;
 import com.ke.assistant.db.generated.tables.pojos.ResponseIdMappingDb;
 import com.ke.assistant.db.generated.tables.pojos.ThreadDb;
@@ -59,7 +58,7 @@ import com.theokanning.openai.response.tool.ToolCall;
 import com.theokanning.openai.response.tool.definition.ToolDefinition;
 import com.theokanning.openai.response.tool.output.FunctionToolCallOutput;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
@@ -70,7 +69,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -88,6 +86,9 @@ public class ResponseService {
     private ThreadService threadService;
 
     @Autowired
+    private MessageService messageService;
+
+    @Autowired
     private RunService runService;
 
     @Autowired
@@ -96,24 +97,27 @@ public class ResponseService {
     @Autowired
     private ResponseIdMappingRepo responseIdMappingRepo;
 
-    @Autowired
-    private ToolFetcher toolFetcher;
-
     /**
      * Create a new response
      */
     public ResponseCreateResult createResponse(CreateResponseRequest request) {
         List<Tool> tools = ToolUtils.convertFromToolDefinition(request.getTools());
 
+        Map<String, Tool> inheritTolls = new HashMap<>();
+
         // Determine thread handling
         boolean isNewThread = false;
         String threadId = null;
         String previousRunId = null;
+        String previousThreadId = null;
 
         // 确定threadId
         if(request.getConversation() != null && request.getConversation().getStringValue() != null) {
             // Use existing conversation/thread
             threadId = request.getConversation().getStringValue();
+            if(threadId == null) {
+                threadId = request.getConversation().getObjectValue().getId();
+            }
             Thread thread = threadService.getThreadById(threadId);
             Assert.notNull(thread, "conversation is not exist");
         } else if(request.getPreviousResponseId() != null) {
@@ -123,6 +127,10 @@ public class ResponseService {
             Run previousRun = runService.getRunById(db.getThreadId(), db.getRunId());
             threadId = previousRun.getThreadId();
             previousRunId = previousRun.getId();
+            previousThreadId = previousRun.getThreadId();
+            if(CollectionUtils.isNotEmpty(previousRun.getTools())) {
+                previousRun.getTools().forEach(tool -> inheritTolls.put(tool.getType(), tool));
+            }
         }
 
         // Create new thread if needed
@@ -133,7 +141,7 @@ public class ResponseService {
         }
 
         // Convert input to messages
-        List<Message> messages = convertInputToMessages(threadId, request);
+        List<Message> messages = checkAndConvertInputToMessages(threadId, request);
 
         List<Message> inputMessages = new ArrayList<>();
         StringBuilder systemPrompt = new StringBuilder();
@@ -156,22 +164,76 @@ public class ResponseService {
             }
         }
 
+        // 检查第一条消息是否合法
+        if(!inputMessages.isEmpty() && previousRunId != null) {
+            List<RunStep> runSteps = runService.getRunSteps(previousThreadId, previousRunId);
+            if(CollectionUtils.isNotEmpty(runSteps)) {
+                Message preMessage = null;
+                for(RunStep runStep : runSteps) {
+                    RunStatus runStatus = RunStatus.fromValue(runStep.getStatus());
+                    if(runStep.getType().equals("tool_calls")) {
+                        if(runStatus == RunStatus.REQUIRES_ACTION) {
+                            //查找需要提交工具结果的tool_call
+                            List<com.theokanning.openai.assistants.run.ToolCall> toolCalls = runStep.getStepDetails().getToolCalls().stream()
+                                    .filter(toolCall -> toolCall.getFunction() != null && toolCall.getFunction().getOutput() == null)
+                                    .collect(Collectors.toList());
+                            if(!toolCalls.isEmpty()) {
+                                preMessage = new Message();
+                                preMessage.setRole("assistant");
+                                preMessage.setContent(new ArrayList<>());
+                                for (com.theokanning.openai.assistants.run.ToolCall toolCall : toolCalls) {
+                                    MessageContent messageContent = new MessageContent();
+                                    messageContent.setType("tool_call");
+                                    messageContent.setToolCall(MessageUtils.convertToChatToolCall(toolCall));
+                                    preMessage.getContent().add(messageContent);
+                                }
+                                break;
+                            }
+                        }
+                    } else {
+                        if(runStatus.isTerminal()) {
+                            String messageId = runStep.getStepDetails().getMessageCreation().getMessageId();
+                            preMessage = messageService.getMessageById(previousThreadId, messageId);
+                            break;
+                        }
+                    }
+                }
+
+                MessageUtils.checkPre(preMessage, inputMessages.get(0));
+            }
+        }
+
         List<Attachment> attachments = inputMessages.stream().map(Message::getAttachments)
                 .flatMap(List::stream).collect(Collectors.toList());
 
-        Map<String, Tool> requiredTools = attachments.stream().map(Attachment::getTools)
+        Map<String, Tool> attachmentTools = attachments.stream().map(Attachment::getTools)
                 .flatMap(List::stream).collect(Collectors.toMap(Tool::getType, Function.identity(),
                         (existing, replacement) -> existing));
 
-        if(!requiredTools.isEmpty()) {
-            tools.stream().map(Tool::getType).forEach(requiredTools::remove);
-            tools.addAll(requiredTools.values());
+        // 附件需要的方法
+        if(!attachmentTools.isEmpty()) {
+            tools.forEach(tool -> {
+                if(attachmentTools.remove(tool.getType()) != null) {
+                    tool.toInherit();
+                }
+            });
+            tools.addAll(attachmentTools.values());
+        }
+
+        // 需要从之前的run中继承的方法
+        if(!inheritTolls.isEmpty()) {
+            tools.forEach(tool -> {
+                if(inheritTolls.remove(tool.getType()) != null) {
+                    tool.toInherit();
+                }
+            });
+            tools.addAll(inheritTolls.values());
         }
 
         String responseId = idGenerator.generateResponseId();
         String runId = idGenerator.generateRunId();
 
-        if(Boolean.FALSE == request.getStore()) {
+        if(Boolean.FALSE != request.getStore()) {
             ResponseIdMappingDb db = checkAndStore(responseId, threadId, runId, request.getPreviousResponseId(), request.getUser());
             threadId = db.getThreadId(); // fork后threadId可能变化
         }
@@ -179,7 +241,6 @@ public class ResponseService {
         // Create run request
         RunCreateRequest runCreateRequest = new RunCreateRequest();
         Map<String, String> metadata = new HashMap<>();
-        runCreateRequest.setMetadata(metadata);
         runCreateRequest.setAssistantId(null);
         runCreateRequest.setModel(request.getModel());
         runCreateRequest.setInstructions(request.getInstructions());
@@ -204,11 +265,17 @@ public class ResponseService {
         }
         metadata.put(MetaConstants.RESPONSE_ID, responseId);
         // 默认为true
-        runCreateRequest.getMetadata().put(MetaConstants.PARALLEL_TOOL_CALLS, String.valueOf(Boolean.FALSE == request.getParallelToolCalls()));
+        metadata.put(MetaConstants.PARALLEL_TOOL_CALLS, String.valueOf(Boolean.FALSE != request.getParallelToolCalls()));
         // 默认为true
-        metadata.put(MetaConstants.STORE, String.valueOf(Boolean.FALSE == request.getStore()));
+        metadata.put(MetaConstants.STORE, String.valueOf(Boolean.FALSE != request.getStore()));
+        // 默认为false
+        metadata.put(MetaConstants.BACKGROUND, String.valueOf(Boolean.TRUE == request.getBackground()));
         if(previousRunId != null) {
+            metadata.put(MetaConstants.PREVIOUS_RES_ID, request.getPreviousResponseId());
             metadata.put(MetaConstants.PREVIOUS_RUN_ID, previousRunId);
+        }
+        if(previousThreadId != null) {
+            metadata.put(MetaConstants.PREVIOUS_THREAD_ID, threadId);
         }
         runCreateRequest.setMetadata(metadata);
 
@@ -234,12 +301,10 @@ public class ResponseService {
             return store(responseId, threadId,  runId, "", user);
         }
         return threadLockService.executeWithWriteLock(previousResponseId, () -> {
-            if(previousResponseId != null) {
-                ResponseIdMappingDb exist = responseIdMappingRepo.findByPreviousResponseId(previousResponseId);
-                if(exist != null) {
-                    //todo: fork this thread with the last run included steps
-                    throw new BizParamCheckException("This response is only supported for run with the once time");
-                }
+            ResponseIdMappingDb exist = responseIdMappingRepo.findByPreviousResponseId(previousResponseId);
+            if(exist != null) {
+                //todo: fork this thread with the last run included steps
+                throw new BizParamCheckException("This response is only supported for run with the once time");
             }
             return store(responseId, threadId, runId, previousResponseId, user);
         });
@@ -290,12 +355,6 @@ public class ResponseService {
 
         Map<String, String> metadata = run.getMetadata();
 
-        List<ToolDefinition> toolDefinitions = new ArrayList<>();
-        if(metadata.containsKey(MetaConstants.TOOL_DEFINITION)) {
-            toolDefinitions = JacksonUtils.deserialize(metadata.get(MetaConstants.TOOL_DEFINITION),
-                    new TypeReference<List<ToolDefinition>>() {
-                    });
-        }
 
         builder.id(responseId)
                 .object("response")
@@ -305,12 +364,11 @@ public class ResponseService {
                 .topP(run.getTopP())
                 .maxOutputTokens(run.getMaxCompletionTokens())
                 .instructions(new InstructionsValue(run.getInstructions()))
-                .tools(toolDefinitions)
                 // todo: tool choice converter
                 //.toolChoice()
-                .parallelToolCalls(metadata.containsKey(MetaConstants.PARALLEL_TOOL_CALLS) ? Boolean.valueOf(metadata.get(MetaConstants.PARALLEL_TOOL_CALLS)) : true)
-                .background(Boolean.valueOf(metadata.get(MetaConstants.BACKGROUND)))
-                .metadata(metadata)
+                .parallelToolCalls(Boolean.parseBoolean(metadata.get(MetaConstants.PARALLEL_TOOL_CALLS)))
+                .background(Boolean.parseBoolean(metadata.get(MetaConstants.BACKGROUND)))
+                .previousResponseId(metadata.get(MetaConstants.PREVIOUS_RES_ID))
                 .truncation(run.getTruncationStrategy() != null ? run.getTruncationStrategy().getType() : "auto");
 
         // Add conversation reference
@@ -336,11 +394,13 @@ public class ResponseService {
             builder.status(ResponseStatus.IN_PROGRESS);
         }
 
+        builder.tools(ToolUtils.convertToToolDefinition(run.getTools()));
+
         return builder.build();
     }
 
 
-    private List<Message> convertInputToMessages(String threadId, CreateResponseRequest request) {
+    private List<Message> checkAndConvertInputToMessages(String threadId, CreateResponseRequest request) {
         List<Message> messages = new ArrayList<>();
         if(request.getInput() != null) {
             if(request.getInput().getInputType() == InputValue.InputType.STRING) {
@@ -364,6 +424,9 @@ public class ResponseService {
         Map<String, ToolMessage> toolResultMap = new HashMap<>();
         for(ConversationItem conversationItem : conversationItems) {
             if(conversationItem instanceof ToolCall) {
+                if(conversationItem instanceof FunctionToolCall) {
+                    continue;
+                }
                 ToolCall toolCall = (ToolCall) conversationItem;
                 String id = toolCall.getId();
                 Assert.hasText(id, "Id is required with tool call: " + toolCall.getType());
@@ -416,7 +479,8 @@ public class ResponseService {
                             }
                         } else if(inputContent instanceof InputFile) {
                             InputFile inputFile = (InputFile) inputContent;
-                            message.getAttachments().add(new Attachment(inputFile.getFileId(), Lists.newArrayList(new Tool.Retrieval(), new Tool.ReadFiles())));
+
+                            message.getAttachments().add(new Attachment(inputFile.getFileId(), Lists.newArrayList(new Tool.Retrieval(true, true), new Tool.ReadFiles(true, true))));
                         } else if(inputContent instanceof InputAudio) {
                             // todo: support InputAudio
                         }

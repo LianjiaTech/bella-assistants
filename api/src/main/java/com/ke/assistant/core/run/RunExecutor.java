@@ -14,6 +14,7 @@ import com.ke.assistant.db.IdGenerator;
 import com.ke.assistant.service.MessageService;
 import com.ke.assistant.service.RunService;
 import com.ke.assistant.service.ThreadService;
+import com.ke.assistant.util.MetaConstants;
 import com.ke.bella.openapi.BellaContext;
 import com.ke.bella.openapi.client.OpenapiClient;
 import com.ke.bella.openapi.metadata.Model;
@@ -103,10 +104,11 @@ public class RunExecutor {
     /**
      * 开启Response API run
      */
-    public void startResponseRun(String threadId, String runId, String assistantMessageId, List<Message> additionalMessages, boolean withThreadCreation, Response response, SseEmitter sseEmitter, Map<String, Object> bellaContext) {
+    public ExecutionContext startResponseRun(String threadId, String runId, String assistantMessageId, List<Message> additionalMessages, boolean withThreadCreation, Response response, SseEmitter sseEmitter, Map<String, Object> bellaContext) {
         ExecutionContext context = buildExecutionContext(threadId, runId, assistantMessageId, withThreadCreation ? RunType.CREATE_THREAD_AND_RUN : RunType.CREATE_RUN, additionalMessages, bellaContext);
         context.setResponse(response);
         TaskExecutor.addRunner(()->executeRun(context, sseEmitter));
+        return context;
     }
 
     /**
@@ -283,14 +285,18 @@ public class RunExecutor {
             }
 
             // 获取当前的runStep，时间从小到大
-            List<RunStep> runSteps = runService.getRunSteps(threadId, runId);
-
+            String historyThreadId = run.getMetadata().getOrDefault(MetaConstants.PREVIOUS_THREAD_ID, threadId);
+            String historyRunId = run.getMetadata().getOrDefault(MetaConstants.PREVIOUS_RUN_ID, runId);
+            List<RunStep> runSteps = runService.getRunSteps(historyThreadId, historyRunId);
+            boolean withPrevious = !(threadId.equals(historyThreadId) && historyRunId.equals(runId));
             RunStep currentStep = null;
 
             // 找到最后一个message_creation，当前策略只会有一个message_creation
             for(RunStep step : runSteps) {
-                if("message_creation".equals(step.getType())) {
-                    currentStep = step;
+                if(!withPrevious) {
+                    if("message_creation".equals(step.getType())) {
+                        currentStep = step;
+                    }
                 }
                 if("tool_calls".equals(step.getType())) {
                     RunStatus status = RunStatus.fromValue(step.getStatus());
@@ -299,10 +305,17 @@ public class RunExecutor {
                         // 需要构建上下文只有run开启和提交工具结果两种情况，工具的调用的step，一定是终止状态
                         if(status.isTerminal()) {
                             context.addHistoryToolStep(step);
+                        } else if(withPrevious && status == RunStatus.REQUIRES_ACTION) {
+                            context.addHistoryToolStep(step);
                         }
                     }
                 }
             }
+
+            if(withPrevious) {
+                currentStep = runService.getRunSteps(threadId, runId).stream().filter(step -> "message_creation".equals(step.getType())).findAny().orElseThrow(() -> new IllegalStateException("run step is null"));
+            }
+
             context.setCurrentRunStep(currentStep);
 
             //添加要发送的消息

@@ -39,6 +39,7 @@ public class Indexes {
     public static final Index RUN_IDX_RUN_THREAD_ID = Internal.createIndex(DSL.name("idx_run_thread_id"), Run.RUN, new OrderField[] { Run.RUN.THREAD_ID }, false);
     public static final Index RUN_IDX_STATUS = Internal.createIndex(DSL.name("idx_status"), Run.RUN, new OrderField[] { Run.RUN.STATUS }, false);
     public static final Index RUN_STEP_IDX_STEP_ASSISTANT_ID = Internal.createIndex(DSL.name("idx_step_assistant_id"), RunStep.RUN_STEP, new OrderField[] { RunStep.RUN_STEP.ASSISTANT_ID }, false);
+    public static final Index RUN_STEP_IDX_STEP_CREAT_AT = Internal.createIndex(DSL.name("idx_step_creat_at"), RunStep.RUN_STEP, new OrderField[] { RunStep.RUN_STEP.CREATED_AT }, false);
     public static final Index RUN_STEP_IDX_STEP_RUN_ID = Internal.createIndex(DSL.name("idx_step_run_id"), RunStep.RUN_STEP, new OrderField[] { RunStep.RUN_STEP.RUN_ID }, false);
     public static final Index RUN_STEP_IDX_STEP_THREAD_ID = Internal.createIndex(DSL.name("idx_step_thread_id"), RunStep.RUN_STEP, new OrderField[] { RunStep.RUN_STEP.THREAD_ID }, false);
     public static final Index ASSISTANT_FILE_RELATION_INDEX_ASSISTANT_ID = Internal.createIndex(DSL.name("index_assistant_id"), AssistantFileRelation.ASSISTANT_FILE_RELATION, new OrderField[] { AssistantFileRelation.ASSISTANT_FILE_RELATION.ASSISTANT_ID }, false);

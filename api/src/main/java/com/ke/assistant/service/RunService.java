@@ -214,16 +214,18 @@ public class RunService {
             createRunTool(assistant.getTools(), runDb.getId());
         }
 
-        Message preMessage = messageService.getTheLastMessage(threadId);
-
         // 处理additional_messages - 创建时间在run和assistantMessage之间
         // 查询 additional_messages 使用时间范围即可
         if(additionalMessages == null) {
             additionalMessages = new ArrayList<>();
         } else {
+            // response api
             additionalMessages.forEach(msg -> messageService.createMessage(threadId, msg, Boolean.FALSE == request.getSaveMessage()));
         }
+
+        // assistant api
         if(request.getAdditionalMessages() != null && !request.getAdditionalMessages().isEmpty()) {
+            Message preMessage = messageService.getTheLastMessage(threadId);
             for(MessageRequest additionalMsg : request.getAdditionalMessages()) {
                 if(preMessage == null && additionalMessages.isEmpty()) {
                     MessageUtils.checkFirst(additionalMsg);
@@ -276,17 +278,6 @@ public class RunService {
     public Run getRunById(String threadId, String id) {
         RunDb runDb = runRepo.findById(threadId, id);
         return runDb != null ? convertToInfo(runDb) : null;
-    }
-
-    /**
-     * Find run by response ID (stored in metadata)
-     */
-    public Run findRunByResponseId(String responseId) {
-        List<RunDb> runs = runRepo.findByMetadataContaining("response_id", responseId);
-        if (runs.isEmpty()) {
-            return null;
-        }
-        return convertToInfo(runs.get(0));
     }
 
     /**
@@ -387,7 +378,7 @@ public class RunService {
      * 将RunDb转换为RunInfo
      */
     @SuppressWarnings("unchecked")
-    private Run convertToInfo(RunDb runDb) {
+    public Run convertToInfo(RunDb runDb) {
         if(runDb == null) {
             return null;
         }

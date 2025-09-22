@@ -7,7 +7,7 @@
 
 {{ agent.instruction }}
 
-{% if agent.files != null and (agent.toolNames contains 'rag' or agent.toolNames contains 'retrieval') %}
+{% if agent.files != null and (agent.toolNames contains 'rag' or agent.toolNames contains 'retrieval' or agent.toolNames contains 'read_files') %}
 下面是知识库的摘要信息，请你综合判断是否需要调用知识库相关工具
 <KnowledgeBase>
 {% for file in agent.files %}

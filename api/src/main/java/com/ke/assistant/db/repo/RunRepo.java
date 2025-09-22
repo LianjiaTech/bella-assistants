@@ -108,14 +108,4 @@ public class RunRepo implements BaseRepo {
                 .where(RUN.ID.eq(id))
                 .execute() > 0;
     }
-
-    /**
-     * Find runs by metadata containing key-value pair
-     */
-    public List<RunDb> findByMetadataContaining(String key, String value) {
-        return dsl.selectFrom(RUN)
-                .where(RUN.METADATA.like("%" + "\"" + key + "\":\"" + value + "\"" + "%"))
-                .orderBy(RUN.CREATED_AT.desc())
-                .fetchInto(RunDb.class);
-    }
 }

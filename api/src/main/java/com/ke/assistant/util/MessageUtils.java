@@ -220,13 +220,15 @@ public class MessageUtils {
         List<MultiMediaContent> result = new ArrayList<>();
 
         for(MessageContent content : contents) {
-            MultiMediaContent mmContent = new MultiMediaContent();
             if("text".equals(content.getType())) {
+                MultiMediaContent mmContent = new MultiMediaContent();
                 mmContent.setType("text");
                 mmContent.setText(content.getText().getValue() + attachInfo);
                 // 只在一条消息中添加即可
                 attachInfo = "";
+                result.add(mmContent);
             } else if(content.isVision()){
+                MultiMediaContent mmContent = new MultiMediaContent();
                 // 目前的chat completion，只支持多模态输入，不支持多模态输出
                 if(role.equals("user") && supportVision) {
                     mmContent.setType(content.getType());
@@ -243,9 +245,8 @@ public class MessageUtils {
                     }
                     mmContent.setText(sb.toString());
                 }
+                result.add(mmContent);
             }
-
-            result.add(mmContent);
         }
 
         return result;
@@ -409,6 +410,10 @@ public class MessageUtils {
     }
 
     public static List<ChatMessage> convertToolCallMessages(List<ToolCall> toolCalls, LastError lastError, Map<String, String> metaData, boolean supportReasoningInput) {
+        return convertToolCallMessages(toolCalls, lastError, metaData, supportReasoningInput, true);
+    }
+
+    public static List<ChatMessage> convertToolCallMessages(List<ToolCall> toolCalls, LastError lastError, Map<String, String> metaData, boolean supportReasoningInput , boolean includeResult) {
         List<ChatMessage> result = new ArrayList<>();
         AssistantMessage toolCallMessage = new AssistantMessage();
         List<ChatToolCall> chatToolCalls = new ArrayList<>();
@@ -469,7 +474,9 @@ public class MessageUtils {
             }
         }
         result.add(toolCallMessage);
-        result.addAll(toolResultMessages);
+        if(includeResult) {
+            result.addAll(toolResultMessages);
+        }
         return result;
     }
 
@@ -585,11 +592,13 @@ public class MessageUtils {
                 throw new BizParamCheckException("tool message must follow a assistant message");
             }
             Set<String> toolResultIds = cur.getContent().stream().map(MessageContent::getToolResult).map(ToolMessage::getToolCallId).collect(Collectors.toSet());
-            Set<String> toolCallIds = pre.getContent().stream().map(MessageContent::getToolCall).map(ChatToolCall::getId).collect(Collectors.toSet());
+            Set<String> toolCallIds = pre.getContent().stream().map(MessageContent::getToolCall)
+                    .filter(Objects::nonNull)
+                    .map(ChatToolCall::getId).collect(Collectors.toSet());
             if(toolCallIds.containsAll(toolResultIds) && toolResultIds.containsAll(toolCallIds)) {
                 return;
             }
-            throw new BizParamCheckException("tool message must follow a assistant message");
+            throw new BizParamCheckException("1. The tool_call result must be provided for each tool_call_id\n2. All the tool_call_id must be contains in tool_calls.");
         }
         throw new BizParamCheckException("message role must be system or developer or user or assistant or tool");
     }

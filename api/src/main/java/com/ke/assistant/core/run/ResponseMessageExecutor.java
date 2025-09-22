@@ -76,6 +76,7 @@ public class ResponseMessageExecutor implements Runnable {
     private int contentIndex = 0;
     // Current item tracking
     private String currentItemId;
+    private int currentToolCallIndex = -1;
     private Usage usage;
     // Event boundaries
     private boolean reasoningStarted = false;
@@ -107,9 +108,6 @@ public class ResponseMessageExecutor implements Runnable {
             } catch (Exception e) {
                 context.setError("server_error", e.getMessage());
                 log.warn(e.getMessage(), e);
-                if(sseEmitter != null) {
-                    sseEmitter.completeWithError(e);
-                }
             }
         }
 
@@ -150,15 +148,17 @@ public class ResponseMessageExecutor implements Runnable {
             currentResponse.setOutput(outputItems);
             currentResponse.setUsage(usage);
 
-            // Send response.completed
-            sendEvent(ResponseCompletedEvent.builder()
-                    .sequenceNumber(sequenceNumber++)
-                    .response(currentResponse)
-                    .build());
             if(status == RunStatus.FAILED) {
                 currentResponse.setStatus(ResponseStatus.FAILED);
-                currentResponse.setIncompleteDetails(new Response.IncompleteDetails(
-                        run.getIncompleteDetails() == null ? "unexpected error" : run.getIncompleteDetails().getReason()));
+                Response.ErrorDetails errorDetails = new Response.ErrorDetails();
+                if(run.getLastError() != null) {
+                    errorDetails.setMessage(run.getLastError().getMessage());
+                    errorDetails.setCode(run.getLastError().getCode());
+                } else {
+                    errorDetails.setCode("server_error");
+                    errorDetails.setMessage("unexpected error");
+                }
+                currentResponse.setError(errorDetails);
                 sendEvent(ResponseFailedEvent.builder()
                         .sequenceNumber(sequenceNumber++)
                         .response(currentResponse)
@@ -173,7 +173,7 @@ public class ResponseMessageExecutor implements Runnable {
                         .build());
             } else {
                 currentResponse.setStatus(ResponseStatus.COMPLETED);
-                sendEvent(ResponseIncompleteEvent.builder()
+                sendEvent(ResponseCompletedEvent.builder()
                         .sequenceNumber(sequenceNumber++)
                         .response(currentResponse)
                         .build());
@@ -256,7 +256,6 @@ public class ResponseMessageExecutor implements Runnable {
                 context.getCurrentMetaData().putAll(meatData);
             }
             usage = null;
-            outputItems.clear();
             outputIndex = 0;
         }
     }
@@ -264,6 +263,7 @@ public class ResponseMessageExecutor implements Runnable {
     private void handleError(LastError error) {
         ErrorEvent errorEvent = ErrorEvent.builder()
                 .sequenceNumber(sequenceNumber++)
+                .code(error.getCode())
                 .message(error.getMessage())
                 .build();
         sendEvent(errorEvent);
@@ -280,8 +280,12 @@ public class ResponseMessageExecutor implements Runnable {
                     ensureReasoningItem();
                     sendReasoningDelta(assistantMessage.getReasoningContent());
                     currentReasoning.append(assistantMessage.getReasoningContent());
-                    currentReasoningSignature.append(assistantMessage.getReasoningContentSignature());
-                    currentRedactedReasoningContent.append(assistantMessage.getRedactedReasoningContent());
+                    if(assistantMessage.getReasoningContentSignature() != null) {
+                        currentReasoningSignature.append(assistantMessage.getReasoningContentSignature());
+                    }
+                    if(assistantMessage.getRedactedReasoningContent() != null) {
+                        currentRedactedReasoningContent.append(assistantMessage.getRedactedReasoningContent());
+                    }
                 }
 
                 // Handle content
@@ -294,11 +298,8 @@ public class ResponseMessageExecutor implements Runnable {
                 // Handle tool calls
                 if(assistantMessage.getToolCalls() != null) {
                     for (ChatToolCall toolCall : assistantMessage.getToolCalls()) {
-                        if(toolCall.getFunction() != null && StringUtils.isNotBlank(toolCall.getFunction().getName())) {
-                            if(toolExecutor.canExecute(toolCall.getFunction().getName())) {
-                                handleToolCall(toolCall);
-                            }
-                        }
+                        context.addToolCallTask(toolCall);
+                        handleToolCall(toolCall);
                     }
                 }
             }
@@ -315,7 +316,19 @@ public class ResponseMessageExecutor implements Runnable {
 
     private void handleToolCall(ChatToolCall toolCall) {
 
-        ensureFunctionCallItem(toolCall);
+        if(toolCall.getFunction() == null) {
+            return;
+        }
+
+        if(StringUtils.isNotBlank(toolCall.getId()) && StringUtils.isNotBlank(toolCall.getFunction().getName())) {
+            if(!toolExecutor.canExecute(toolCall.getFunction().getName())) {
+                ensureFunctionCallItem(toolCall);
+            }
+        }
+
+        if(toolCall.getIndex() != currentToolCallIndex) {
+            return;
+        }
 
         // Send function call arguments delta
         if(toolCall.getFunction().getArguments() != null) {
@@ -335,7 +348,6 @@ public class ResponseMessageExecutor implements Runnable {
             reasoningStarted = true;
             messageStarted = false;
             functionCallStarted = false;
-            contentIndex = 0;
 
             Reasoning reasoning = new Reasoning();
             reasoning.setId(currentItemId);
@@ -402,17 +414,18 @@ public class ResponseMessageExecutor implements Runnable {
     }
 
     private void ensureFunctionCallItem(ChatToolCall toolCall) {
-        if(!functionCallStarted || !toolCall.getId().equals(currentItemId)) {
+        if(!functionCallStarted || currentToolCallIndex != toolCall.getIndex()) {
             finishPreviousItem();
 
-            currentItemId = toolCall.getId();
+            currentItemId = generateItemId();
+            currentToolCallIndex = toolCall.getIndex();
             functionCallStarted = true;
             reasoningStarted = false;
             messageStarted = false;
 
             FunctionToolCall functionCall = new FunctionToolCall();
             functionCall.setId(currentItemId);
-            functionCall.setStatus(com.theokanning.openai.response.ItemStatus.IN_PROGRESS);
+            functionCall.setStatus(ItemStatus.IN_PROGRESS);
             functionCall.setName(toolCall.getFunction().getName());
             functionCall.setCallId(toolCall.getId());
 
@@ -464,6 +477,7 @@ public class ResponseMessageExecutor implements Runnable {
             finishFunctionCallItem();
         }
         contentIndex = 0;
+        currentToolCallIndex = -1;
     }
 
     private void finishReasoningItem() {
@@ -498,7 +512,6 @@ public class ResponseMessageExecutor implements Runnable {
     }
 
     private void finishMessageItem() {
-        contentIndex = 0;
         if(messageStarted) {
             // Send output text done
             sendEvent(OutputTextDoneEvent.builder()
@@ -580,6 +593,7 @@ public class ResponseMessageExecutor implements Runnable {
             sseEmitter.complete();
             sseEmitter = null;
         }
+        context.complete(currentResponse);
     }
 
     private String generateItemId() {

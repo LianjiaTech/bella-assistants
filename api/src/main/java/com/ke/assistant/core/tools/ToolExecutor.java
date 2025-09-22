@@ -99,6 +99,7 @@ public class ToolExecutor implements Runnable {
                                         if(arguments == null) {
                                             arguments = new HashMap<>();
                                         }
+                                        log.info("tool start: {}, arguments:{}", tool.getType(), JacksonUtils.serialize(arguments));
                                         return handler.execute(toolContext, arguments, finalChannel);
                                     }
                             )
@@ -159,6 +160,7 @@ public class ToolExecutor implements Runnable {
             runStateManager.finishToolCall(context, toolCall, "tool call output is null");
             return;
         }
+        log.info("tool end: {}, arguments:{}", toolCall.getType(), JacksonUtils.serialize(result));
         if(result.getError() != null) {
             if(toolCall.getFunction() != null) {
                 toolCall.getFunction().setOutput(result.getError());
@@ -188,7 +190,7 @@ public class ToolExecutor implements Runnable {
     /**
      * 注册工具
      */
-    private void register(Tool tool, ToolHandler handler) {
+    public void register(Tool tool, ToolHandler handler) {
         String toolName = tool.getType();
         if(handler != null) {
             toolHandlers.put(toolName, handler);
