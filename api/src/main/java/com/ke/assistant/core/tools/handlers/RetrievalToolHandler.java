@@ -8,9 +8,15 @@ import com.ke.assistant.core.tools.BellaToolHandler;
 import com.ke.assistant.core.tools.ToolContext;
 import com.ke.assistant.core.tools.ToolOutputChannel;
 import com.ke.assistant.core.tools.ToolResult;
+import com.ke.assistant.core.tools.ToolStreamEvent;
 import com.ke.bella.openapi.utils.HttpUtils;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.assistants.assistant.Tool;
+import com.theokanning.openai.response.ItemStatus;
+import com.theokanning.openai.response.stream.FileSearchCompletedEvent;
+import com.theokanning.openai.response.stream.FileSearchInProgressEvent;
+import com.theokanning.openai.response.stream.FileSearchSearchingEvent;
+import com.theokanning.openai.response.tool.FileSearchToolCall;
 import lombok.Data;
 import okhttp3.Request;
 import okhttp3.RequestBody;
@@ -41,31 +47,52 @@ public class RetrievalToolHandler implements BellaToolHandler {
     
     @Override
     public ToolResult doExecute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
-
-        // 解析参数并构建请求体
         String query = Optional.ofNullable(arguments.get("query")).map(Object::toString).orElse(null);
-        if(query == null || query.trim().isEmpty()) {
-            throw new IllegalArgumentException("query is null");
+        ItemStatus status = ItemStatus.INCOMPLETE;
+        try {
+
+            channel.output(context.getToolId(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+                    .executionStage(ToolStreamEvent.ExecutionStage.prepare)
+                    .event(FileSearchInProgressEvent.builder().build())
+                    .build());
+
+            if(query == null || query.trim().isEmpty()) {
+                throw new IllegalArgumentException("query is null");
+            }
+
+            RetrievalRequest requestBody = buildRequestBody(query, context);
+
+            Request request = new Request.Builder()
+                    .url(retrievalProperties.getUrl())
+                    .post(RequestBody.create(JacksonUtils.serialize(requestBody), okhttp3.MediaType.parse("application/json")))
+                    .build();
+
+            channel.output(context.getToolId(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+                    .executionStage(ToolStreamEvent.ExecutionStage.processing)
+                    .event(FileSearchSearchingEvent.builder().build())
+                    .build());
+
+            // 发送请求
+            RetrievalResponse response = HttpUtils.httpRequest(request, RetrievalResponse.class);
+
+            // 构建返回结果
+            buildRetrievalResponse(response);
+
+            if(isFinal()) {
+                channel.output(context.getToolId(), response.getValue());
+            }
+
+            status = ItemStatus.COMPLETED;
+            return new ToolResult(ToolResult.ToolResultType.text, response.getValue());
+        } finally {
+            FileSearchToolCall toolCall = new FileSearchToolCall();
+            toolCall.setQueries(Lists.newArrayList(query));
+            toolCall.setStatus(status);
+            channel.output(context.getToolId(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+                    .executionStage(ToolStreamEvent.ExecutionStage.completed)
+                    .event(FileSearchCompletedEvent.builder().build())
+                    .build());
         }
-
-        RetrievalRequest requestBody = buildRequestBody(query, context);
-
-        Request request = new Request.Builder()
-                .url(retrievalProperties.getUrl())
-                .post(RequestBody.create(JacksonUtils.serialize(requestBody), okhttp3.MediaType.parse("application/json")))
-                .build();
-
-        // 发送请求
-        RetrievalResponse response = HttpUtils.httpRequest(request, RetrievalResponse.class);
-
-        // 构建返回结果
-        buildRetrievalResponse(response);
-
-        if(isFinal()) {
-            channel.output(context.getToolId(), response.getValue());
-        }
-
-        return new ToolResult(ToolResult.ToolResultType.text, response.getValue());
     }
     
     /**
@@ -102,8 +129,8 @@ public class RetrievalToolHandler implements BellaToolHandler {
 
             response.setList(Lists.newArrayList(emptyChunk));
         }
-        // 设置value为第一个chunk的content
-        response.setValue(response.getList().get(0).getContent());
+        response.setValue("");
+        response.getList().forEach(chunk -> response.setValue(response.getValue().concat(chunk.getContent()).concat("\n")));
     }
     
     @Override

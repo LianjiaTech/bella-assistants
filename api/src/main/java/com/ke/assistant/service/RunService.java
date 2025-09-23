@@ -22,6 +22,7 @@ import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.Usage;
 import com.theokanning.openai.assistants.assistant.Assistant;
 import com.theokanning.openai.assistants.assistant.Tool;
+import com.theokanning.openai.assistants.assistant.ToolResources;
 import com.theokanning.openai.assistants.message.IncompleteDetails;
 import com.theokanning.openai.assistants.message.Message;
 import com.theokanning.openai.assistants.message.MessageRequest;
@@ -85,21 +86,21 @@ public class RunService {
         if(responseIdMappingRepo.findByThreadId(threadId) != null) {
             throw new BizParamCheckException("This conversation only supports Response API");
         }
-        return threadLockService.executeWithWriteLock(threadId, () -> doCreateRun(threadId, null, request, attachments, null));
+        return threadLockService.executeWithWriteLock(threadId, () -> doCreateRun(threadId, null, request, attachments, null, null));
     }
 
     /**
      * responseAPI创建run前，先创建mapping
      */
     @Transactional
-    public RunCreateResult createRun(String threadId, String runId, RunCreateRequest request, List<Attachment> attachments, List<Message> additionalMessages) {
-        return threadLockService.executeWithWriteLock(threadId, () -> doCreateRun(threadId, runId, request, attachments, additionalMessages));
+    public RunCreateResult createRun(String threadId, String runId, RunCreateRequest request, List<Attachment> attachments, List<Message> additionalMessages, ToolResources additionalResources) {
+        return threadLockService.executeWithWriteLock(threadId, () -> doCreateRun(threadId, runId, request, attachments, additionalMessages, additionalResources));
     }
 
     /**
      * 创建Run
      */
-    private RunCreateResult doCreateRun(String threadId, String runId, RunCreateRequest request, List<Attachment> attachments, List<Message> additionalMessages) {
+    private RunCreateResult doCreateRun(String threadId, String runId, RunCreateRequest request, List<Attachment> attachments, List<Message> additionalMessages, ToolResources additionalResources) {
 
         Assistant assistant = null;
 
@@ -180,9 +181,9 @@ public class RunService {
 
         // 保存file
         if(assistant != null && assistant.getToolResources() != null) {
-            ToolResourceUtils.toolResourcesToToolFiles(assistant.getToolResources()).forEach((tool ,fileIds) -> {
-                toolFilesMap.computeIfAbsent(tool, k -> new HashSet<>()).addAll(fileIds);
-            });
+            ToolResourceUtils.toolResourcesToToolFiles(assistant.getToolResources())
+                    .forEach((tool ,fileIds) -> toolFilesMap.computeIfAbsent(tool, k -> new HashSet<>())
+                            .addAll(fileIds));
         }
 
         if(assistant != null && assistant.getFileIds() != null) {
@@ -192,9 +193,14 @@ public class RunService {
         List<ThreadFileRelationDb> threadFiles = threadService.getThreadFiles(threadId);
 
         if(threadFiles != null && !threadFiles.isEmpty()) {
-            threadFiles.forEach(threadFile -> {
-                toolFilesMap.computeIfAbsent(threadFile.getToolName(), k -> new HashSet<>()).add(threadFile.getFileId());
-            });
+            threadFiles.forEach(threadFile -> toolFilesMap.computeIfAbsent(threadFile.getToolName(), k -> new HashSet<>())
+                    .add(threadFile.getFileId()));
+        }
+
+        if(additionalResources != null) {
+            ToolResourceUtils.toolResourcesToToolFiles(additionalResources)
+                    .forEach((tool ,fileIds) -> toolFilesMap.computeIfAbsent(tool, k -> new HashSet<>())
+                            .addAll(fileIds));
         }
 
         Map<String, List<String>> toolResourcesMap = new HashMap<>();

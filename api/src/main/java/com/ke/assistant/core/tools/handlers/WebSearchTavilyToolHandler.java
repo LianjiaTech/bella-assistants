@@ -8,8 +8,14 @@ import com.ke.assistant.core.tools.ToolContext;
 import com.ke.assistant.core.tools.ToolHandler;
 import com.ke.assistant.core.tools.ToolOutputChannel;
 import com.ke.assistant.core.tools.ToolResult;
+import com.ke.assistant.core.tools.ToolStreamEvent;
 import com.ke.bella.openapi.utils.HttpUtils;
 import com.ke.bella.openapi.utils.JacksonUtils;
+import com.theokanning.openai.response.ItemStatus;
+import com.theokanning.openai.response.stream.WebSearchCompletedEvent;
+import com.theokanning.openai.response.stream.WebSearchInProgressEvent;
+import com.theokanning.openai.response.stream.WebSearchSearchingEvent;
+import com.theokanning.openai.response.tool.WebSearchToolCall;
 import lombok.Data;
 import okhttp3.Request;
 import okhttp3.RequestBody;
@@ -41,35 +47,55 @@ public class WebSearchTavilyToolHandler implements ToolHandler {
     
     @Override
     public ToolResult execute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
+        ItemStatus status = ItemStatus.INCOMPLETE;
+        try {
+            channel.output(context.getToolId(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+                    .executionStage(ToolStreamEvent.ExecutionStage.prepare)
+                    .event(WebSearchInProgressEvent.builder().build())
+                    .build());
+            if(tavilyProperties.getApiKey() == null) {
+                throw new IllegalStateException("Tavily apikey is null");
+            }
 
-        if(tavilyProperties.getApiKey() == null) {
-            throw new IllegalStateException("Tavily apikey is null");
+            // 解析参数
+            String query = Optional.ofNullable(arguments.get("query")).map(Object::toString).orElse(null);
+            if(query == null || query.trim().isEmpty()) {
+                throw new IllegalArgumentException("query is null");
+            }
+
+            // 构建请求体
+            TavilySearchRequest searchRequest = buildSearchRequest(query);
+
+            channel.output(context.getToolId(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+                    .executionStage(ToolStreamEvent.ExecutionStage.processing)
+                    .event(WebSearchSearchingEvent.builder().build())
+                    .build());
+
+            Request request = new Request.Builder()
+                    .header("Authorization", "Bearer " + tavilyProperties.getApiKey())
+                    .url(tavilyProperties.getUrl())
+                    .post(RequestBody.create(JacksonUtils.serialize(searchRequest), okhttp3.MediaType.parse("application/json")))
+                    .build();
+
+            // 发送请求
+            TavilySearchResponse response = HttpUtils.httpRequest(request, TavilySearchResponse.class, 30, 30);
+
+            List<TavilySearchResult> resultData = processSearchResults(response);
+
+            // 构建输出内容
+            String output = JacksonUtils.serialize(resultData);
+
+            status = ItemStatus.COMPLETED;
+            return new ToolResult(ToolResult.ToolResultType.text, output);
+        } finally {
+            WebSearchToolCall toolCall = new WebSearchToolCall();
+            toolCall.setStatus(status);
+            channel.output(context.getToolId(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+                    .executionStage(ToolStreamEvent.ExecutionStage.completed)
+                    .event(WebSearchCompletedEvent.builder().build())
+                    .result(toolCall)
+                    .build());
         }
-
-        // 解析参数
-        String query = Optional.ofNullable(arguments.get("query")).map(Object::toString).orElse(null);
-        if(query == null || query.trim().isEmpty()) {
-            throw new IllegalArgumentException("query is null");
-        }
-
-        // 构建请求体
-        TavilySearchRequest searchRequest = buildSearchRequest(query);
-
-        Request request = new Request.Builder()
-                .header("Authorization", "Bearer " + tavilyProperties.getApiKey())
-                .url(tavilyProperties.getUrl())
-                .post(RequestBody.create(JacksonUtils.serialize(searchRequest), okhttp3.MediaType.parse("application/json")))
-                .build();
-
-        // 发送请求
-        TavilySearchResponse response = HttpUtils.httpRequest(request, TavilySearchResponse.class, 30, 30);
-
-        List<TavilySearchResult> resultData = processSearchResults(response);
-
-        // 构建输出内容
-        String output = JacksonUtils.serialize(resultData);
-
-        return new ToolResult(ToolResult.ToolResultType.text, output);
     }
     
     /**

@@ -3,8 +3,8 @@ package com.ke.assistant.core.run;
 import com.google.common.collect.Lists;
 import com.ke.assistant.core.TaskExecutor;
 import com.ke.assistant.core.tools.ToolExecutor;
+import com.ke.assistant.core.tools.ToolStreamEvent;
 import com.ke.assistant.util.MetaConstants;
-import com.ke.bella.openapi.utils.DateTimeUtils;
 import com.theokanning.openai.Usage;
 import com.theokanning.openai.assistants.message.MessageContent;
 import com.theokanning.openai.assistants.message.content.Text;
@@ -13,6 +13,7 @@ import com.theokanning.openai.common.LastError;
 import com.theokanning.openai.completion.chat.AssistantMessage;
 import com.theokanning.openai.completion.chat.ChatCompletionChunk;
 import com.theokanning.openai.completion.chat.ChatToolCall;
+import com.theokanning.openai.completion.chat.ImageUrl;
 import com.theokanning.openai.response.ItemStatus;
 import com.theokanning.openai.response.MessageRole;
 import com.theokanning.openai.response.Response;
@@ -41,6 +42,7 @@ import com.theokanning.openai.response.stream.ResponseFailedEvent;
 import com.theokanning.openai.response.stream.ResponseInProgressEvent;
 import com.theokanning.openai.response.stream.ResponseIncompleteEvent;
 import com.theokanning.openai.response.tool.FunctionToolCall;
+import com.theokanning.openai.response.tool.ToolCall;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -82,6 +84,7 @@ public class ResponseMessageExecutor implements Runnable {
     private boolean reasoningStarted = false;
     private boolean messageStarted = false;
     private boolean functionCallStarted = false;
+    private String currentToolCalStepId;
 
     public ResponseMessageExecutor(ExecutionContext context, RunStateManager runStateManager, ToolExecutor toolExecutor, SseEmitter sseEmitter) {
         this.context = context;
@@ -137,6 +140,20 @@ public class ResponseMessageExecutor implements Runnable {
 
         if(msg instanceof ChatCompletionChunk) {
             handleChatCompletionChunk((ChatCompletionChunk) msg);
+            return;
+        }
+
+        if(msg instanceof ToolStreamEvent) {
+            handleToolStreamEvent((ToolStreamEvent) msg);
+            return;
+        }
+
+        if(msg instanceof ImageUrl) {
+            ImageUrl imageUrl = (ImageUrl) msg;
+            MessageContent messageContent = new MessageContent();
+            messageContent.setType("image_url");
+            messageContent.setImageUrl(imageUrl);
+            runStateManager.addContent(context, messageContent, null, null);
         }
     }
 
@@ -255,8 +272,6 @@ public class ResponseMessageExecutor implements Runnable {
                 runStateManager.startToolCalls(context, usage, meatData);
                 context.getCurrentMetaData().putAll(meatData);
             }
-            usage = null;
-            outputIndex = 0;
         }
     }
 
@@ -297,6 +312,10 @@ public class ResponseMessageExecutor implements Runnable {
 
                 // Handle tool calls
                 if(assistantMessage.getToolCalls() != null) {
+                    if(context.generateCurrentToolCallStepId() || currentToolCalStepId == null) {
+                        // 缓存currentToolCalStepId
+                        currentToolCalStepId = context.getCurrentToolCallStepId();
+                    }
                     for (ChatToolCall toolCall : assistantMessage.getToolCalls()) {
                         context.addToolCallTask(toolCall);
                         handleToolCall(toolCall);
@@ -337,6 +356,26 @@ public class ResponseMessageExecutor implements Runnable {
                 sendFunctionArgumentsDelta(args);
                 currentArguments.append(args);
             }
+        }
+    }
+
+    private void handleToolStreamEvent(ToolStreamEvent toolStreamEvent) {
+        if(toolStreamEvent.getExecutionStage() == ToolStreamEvent.ExecutionStage.prepare) {
+            currentItemId = generateItemId(context.getCurrentOutputToolCallId());
+            outputIndex++;
+        }
+        BaseStreamEvent event = toolStreamEvent.getEvent();
+        event.setSequenceNumber(sequenceNumber++);
+        event.setItemId(currentItemId);
+        event.setOutputIndex(outputIndex - 1);
+        sendEvent(event);
+        if(toolStreamEvent.getExecutionStage() == ToolStreamEvent.ExecutionStage.completed) {
+            ToolCall toolCall = toolStreamEvent.getResult();
+            if(toolCall != null) {
+                toolCall.setId(currentItemId);
+                outputItems.add(toolCall);
+            }
+            context.finishToolCallOutput();
         }
     }
 
@@ -417,7 +456,7 @@ public class ResponseMessageExecutor implements Runnable {
         if(!functionCallStarted || currentToolCallIndex != toolCall.getIndex()) {
             finishPreviousItem();
 
-            currentItemId = generateItemId();
+            currentItemId = generateItemId(toolCall.getId());
             currentToolCallIndex = toolCall.getIndex();
             functionCallStarted = true;
             reasoningStarted = false;
@@ -566,7 +605,7 @@ public class ResponseMessageExecutor implements Runnable {
             // Update function call status and send output item done
             FunctionToolCall functionCall = (FunctionToolCall) findOutputItem(currentItemId);
             if(functionCall != null) {
-                functionCall.setStatus(com.theokanning.openai.response.ItemStatus.COMPLETED);
+                functionCall.setStatus(ItemStatus.COMPLETED);
                 functionCall.setArguments(currentArguments.toString());
             }
 
@@ -597,7 +636,11 @@ public class ResponseMessageExecutor implements Runnable {
     }
 
     private String generateItemId() {
-        return "item_" + System.currentTimeMillis() + "_" + (int) (Math.random() * 1000);
+        return context.getRunId() + "_" + outputIndex;
+    }
+
+    private String generateItemId(String toolCallId) {
+        return currentToolCalStepId + "_" + toolCallId;
     }
 
     private void sendEvent(BaseStreamEvent event) {

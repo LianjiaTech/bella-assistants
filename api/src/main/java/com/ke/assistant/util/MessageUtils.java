@@ -237,11 +237,11 @@ public class MessageUtils {
                 } else {
                     mmContent.setType("text");
                     StringBuilder sb = new StringBuilder();
-                    sb.append("消息内容为一张图片，图片信息为：");
+                    sb.append("生成了一张图片，");
                     if(content.getImageFile() != null) {
-                        sb.append(content.getImageFile().toString());
+                        sb.append("图片的file_id为：").append(content.getImageFile().getFileId());
                     } else {
-                        sb.append(content.getImageUrl().toString());
+                        sb.append("图片的url为：").append(content.getImageUrl().getUrl());
                     }
                     mmContent.setText(sb.toString());
                 }

@@ -90,7 +90,7 @@ public class ToolExecutor implements Runnable {
                     }
                     ToolContext toolContext = buildToolContext(context, tool, task.getId());
                     // 需要输出结果，需要启动channel
-                    if(handler.isFinal() && channel == null) {
+                    if((context.isResponseApi() || handler.isFinal()) && channel == null) {
                         channel = ToolOutputChannel.start(context);
                     }
                     ToolOutputChannel finalChannel = channel;

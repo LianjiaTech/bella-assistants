@@ -16,7 +16,9 @@ import com.ke.assistant.util.ToolUtils;
 import com.ke.bella.openapi.BellaContext;
 import com.ke.bella.openapi.common.exception.BizParamCheckException;
 import com.ke.bella.openapi.utils.JacksonUtils;
+import com.theokanning.openai.assistants.assistant.FunctionResources;
 import com.theokanning.openai.assistants.assistant.Tool;
+import com.theokanning.openai.assistants.assistant.ToolResources;
 import com.theokanning.openai.assistants.message.Message;
 import com.theokanning.openai.assistants.message.MessageContent;
 import com.theokanning.openai.assistants.message.content.ImageFile;
@@ -102,6 +104,16 @@ public class ResponseService {
      */
     public ResponseCreateResult createResponse(CreateResponseRequest request) {
         List<Tool> tools = ToolUtils.convertFromToolDefinition(request.getTools());
+        ToolResources toolResources = null;
+        Tool.Retrieval retrieval = tools.stream().filter(tool -> tool instanceof Tool.Retrieval).map(tool -> (Tool.Retrieval) tool).findAny().orElse(null);
+        if(retrieval != null) {
+            toolResources = new ToolResources();
+            Assert.notEmpty(retrieval.getFileIds(), "vector_store_ids can not be null.");
+            FunctionResources functionResources = new FunctionResources();
+            functionResources.setName(retrieval.getType());
+            functionResources.setFileIds(retrieval.getFileIds());
+            toolResources.setFunctions(Lists.newArrayList(functionResources));
+        }
 
         Map<String, Tool> inheritTolls = new HashMap<>();
 
@@ -280,7 +292,7 @@ public class ResponseService {
         runCreateRequest.setMetadata(metadata);
 
         // Create run
-        RunCreateResult runResult = runService.createRun(threadId, runId, runCreateRequest, attachments, inputMessages);
+        RunCreateResult runResult = runService.createRun(threadId, runId, runCreateRequest, attachments, inputMessages, toolResources);
 
         // Build response object
         Response response = buildResponseFromRun(runResult.getRun(), responseId);
@@ -430,12 +442,15 @@ public class ResponseService {
                 ToolCall toolCall = (ToolCall) conversationItem;
                 String id = toolCall.getId();
                 Assert.hasText(id, "Id is required with tool call: " + toolCall.getType());
-                String[] ids = id.split(":");
-                if(ids.length != 2) {
+                String[] ids = id.split("_");
+                if(ids.length <= 2) {
                     throw new BizParamCheckException("invalid id with tool call: " + toolCall.getType());
                 }
-                String stepId = ids[0];
-                String toolCallId = ids[1];
+                String stepId = ids[0].concat("_").concat(ids[1]);
+                String toolCallId = ids[2];
+                for(int i = 3; i < ids.length; i++) {
+                    toolCallId = toolCallId.concat("_").concat(ids[i]);
+                }
                 runStepToolCallIds.computeIfAbsent(stepId, key -> new ArrayList<>()).add(toolCallId);
             }
         }
@@ -448,7 +463,7 @@ public class ResponseService {
                 for(String tooCallId : toolCallIds) {
                     com.theokanning.openai.assistants.run.ToolCall toolCall = stepToolCalls.get(tooCallId);
                     Assert.notNull(toolCall, "invalid tool call id");
-                    String id = runStep.getId() + ":" + tooCallId;
+                    String id = runStep.getId().concat("_").concat(tooCallId);
                     toolCallMap.put(id, MessageUtils.convertToChatToolCall(toolCall));
                     toolResultMap.put(id, MessageUtils.convertToToolMessage(toolCall, runStep.getLastError()));
                 }

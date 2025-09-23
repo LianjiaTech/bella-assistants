@@ -68,6 +68,7 @@ public class ToolOutputChannel implements Runnable {
                     String randomToolCallId = outputCache.keySet().iterator().next();
                     List<Object> outputs = outputCache.remove(randomToolCallId);
                     if (outputs != null) {
+                        context.setCurrentOutputToolCallId(randomToolCallId);
                         for (Object output : outputs) {
                             context.publish(output);
                         }
@@ -83,10 +84,7 @@ public class ToolOutputChannel implements Runnable {
     }
 
     public void output(String toolCallId, Object output) {
-        if(!outputCache.containsKey(toolCallId)) {
-            outputCache.put(toolCallId, new ArrayList<>());
-        }
-        outputCache.get(toolCallId).add(output);
+        outputCache.computeIfAbsent(toolCallId, key -> new ArrayList<>()).add(output);
     }
 
     public void end() {

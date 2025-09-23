@@ -7,13 +7,23 @@ import com.ke.assistant.core.tools.BellaToolHandler;
 import com.ke.assistant.core.tools.ToolContext;
 import com.ke.assistant.core.tools.ToolOutputChannel;
 import com.ke.assistant.core.tools.ToolResult;
+import com.ke.assistant.core.tools.ToolStreamEvent;
 import com.ke.assistant.service.S3Service;
 import com.ke.bella.openapi.server.OpenAiServiceFactory;
+import com.theokanning.openai.assistants.assistant.Tool;
 import com.theokanning.openai.completion.chat.ImageUrl;
 import com.theokanning.openai.image.CreateImageRequest;
 import com.theokanning.openai.image.Image;
 import com.theokanning.openai.image.ImageResult;
+import com.theokanning.openai.response.ItemStatus;
+import com.theokanning.openai.response.stream.ImageGenerationCompletedEvent;
+import com.theokanning.openai.response.stream.ImageGenerationGeneratingEvent;
+import com.theokanning.openai.response.stream.ImageGenerationInProgressEvent;
+import com.theokanning.openai.response.stream.ImageGenerationPartialImageEvent;
+import com.theokanning.openai.response.tool.ImageGenerationToolCall;
+import com.theokanning.openai.response.tool.definition.ImageGenerationTool;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -48,20 +58,30 @@ public class ImageGenerateToolHandler implements BellaToolHandler {
     
     @Override
     public ToolResult doExecute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
-        // 检查S3服务是否配置
-        if (!s3Service.isConfigured()) {
-            return new ToolResult("S3存储服务未配置，无法生成图片。");
-        }
-
-        String model = imageProperties.getModel();
-        if(model == null || model.isEmpty()) {
-            return new ToolResult("模型未配置，无法生成图片。");
-        }
-        
+        ItemStatus status = ItemStatus.INCOMPLETE;
+        ImageGenerationToolCall toolCall = new ImageGenerationToolCall();
+        toolCall.setDataType("url");
         try {
+            channel.output(context.getToolId(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+                    .executionStage(ToolStreamEvent.ExecutionStage.prepare)
+                    .event(ImageGenerationInProgressEvent.builder().build())
+                    .build());
+            // 检查S3服务是否配置
+            if(!s3Service.isConfigured()) {
+                return new ToolResult("S3存储服务未配置，无法生成图片。");
+            }
+
+            Tool.ImgGenerate imgGenerate = (Tool.ImgGenerate) context.getTool();
+            ImageGenerationTool definition = imgGenerate.getDefinition();
+
+            String model = definition == null || definition.getModel() == null ? imageProperties.getModel() : definition.getModel();
+            if(model == null || model.isEmpty()) {
+                return new ToolResult("模型未配置，无法生成图片。");
+            }
+
             // 解析参数
             String prompt = Optional.ofNullable(arguments.get("prompt")).map(Object::toString).orElse(null);
-            if (prompt == null || prompt.trim().isEmpty()) {
+            if(prompt == null || prompt.trim().isEmpty()) {
                 throw new IllegalArgumentException("prompt参数不能为空");
             }
 
@@ -71,43 +91,81 @@ public class ImageGenerateToolHandler implements BellaToolHandler {
             String style = Optional.ofNullable(arguments.get("style")).map(Object::toString).orElse("vivid");
 
             String responseFormat = "b64_json";
-            
-            log.info("开始生成图片: prompt={}, size={}, quality={}, style={}, model={}", 
+
+            log.info("开始生成图片: prompt={}, size={}, quality={}, style={}, model={}",
                     prompt, size, quality, style, model);
-            
-            // 调用OpenAI图像生成API
-            String result = generateImage(prompt, size, quality, style, model, responseFormat);
+
+            channel.output(context.getToolId(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+                    .executionStage(ToolStreamEvent.ExecutionStage.processing)
+                    .event(ImageGenerationGeneratingEvent.builder().build())
+                    .build());
+
+            // 调用OpenAI图像生成API，返回 (图片url, base64String)
+            Pair<String, String> result = generateImage(prompt, size, quality, style, model, responseFormat, definition);
+
+            channel.output(context.getToolId(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+                    .executionStage(ToolStreamEvent.ExecutionStage.processing)
+                    .event(ImageGenerationPartialImageEvent.builder()
+                            .partialImageIndex(1)
+                            .partialImageUrl(result.getLeft()).build())
+                    .build());
+
+            toolCall.setResult(result.getLeft());
 
             ImageUrl output = new ImageUrl();
-            output.setUrl(result);
-            
+            output.setUrl(result.getLeft());
+
             if(isFinal()) {
                 channel.output(context.getToolId(), output);
             }
-            
+
             log.info("图片生成完成");
-            return new ToolResult(ToolResult.ToolResultType.image_url, result);
-            
+            status = ItemStatus.COMPLETED;
+            return new ToolResult(ToolResult.ToolResultType.image_url, result.getLeft());
         } catch (Exception e) {
             log.error("图片生成或上传到S3失败", e);
             String errorMsg = "图片生成或上传到S3失败: " + e.getMessage();
-            
+
             if(isFinal()) {
                 channel.output(context.getToolId(), errorMsg);
             }
-            
+
             return new ToolResult(errorMsg);
+        } finally {
+            toolCall.setStatus(status);
+            channel.output(context.getToolId(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+                    .executionStage(ToolStreamEvent.ExecutionStage.completed)
+                    .event(ImageGenerationCompletedEvent.builder().build())
+                    .result(toolCall)
+                    .build());
         }
     }
     
     /**
      * 使用OpenAI API生成图片
      */
-    private String generateImage(String prompt, String size, String quality, String style, String model, String responseFormat) {
+    private Pair<String, String> generateImage(String prompt, String size, String quality, String style, String model, String responseFormat, ImageGenerationTool definition) {
         try {
+            CreateImageRequest.CreateImageRequestBuilder requestBuilder = CreateImageRequest.builder();
+
+            if(definition != null) {
+                if(definition.getSize() != null) {
+                    size = definition.getSize();
+                }
+                if(definition.getQuality() != null) {
+                    quality = definition.getQuality();
+                }
+
+                if(definition.getOutputFormat() != null) {
+                    requestBuilder.outputFormat(definition.getOutputFormat());
+                }
+
+                if(definition.getBackground() != null) {
+                    requestBuilder.background(definition.getBackground());
+                }
+            }
             // 构建图片生成请求
-            CreateImageRequest.CreateImageRequestBuilder requestBuilder = CreateImageRequest.builder()
-                    .prompt(prompt)
+            requestBuilder.prompt(prompt)
                     .size(size)
                     .quality(quality)
                     .style(style)
@@ -136,7 +194,7 @@ public class ImageGenerateToolHandler implements BellaToolHandler {
                 String s3Url = s3Service.uploadChart(imageBytes, "png");
                 log.info("Generated image uploaded to S3: {}", s3Url);
                 
-                return s3Url;
+                return Pair.of(s3Url, base64Data);
             } else {
                 throw new RuntimeException("OpenAI API返回空的图片数据");
             }
