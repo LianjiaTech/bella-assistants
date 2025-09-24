@@ -5,7 +5,6 @@ import com.ke.assistant.db.generated.tables.pojos.RunDb;
 import com.ke.assistant.db.generated.tables.pojos.RunStepDb;
 import com.ke.assistant.db.generated.tables.pojos.RunToolDb;
 import com.ke.assistant.db.generated.tables.pojos.ThreadFileRelationDb;
-import com.ke.assistant.db.repo.ResponseIdMappingRepo;
 import com.ke.assistant.db.repo.RunRepo;
 import com.ke.assistant.db.repo.RunStepRepo;
 import com.ke.assistant.db.repo.RunToolRepo;
@@ -78,14 +77,9 @@ public class RunService {
     private ThreadService threadService;
     @Autowired
     private ThreadLockService threadLockService;
-    @Autowired
-    private ResponseIdMappingRepo responseIdMappingRepo;
 
     @Transactional
     public RunCreateResult createRun(String threadId, RunCreateRequest request, List<Attachment> attachments) {
-        if(responseIdMappingRepo.findByThreadId(threadId) != null) {
-            throw new BizParamCheckException("This conversation only supports Response API");
-        }
         return threadLockService.executeWithWriteLock(threadId, () -> doCreateRun(threadId, null, request, attachments, null, null));
     }
 

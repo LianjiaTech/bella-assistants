@@ -39,13 +39,6 @@ public class ResponseIdMappingRepo implements BaseRepo {
                 .fetchOneInto(ResponseIdMappingDb.class);
     }
 
-    public List<ResponseIdMappingDb> findByThreadId(String threadId) {
-        return dsl.selectFrom(RESPONSE_ID_MAPPING)
-                .where(RESPONSE_ID_MAPPING.THREAD_ID.eq(threadId))
-                .orderBy(RESPONSE_ID_MAPPING.CREATED_AT.desc())
-                .fetchInto(ResponseIdMappingDb.class);
-    }
-
     public List<ResponseIdMappingDb> findByRunId(String runId) {
         return dsl.selectFrom(RESPONSE_ID_MAPPING)
                 .where(RESPONSE_ID_MAPPING.RUN_ID.eq(runId))

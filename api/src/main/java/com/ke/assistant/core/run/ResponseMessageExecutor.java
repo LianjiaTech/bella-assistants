@@ -1,10 +1,13 @@
 package com.ke.assistant.core.run;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import com.google.common.collect.Lists;
 import com.ke.assistant.core.TaskExecutor;
 import com.ke.assistant.core.tools.ToolExecutor;
 import com.ke.assistant.core.tools.ToolStreamEvent;
 import com.ke.assistant.util.MetaConstants;
+import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.Usage;
 import com.theokanning.openai.assistants.message.MessageContent;
 import com.theokanning.openai.assistants.message.content.Text;
@@ -351,7 +354,13 @@ public class ResponseMessageExecutor implements Runnable {
 
         // Send function call arguments delta
         if(toolCall.getFunction().getArguments() != null) {
-            String args = toolCall.getFunction().getArguments().asText();
+            JsonNode argNodes = toolCall.getFunction().getArguments();
+            String args;
+            if(argNodes instanceof TextNode) {
+                args = argNodes.asText();
+            } else {
+                args = JacksonUtils.serialize(argNodes);
+            }
             if(args != null && !args.isEmpty()) {
                 sendFunctionArgumentsDelta(args);
                 currentArguments.append(args);

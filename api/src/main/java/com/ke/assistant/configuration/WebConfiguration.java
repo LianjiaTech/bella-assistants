@@ -21,6 +21,7 @@ public class WebConfiguration implements WebMvcConfigurer {
 
     private final GlobalExceptionHandler globalExceptionHandler;
     private final AuthorizationInterceptor authorizationInterceptor;
+    private final ThreadIdValidationInterceptor threadIdValidationInterceptor;
 
     @Override
     public void configureContentNegotiation(ContentNegotiationConfigurer configurer) {
@@ -34,6 +35,10 @@ public class WebConfiguration implements WebMvcConfigurer {
         registry.addInterceptor(authorizationInterceptor)
                 .addPathPatterns("/**")
                 .excludePathPatterns("/actuator/**", "/docs/**", "/swagger-ui/**", "/favicon.ico", "/error");
+
+        // Validate threadId for Assistant API endpoints that include thread_id in the path
+        registry.addInterceptor(threadIdValidationInterceptor)
+                .addPathPatterns("/v1/threads/*", "/v1/threads/*/**");
     }
 
     @Override

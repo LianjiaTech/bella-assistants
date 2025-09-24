@@ -1,6 +1,5 @@
 package com.ke.assistant.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.Lists;
 import com.ke.assistant.core.run.RunStatus;
 import com.ke.assistant.db.IdGenerator;
@@ -59,7 +58,6 @@ import com.theokanning.openai.response.content.Refusal;
 import com.theokanning.openai.response.tool.FunctionToolCall;
 import com.theokanning.openai.response.tool.LocalShellToolCall;
 import com.theokanning.openai.response.tool.ToolCall;
-import com.theokanning.openai.response.tool.definition.ToolDefinition;
 import com.theokanning.openai.response.tool.output.FunctionToolCallOutput;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;

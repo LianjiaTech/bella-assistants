@@ -1,10 +1,3 @@
-## 环境信息
-
-当前时间：{{ env.datetime }}
-
-
-## Agent
-
 {{ agent.instruction }}
 
 {% if agent.files != null and (agent.toolNames contains 'rag' or agent.toolNames contains 'retrieval' or agent.toolNames contains 'read_files') %}
@@ -20,29 +13,4 @@
 {% endif %}
 {% endfor %}
 </KnowledgeBase>
-{% endif %}
-
-{% if user != null %}
-## 用户信息
-{% if user.id != null %}
-用户ID：{{ user.id }}
-{% endif %}
-{% if user.gender != null %}
-性别：{{ user.gender }}
-{% endif %}
-{% if user.age != null %}
-年龄：{{ user.age }}
-{% endif %}
-{% if user.job != null %}
-工作：{{ user.job }}
-{% endif %}
-{% if user.other != null %}
-其他信息：{{ user.other }}
-{% endif %}
-{% endif %}
-
-{% if profile != null %}
-{% for info in profile %}
-{{ loop.index}}. {{info.content}}
-{% endfor %}
 {% endif %}

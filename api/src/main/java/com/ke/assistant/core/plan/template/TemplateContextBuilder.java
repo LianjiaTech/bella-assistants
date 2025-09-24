@@ -1,10 +1,9 @@
 package com.ke.assistant.core.plan.template;
 
-import com.ke.assistant.core.run.ExecutionContext;
 import com.ke.assistant.core.file.FileInfo;
+import com.ke.assistant.core.run.ExecutionContext;
 import com.theokanning.openai.assistants.assistant.Tool;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -22,27 +21,8 @@ public class TemplateContextBuilder {
      */
     public static TemplateContext buildTemplateContext(ExecutionContext context) {
         return TemplateContext.builder()
-                .env(buildEnvironmentInfo())
-                .user(buildUserInfo(context))
                 .agent(buildAgentInfo(context))
-                .profile(buildProfileInfo(context))
                 .build();
-    }
-
-    /**
-     * Build environment information
-     */
-    private static TemplateContext.EnvironmentInfo buildEnvironmentInfo() {
-        return TemplateContext.EnvironmentInfo.builder()
-                .datetime(LocalDateTime.now())
-                .build();
-    }
-
-    /**
-     * Build user information from context
-     */
-    private static TemplateContext.UserInfo buildUserInfo(ExecutionContext context) {
-        return TemplateContext.UserInfo.builder().id(context.getUser()).build();
     }
 
     /**
@@ -83,11 +63,4 @@ public class TemplateContextBuilder {
                 .build();
     }
 
-
-    /**
-     * Build profile information
-     */
-    private static List<TemplateContext.ProfileInfo> buildProfileInfo(ExecutionContext context) {
-        return new ArrayList<>();
-    }
 }

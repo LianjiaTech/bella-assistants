@@ -53,6 +53,17 @@ public class RunRepo implements BaseRepo {
                 .fetchInto(RunDb.class);
     }
 
+    /**
+     * 根据 Thread ID 查询 任意Run
+     */
+    public RunDb findAnyByThreadId(String threadId) {
+        return dsl.selectFrom(RUN)
+                .where(RUN.THREAD_ID.eq(threadId))
+                .orderBy(RUN.CREATED_AT.desc())
+                .limit(1)
+                .fetchOneInto(RunDb.class);
+    }
+
 
     /**
      * 基于游标的分页查询 Thread 下的 Run
