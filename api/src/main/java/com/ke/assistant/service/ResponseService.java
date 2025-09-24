@@ -388,7 +388,7 @@ public class ResponseService {
         builder.conversation(conversationValue);
 
         // Add usage if available
-        builder.usage(run.getUsage());
+        builder.usage(Response.Usage.fromChatUsage(run.getUsage()));
 
         if(run.getIncompleteDetails() != null) {
             builder.incompleteDetails(new Response.IncompleteDetails(run.getIncompleteDetails().getReason()));

@@ -163,7 +163,7 @@ public class ResponseMessageExecutor implements Runnable {
             finishPreviousItem();
             // Update final response
             currentResponse.setOutput(outputItems);
-            currentResponse.setUsage(usage);
+            currentResponse.setUsage(Response.Usage.fromChatUsage(usage));
 
             if(status == RunStatus.FAILED) {
                 currentResponse.setStatus(ResponseStatus.FAILED);
@@ -653,6 +653,7 @@ public class ResponseMessageExecutor implements Runnable {
                     .data(event);
             sseEmitter.send(builder);
         } catch (IOException e) {
+            log.warn("failed to send:{}", event);
             log.warn("Failed to send SSE event", e);
         }
     }

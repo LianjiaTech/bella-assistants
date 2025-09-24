@@ -48,4 +48,11 @@ public interface ToolHandler {
      */
     boolean isFinal();
 
+    /**
+     * 服务端并非实际执行工具，只是处理工具参数
+     */
+    default boolean isDefinitionHandler(){
+        return false;
+    }
+
 }

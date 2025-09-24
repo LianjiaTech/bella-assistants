@@ -6,11 +6,8 @@ import com.ke.assistant.model.ResponseCreateResult;
 import com.ke.assistant.service.ResponseService;
 import com.ke.bella.openapi.BellaContext;
 import com.theokanning.openai.response.CreateResponseRequest;
-import com.theokanning.openai.response.Response;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -44,20 +41,20 @@ public class ResponseController {
         log.info("Creating response with model: {}, stream: {}", request.getModel(), request.getStream());
 
         request.setUser(BellaContext.getOwnerCode());
-        
+
         // Create response and prepare for execution
         ResponseCreateResult result = responseService.createResponse(request);
-        
+
         SseEmitter emitter = null;
         // If streaming is requested, return SseEmitter
         if (Boolean.TRUE.equals(request.getStream())) {
             emitter = new SseEmitter(600000L); // 10 minute timeout
         }
-        
+
         // Start response execution
         ExecutionContext context = runExecutor.startResponseRun(
             result.getThreadId(),
-            result.getRunId(), 
+            result.getRunId(),
             result.getAssistantMessageId(),
             result.getAdditionalMessages(),
             result.isNewThread(),
@@ -65,7 +62,7 @@ public class ResponseController {
             emitter,
             BellaContext.snapshot()
         );
-        
+
         return Boolean.TRUE.equals(request.getStream()) ? emitter :
                 Boolean.TRUE.equals(request.getBackground()) ? result.getResponse() : context.blockingGetResult(600);
     }

@@ -88,6 +88,9 @@ public class ToolExecutor implements Runnable {
                         context.setError("invalid_tool", "tool name: " + toolName + " is not defined");
                         break;
                     }
+                    if(handler.isDefinitionHandler()) {
+                        requiredTools.add(toolCall);
+                    }
                     ToolContext toolContext = buildToolContext(context, tool, task.getId());
                     // 需要输出结果，需要启动channel
                     if((context.isResponseApi() || handler.isFinal()) && channel == null) {
@@ -108,7 +111,13 @@ public class ToolExecutor implements Runnable {
                                         return ToolResult.builder().error(throwable.getMessage()).build();
                                     }
                             )
-                            .thenAccept(output -> processResult(output, toolCall, context));
+                            .thenAccept(output -> {
+                                // 非服务端执行的工具，不处理结果
+                                if(handler.isDefinitionHandler()) {
+                                    return;
+                                }
+                                processResult(output, toolCall, context);
+                            });
                     futures.add(future);
                 } else {
                     requiredTools.add(toolCall);
