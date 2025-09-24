@@ -6,6 +6,7 @@ import com.ke.assistant.core.plan.template.TemplateContextBuilder;
 import com.ke.assistant.core.run.ExecutionContext;
 import com.ke.assistant.core.run.RunStatus;
 import com.ke.assistant.core.tools.ToolFetcher;
+import com.ke.assistant.core.tools.handlers.definition.CustomToolHandler;
 import com.ke.assistant.service.MessageService;
 import com.ke.assistant.service.RunService;
 import com.ke.assistant.util.MessageUtils;
@@ -271,6 +272,15 @@ public class Planner {
                 chatTool = new ChatTool();
                 Tool.Function function = (Tool.Function) tool;
                 chatTool.setFunction(function.getFunction());
+            } else if(tool instanceof Tool.Custom) {
+                chatTool = new ChatTool();
+                Tool.Custom custom = (Tool.Custom) tool;
+                Tool.FunctionDefinition definition = new Tool.FunctionDefinition();
+                definition.setName(CustomToolHandler.getToolName(custom.getDefinition()));
+                definition.setDescription(CustomToolHandler.getDescription(custom.getDefinition()));
+                definition.setParameters(CustomToolHandler.getParameters(custom.getDefinition()));
+                definition.setStrict(true);
+                chatTool.setFunction(definition);
             } else {
                 chatTool = toolFetcher.fetchChatTool(tool.getType());
             }

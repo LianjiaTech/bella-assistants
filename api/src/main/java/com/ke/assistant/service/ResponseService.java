@@ -40,6 +40,7 @@ import com.theokanning.openai.response.ConversationValue;
 import com.theokanning.openai.response.CreateResponseRequest;
 import com.theokanning.openai.response.InputValue;
 import com.theokanning.openai.response.InstructionsValue;
+import com.theokanning.openai.response.ItemReference;
 import com.theokanning.openai.response.ItemStatus;
 import com.theokanning.openai.response.Response;
 import com.theokanning.openai.response.ResponseStatus;
@@ -55,9 +56,13 @@ import com.theokanning.openai.response.content.OutputMessage;
 import com.theokanning.openai.response.content.OutputText;
 import com.theokanning.openai.response.content.Reasoning;
 import com.theokanning.openai.response.content.Refusal;
+import com.theokanning.openai.response.tool.ComputerToolCall;
+import com.theokanning.openai.response.tool.CustomToolCall;
 import com.theokanning.openai.response.tool.FunctionToolCall;
 import com.theokanning.openai.response.tool.LocalShellToolCall;
 import com.theokanning.openai.response.tool.ToolCall;
+import com.theokanning.openai.response.tool.output.ComputerToolCallOutput;
+import com.theokanning.openai.response.tool.output.CustomToolCallOutput;
 import com.theokanning.openai.response.tool.output.FunctionToolCallOutput;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
@@ -544,32 +549,90 @@ public class ResponseService {
                 content.setToolResult(toolMessage);
                 message.getContent().add(content);
             } else if(conversationItem instanceof LocalShellToolCall) {
+
                 LocalShellToolCall localShellToolCall = (LocalShellToolCall) conversationItem;
+
+                Map<String, String> meta = new HashMap<>();
+                meta.put("itemId", localShellToolCall.getId());
+
+                // tool call
                 ChatToolCall toolCall = toolCallMap.get(localShellToolCall.getId());
                 Assert.notNull(toolCall, "invalid local tool call id");
+                Message tooCallMessage = setRoleOrNewMessage(last, "assistant", messages);
+                MessageContent toolCallContent = new MessageContent();
+                toolCallContent.setType("tool_call");
+                toolCallContent.setToolCall(toolCall);
+                tooCallMessage.getContent().add(toolCallContent);
+                tooCallMessage.setMetadata(meta);
+
+                // tool result
                 ToolMessage toolResult = new ToolMessage();
                 toolResult.setToolCallId(localShellToolCall.getId());
                 toolResult.setContent(localShellToolCall.getStatus() == ItemStatus.INCOMPLETE ? "Failed to run the local shell." : "Finish to run the local shell.");
+                Message toolResultMessage = setRoleOrNewMessage(tooCallMessage, "tool", messages);
+                MessageContent toolResultContent = new MessageContent();
+                toolResultContent.setType("tool_result");
+                toolResultContent.setToolResult(toolResult);
+                toolResultMessage.getContent().add(toolResultContent);
+                toolResultMessage.setMetadata(meta);
+            } else if(conversationItem instanceof CustomToolCall) {
+                CustomToolCall customToolCall = (CustomToolCall) conversationItem;
+                Message message = setRoleOrNewMessage(last, "assistant", messages);
+                MessageContent content = new MessageContent();
+                content.setType("tool_call");
+                ChatToolCall toolCall = new ChatToolCall();
+                toolCall.setId(customToolCall.getCallId());
+                toolCall.setType("function");
+                ChatFunctionCall functionCall = new ChatFunctionCall();
+                functionCall.setName(customToolCall.getName());
+                Map<String, String> inputMap = new HashMap<>();
+                inputMap.put("input_data", customToolCall.getInput());
+                functionCall.setArguments(JacksonUtils.deserialize(JacksonUtils.serialize(inputMap)));
+                toolCall.setFunction(functionCall);
+                content.setToolCall(toolCall);
+                message.getContent().add(content);
+            } else if(conversationItem instanceof CustomToolCallOutput) {
+                Message message = setRoleOrNewMessage(last, "tool", messages);
+                message.setRole("tool");
+                CustomToolCallOutput customToolCallOutput = (CustomToolCallOutput) conversationItem;
+                ToolMessage toolMessage = new ToolMessage();
+                toolMessage.setToolCallId(customToolCallOutput.getCallId());
+                toolMessage.setContent(customToolCallOutput.getOutput());
+                MessageContent content = new MessageContent();
+                content.setType("tool_result");
+                content.setToolResult(toolMessage);
+                message.getContent().add(content);
+            } else if(conversationItem instanceof ComputerToolCall) {
+                //todo: 处理computer use
+                throw new BizParamCheckException("can not supported ComputerUseToolCall");
+            } else if(conversationItem instanceof ComputerToolCallOutput) {
+                //todo: 处理computer use
+                throw new BizParamCheckException("can not supported ComputerUseToolCallOutput");
             }
-            //todo: 处理其他客户端执行的工具
             else if(conversationItem instanceof ToolCall) {
                 ToolCall toolCallItem = (ToolCall) conversationItem;
                 ChatToolCall toolCall = toolCallMap.get(toolCallItem.getId());
                 ToolMessage toolResult = toolResultMap.get(toolCallItem.getId());
                 Assert.notNull(toolCall, "invalid tool call id");
                 Assert.notNull(toolResult, "invalid tool call id");
+
+                Map<String, String> meta = new HashMap<>();
+                meta.put("itemId", toolCallItem.getId());
+
                 // tool call
                 Message tooCallMessage = setRoleOrNewMessage(last, "assistant", messages);
                 MessageContent toolCallContent = new MessageContent();
                 toolCallContent.setType("tool_call");
                 toolCallContent.setToolCall(toolCall);
                 tooCallMessage.getContent().add(toolCallContent);
+                tooCallMessage.setMetadata(meta);
                 // tool result
                 Message toolResultMessage = setRoleOrNewMessage(tooCallMessage, "tool", messages);
                 MessageContent toolResultContent = new MessageContent();
                 toolResultContent.setType("tool_result");
                 toolResultContent.setToolResult(toolResult);
                 toolResultMessage.getContent().add(toolResultContent);
+                toolResultMessage.setMetadata(meta);
             } else if(conversationItem instanceof Reasoning) {
                 Message message = setRoleOrNewMessage(last, "assistant", messages);
                 message.setRole("assistant");
@@ -581,7 +644,13 @@ public class ResponseService {
                     message.setReasoningContent((Optional.ofNullable(message.getReasoningContent()).orElse("")
                             .concat(reasoning.getContent().stream().map(Reasoning.ReasoningText::getText).reduce(String::concat).orElse(""))));
                 }
-            } //todo: ItemReference
+            }
+            else if(conversationItem instanceof ItemReference) {
+                //todo: ItemReference
+                throw new BizParamCheckException("can not support ItemReference");
+            } else {
+                throw new BizParamCheckException("unexpected input type");
+            }
         }
         return messages;
     }

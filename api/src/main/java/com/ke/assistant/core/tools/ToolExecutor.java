@@ -44,7 +44,7 @@ public class ToolExecutor implements Runnable {
         ToolExecutor toolExecutor = new ToolExecutor(context, runStateManager);
         if(CollectionUtils.isNotEmpty(context.getTools())) {
             context.getTools().stream().filter(tool -> !tool.getType().equals("function")).forEach( tool -> {
-                        ToolHandler handler = toolFetcher.getToolHandler(tool.getType());
+                        ToolHandler handler = toolFetcher.getToolHandler(tool);
                         toolExecutor.register(tool, handler);
                     }
             );
@@ -200,11 +200,11 @@ public class ToolExecutor implements Runnable {
      * 注册工具
      */
     public void register(Tool tool, ToolHandler handler) {
-        String toolName = tool.getType();
         if(handler != null) {
+            String toolName = handler.getToolName();
             toolHandlers.put(toolName, handler);
+            toolDefinite.put(toolName, tool);
         }
-        toolDefinite.put(toolName, tool);
     }
 
     public boolean canExecute(String toolName) {

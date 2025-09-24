@@ -1,5 +1,6 @@
 package com.ke.assistant.core.tools;
 
+import com.ke.assistant.core.tools.handlers.definition.CustomToolHandler;
 import com.theokanning.openai.assistants.assistant.Tool;
 import com.theokanning.openai.completion.chat.ChatTool;
 import org.slf4j.Logger;
@@ -78,6 +79,16 @@ public class ToolFetcher {
      */
     public ToolHandler getToolHandler(String toolName) {
         return toolHandlerMap.get(toolName);
+    }
+
+    /**
+     * 根据工具获取工具处理器
+     */
+    public ToolHandler getToolHandler(Tool tool) {
+        if(tool instanceof Tool.Custom) {
+            return new CustomToolHandler(((Tool.Custom) tool).getDefinition());
+        }
+        return toolHandlerMap.get(tool.getType());
     }
 
     /**
