@@ -41,6 +41,7 @@ import com.theokanning.openai.response.ConversationValue;
 import com.theokanning.openai.response.CreateResponseRequest;
 import com.theokanning.openai.response.InputValue;
 import com.theokanning.openai.response.InstructionsValue;
+import com.theokanning.openai.response.ItemStatus;
 import com.theokanning.openai.response.Response;
 import com.theokanning.openai.response.ResponseStatus;
 import com.theokanning.openai.response.ToolChoiceValue;
@@ -56,6 +57,7 @@ import com.theokanning.openai.response.content.OutputText;
 import com.theokanning.openai.response.content.Reasoning;
 import com.theokanning.openai.response.content.Refusal;
 import com.theokanning.openai.response.tool.FunctionToolCall;
+import com.theokanning.openai.response.tool.LocalShellToolCall;
 import com.theokanning.openai.response.tool.ToolCall;
 import com.theokanning.openai.response.tool.definition.ToolDefinition;
 import com.theokanning.openai.response.tool.output.FunctionToolCallOutput;
@@ -543,7 +545,15 @@ public class ResponseService {
                 content.setType("tool_result");
                 content.setToolResult(toolMessage);
                 message.getContent().add(content);
-            } //todo: 处理其他客户端执行的工具
+            } else if(conversationItem instanceof LocalShellToolCall) {
+                LocalShellToolCall localShellToolCall = (LocalShellToolCall) conversationItem;
+                ChatToolCall toolCall = toolCallMap.get(localShellToolCall.getId());
+                Assert.notNull(toolCall, "invalid local tool call id");
+                ToolMessage toolResult = new ToolMessage();
+                toolResult.setToolCallId(localShellToolCall.getId());
+                toolResult.setContent(localShellToolCall.getStatus() == ItemStatus.INCOMPLETE ? "Failed to run the local shell." : "Finish to run the local shell.");
+            }
+            //todo: 处理其他客户端执行的工具
             else if(conversationItem instanceof ToolCall) {
                 ToolCall toolCallItem = (ToolCall) conversationItem;
                 ChatToolCall toolCall = toolCallMap.get(toolCallItem.getId());
