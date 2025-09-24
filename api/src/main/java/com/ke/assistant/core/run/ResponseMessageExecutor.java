@@ -649,7 +649,7 @@ public class ResponseMessageExecutor implements Runnable {
     }
 
     private String generateItemId(String toolCallId) {
-        return currentToolCalStepId + "_" + toolCallId;
+        return context.getThreadId() + "_" + currentToolCalStepId + "_" + toolCallId;
     }
 
     private void sendEvent(BaseStreamEvent event) {

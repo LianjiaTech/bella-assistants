@@ -326,14 +326,6 @@ public class RunService {
     }
 
     /**
-     * 获取Steps列表
-     */
-    public List<RunStep> getRunSteps(String threadId, List<String> runStepIds) {
-        List<RunStepDb> runSteps = runStepRepo.findByIds(threadId, runStepIds);
-        return runSteps.stream().map(RunUtils::convertStepToInfo).collect(Collectors.toList());
-    }
-
-    /**
      * 获取Run的Steps列表
      */
     public List<RunStep> getRunSteps(String threadId, String runId) {
