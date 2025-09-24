@@ -3,6 +3,7 @@ package com.ke.assistant.core.run;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.ke.assistant.core.file.FileInfo;
+import com.ke.assistant.util.MetaConstants;
 import com.ke.bella.openapi.protocol.completion.CompletionModelFeatures;
 import com.ke.bella.openapi.protocol.completion.CompletionModelProperties;
 import com.ke.bella.openapi.utils.DateTimeUtils;
@@ -594,6 +595,18 @@ public class ExecutionContext {
 
     public void complete(Object response) {
         future.complete(response);
+    }
+
+    public boolean isStore() {
+        return !Boolean.FALSE.toString().equals(run.getMetadata().get(MetaConstants.STORE));
+    }
+
+    public boolean isHidden() {
+        return !isStore() || isNoExecute();
+    }
+
+    public boolean isDisableTruncate() {
+        return run.getTruncationStrategy() != null && run.getTruncationStrategy().getType().equals("disable");
     }
 
 }

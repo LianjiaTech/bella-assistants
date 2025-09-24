@@ -470,9 +470,9 @@ public class RunStateManager {
         // 失败时先修改message的状态
         if(newStatus.isTerminal() && !isToolStep) {
             if(newStatus != RunStatus.COMPLETED) {
-                updateMessageStatus(context, "incomplete", context.isNoExecute(), reason);
+                updateMessageStatus(context, "incomplete", context.isHidden(), reason);
             } else {
-                updateMessageStatus(context, "completed", context.isNoExecute(), null);
+                updateMessageStatus(context, "completed", context.isHidden(), null);
             }
         }
 

@@ -148,7 +148,9 @@ public class Planner {
         // 构建工具列表
         buildChatTools(context);
         // 处理上下文
-        truncator.truncate(context);
+        if(context.isStore() && !context.isDisableTruncate()) {
+            truncator.truncate(context);
+        }
         // 获取当前消息
         List<ChatMessage> messages = context.getChatMessages();
 

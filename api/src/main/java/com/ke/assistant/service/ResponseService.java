@@ -26,6 +26,7 @@ import com.theokanning.openai.assistants.run.AllowedTools;
 import com.theokanning.openai.assistants.run.Run;
 import com.theokanning.openai.assistants.run.RunCreateRequest;
 import com.theokanning.openai.assistants.run.ToolChoice;
+import com.theokanning.openai.assistants.run.TruncationStrategy;
 import com.theokanning.openai.assistants.run_step.RunStep;
 import com.theokanning.openai.assistants.run_step.StepDetails;
 import com.theokanning.openai.assistants.thread.Attachment;
@@ -269,7 +270,14 @@ public class ResponseService {
         runCreateRequest.setTemperature(request.getTemperature());
         runCreateRequest.setTopP(request.getTopP());
         runCreateRequest.setMaxCompletionTokens(request.getMaxOutputTokens());
-        runCreateRequest.setTruncationStrategy(request.getTruncationStrategy());
+
+        if(request.getTruncation() == null || request.getTruncation().equals("disable")) {
+            TruncationStrategy strategy = new TruncationStrategy();
+            strategy.setType("disable");
+            runCreateRequest.setTruncationStrategy(strategy);
+        } else {
+            runCreateRequest.setTruncationStrategy(request.getTruncationStrategy());
+        }
         runCreateRequest.setSaveMessage(request.getStore());
 
         if(request.getReasoning() != null) {
