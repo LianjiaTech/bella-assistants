@@ -1,9 +1,13 @@
 package com.ke.assistant.service;
 
+import com.google.common.collect.Lists;
+import com.ke.assistant.core.run.RunStatus;
 import com.ke.assistant.db.generated.tables.pojos.MessageDb;
+import com.ke.assistant.db.generated.tables.pojos.RunDb;
 import com.ke.assistant.db.generated.tables.pojos.ThreadDb;
 import com.ke.assistant.db.generated.tables.pojos.ThreadFileRelationDb;
 import com.ke.assistant.db.repo.MessageRepo;
+import com.ke.assistant.db.repo.RunRepo;
 import com.ke.assistant.db.repo.ThreadFileRelationRepo;
 import com.ke.assistant.db.repo.ThreadRepo;
 import com.ke.assistant.model.RunCreateResult;
@@ -13,25 +17,33 @@ import com.ke.assistant.util.ToolResourceUtils;
 import com.ke.bella.openapi.BellaContext;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.assistants.message.Message;
+import com.theokanning.openai.assistants.message.MessageContent;
 import com.theokanning.openai.assistants.message.MessageRequest;
 import com.theokanning.openai.assistants.run.CreateThreadAndRunRequest;
+import com.theokanning.openai.assistants.run.Run;
 import com.theokanning.openai.assistants.run.RunCreateRequest;
+import com.theokanning.openai.assistants.run.ToolCall;
+import com.theokanning.openai.assistants.run_step.RunStep;
+import com.theokanning.openai.assistants.run_step.StepDetails;
 import com.theokanning.openai.assistants.thread.Attachment;
 import com.theokanning.openai.assistants.thread.Thread;
 import com.theokanning.openai.assistants.thread.ThreadRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Thread Service
@@ -53,6 +65,8 @@ public class ThreadService {
     @Autowired
     @Lazy
     private RunService runService;
+    @Autowired
+    private RunRepo runRepo;
 
     /**
      * 创建 Thread
@@ -212,6 +226,163 @@ public class ThreadService {
         copyMessagesFromThread(threadId, savedThread.getId());
 
         return convertToInfo(savedThread);
+    }
+
+    /**
+     * Fork a thread by copying messages BEFORE the assistant message of the given run.
+     * Optionally append tool_call and tool_result messages derived from that run's tool_calls steps.
+     * This does not fork run steps; only messages are copied/created to preserve conversation order.
+     *
+     * Desired order: user -> assistant(tool_calls) -> tool(tool_result) -> (new run will create assistant text)
+     *
+     * @param sourceThreadId The source thread to fork from
+     * @param runId The run whose assistant message demarcates the cutoff
+     * @return The newly forked thread
+     */
+    @Transactional
+    public Thread forkThreadBeforeTargetRun(String sourceThreadId, String runId) {
+
+        ThreadDb originalThread = threadRepo.findById(sourceThreadId);
+        if(originalThread == null) {
+            throw new IllegalArgumentException("Thread not found: " + sourceThreadId);
+        }
+
+        // Create new thread
+        ThreadDb newThread = new ThreadDb();
+        BeanUtils.copyProperties(originalThread, newThread);
+        newThread.setId(null);
+        ThreadDb savedThread = threadRepo.insert(newThread);
+
+        // Copy file relations
+        List<ThreadFileRelationDb> files = getThreadFiles(sourceThreadId);
+        for (ThreadFileRelationDb file : files) {
+            ThreadFileRelationDb newFile = new ThreadFileRelationDb();
+            BeanUtils.copyProperties(file, newFile);
+            newFile.setId(null);
+            newFile.setThreadId(savedThread.getId());
+            threadFileRepo.insert(newFile);
+        }
+
+        List<MessageDb> sourceMessages = fetchMessagesBeforeTargetRun(sourceThreadId, runId);
+
+        List<MessageDb> messagesToCreate = buildMessageWithRunSteps(sourceThreadId, savedThread.getId(), sourceMessages);
+
+        // Create all messages in order
+        for (MessageDb message : messagesToCreate) {
+            messageService.createMessage(message);
+        }
+
+        return convertToInfo(savedThread);
+    }
+
+    private List<MessageDb> fetchMessagesBeforeTargetRun(String sourceThreadId, String runId) {
+        // Find assistant message id via run step and get its createdAt
+        String assistantMessageId = null;
+        for (RunStep step : runService.getRunSteps(sourceThreadId, runId)) {
+            if("message_creation".equals(step.getType()) && step.getStepDetails() != null && step.getStepDetails().getMessageCreation() != null) {
+                assistantMessageId = step.getStepDetails().getMessageCreation().getMessageId();
+                break;
+            }
+        }
+
+        LocalDateTime limit;
+        MessageDb assistantDb = null;
+
+        if(assistantMessageId == null) {
+            RunDb run = runRepo.findById(sourceThreadId, runId);
+            limit = run.getCreatedAt();
+        } else {
+            assistantDb = messageService.getMessageDbById(sourceThreadId, assistantMessageId);
+            limit = assistantDb.getCreatedAt();
+        }
+
+        List<MessageDb> messageDbs = messageRepo.findByThreadIdWithLimit(sourceThreadId, limit);
+        if(assistantDb != null) {
+            if(messageDbs == null) {
+                return Lists.newArrayList(assistantDb);
+            }
+            messageDbs.add(assistantDb);
+        }
+        return messageDbs;
+    }
+
+    private List<MessageDb> buildMessageWithRunSteps(String sourceThreadId, String targetThreadId, List<MessageDb> sourceMessages) {
+        List<MessageDb> messagesToCreate = new ArrayList<>();
+        if(CollectionUtils.isEmpty(sourceMessages)) {
+            return messagesToCreate;
+        }
+        // Get all run steps grouped by runId for tool message interleaving
+        Map<String, List<RunStep>> runStepMap = runService.getThreadSteps(sourceThreadId).stream()
+                .collect(Collectors.groupingBy(RunStep::getRunId));
+
+        // Collect all messages to be created
+        for (MessageDb sourceMessage : sourceMessages) {
+            // For assistant messages, first add tool messages from associated run steps
+            if("assistant".equals(sourceMessage.getRole()) && sourceMessage.getRunId() != null
+                    && runStepMap.containsKey(sourceMessage.getRunId())) {
+                for (RunStep runStep : runStepMap.get(sourceMessage.getRunId())) {
+                    RunStatus runStatus = RunStatus.fromValue(runStep.getStatus());
+                    if(!"tool_calls".equals(runStep.getType()) || runStatus == RunStatus.REQUIRES_ACTION) {
+                        continue;
+                    }
+                    collectToolMessagesFromRunStep(targetThreadId, runStep, messagesToCreate);
+                }
+            }
+
+            // Then add the message itself
+            if("original".equals(sourceMessage.getMessageStatus())) {
+                MessageDb copiedMessage = MessageUtils.copyMessageToThread(sourceMessage, targetThreadId);
+                messagesToCreate.add(copiedMessage);
+            }
+        }
+        return messagesToCreate;
+    }
+
+    /**
+     * Helper method to collect tool call and tool result messages from a run step
+     */
+    private void collectToolMessagesFromRunStep(String threadId, RunStep runStep, List<MessageDb> messagesToCreate) {
+        StepDetails details = runStep.getStepDetails();
+        if(details == null || details.getToolCalls() == null || details.getToolCalls().isEmpty()) {
+            return;
+        }
+
+        // Create assistant tool_call message
+        MessageDb toolCallMsg = new MessageDb();
+        toolCallMsg.setThreadId(threadId);
+        toolCallMsg.setRole("assistant");
+
+        List<MessageContent> toolCallContent = new ArrayList<>();
+        for (ToolCall tc : details.getToolCalls()) {
+            MessageContent c = new MessageContent();
+            c.setType("tool_call");
+            c.setToolCall(MessageUtils.convertToChatToolCall(tc));
+            toolCallContent.add(c);
+        }
+        toolCallMsg.setContent(JacksonUtils.serialize(toolCallContent));
+        messagesToCreate.add(toolCallMsg);
+
+        // Create tool_result message (only if outputs exist)
+        boolean hasOutput = details.getToolCalls().stream().anyMatch(tc ->
+                (tc.getFunction() != null && tc.getFunction().getOutput() != null)
+                        || (tc.getCodeInterpreter() != null && tc.getCodeInterpreter().getOutputs() != null)
+                        || (tc.getFileSearch() != null && tc.getFileSearch().getResults() != null)
+        );
+        if(hasOutput) {
+            MessageDb toolResultMsg = new MessageDb();
+            toolResultMsg.setThreadId(threadId);
+            toolResultMsg.setRole("tool");
+
+            List<MessageContent> toolResultContent = new ArrayList<>();
+            for (ToolCall tc : details.getToolCalls()) {
+                MessageContent rc = new MessageContent();
+                rc.setType("tool_result");
+                rc.setToolResult(MessageUtils.convertToToolMessage(tc, runStep.getLastError()));
+                toolResultContent.add(rc);
+            }
+            toolResultMsg.setContent(JacksonUtils.serialize(toolResultContent));
+            messagesToCreate.add(toolResultMsg);
+        }
     }
 
     /**

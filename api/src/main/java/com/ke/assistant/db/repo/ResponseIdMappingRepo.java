@@ -36,6 +36,7 @@ public class ResponseIdMappingRepo implements BaseRepo {
     public ResponseIdMappingDb findByPreviousResponseId(String responseId) {
         return dsl.selectFrom(RESPONSE_ID_MAPPING)
                 .where(RESPONSE_ID_MAPPING.PREVIOUS_RESPONSE_ID.eq(responseId))
+                .limit(1)
                 .fetchOneInto(ResponseIdMappingDb.class);
     }
 

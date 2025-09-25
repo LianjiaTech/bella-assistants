@@ -241,6 +241,7 @@ public class RunService {
         // 创建初始的assistant消息
         MessageRequest messageRequest = MessageRequest.builder()
                 .role("assistant")
+                .runId(runId)
                 .textMessage("")
                 .build();
 

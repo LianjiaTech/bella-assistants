@@ -227,6 +227,7 @@ public class ResponseService {
             return;
         }
         Message preMessage = null;
+        boolean needAdded = false;
         for (RunStep runStep : runSteps) {
             RunStatus runStatus = RunStatus.fromValue(runStep.getStatus());
             if(runStep.getType().equals("tool_calls")) {
@@ -245,6 +246,7 @@ public class ResponseService {
                             messageContent.setToolCall(MessageUtils.convertToChatToolCall(toolCall));
                             preMessage.getContent().add(messageContent);
                         }
+                        needAdded = true;
                         break;
                     }
                 }
@@ -257,6 +259,9 @@ public class ResponseService {
             }
         }
         MessageUtils.checkPre(preMessage, inputMessages.get(0));
+        if(needAdded) {
+            inputMessages.add(0, preMessage);
+        }
     }
 
     private ResponseIdMappingDb checkAndStore(String responseId, String threadId, String runId, String previousResponseId, String user) {
@@ -266,8 +271,13 @@ public class ResponseService {
         return threadLockService.executeWithWriteLock(previousResponseId, () -> {
             ResponseIdMappingDb exist = responseIdMappingRepo.findByPreviousResponseId(previousResponseId);
             if(exist != null) {
-                //todo: fork this thread with the last run included steps
-                throw new BizParamCheckException("This response is only supported for run with the once time");
+                // previous already used -> branch by forking up to assistant message and include tool calls
+                ResponseIdMappingDb prev = responseIdMappingRepo.findByResponseId(previousResponseId);
+                if(prev == null) {
+                    throw new BizParamCheckException("previous response not found");
+                }
+                String newThreadId = threadService.forkThreadBeforeTargetRun(prev.getThreadId(), prev.getRunId()).getId();
+                return store(responseId, newThreadId, runId, previousResponseId, user);
             }
             return store(responseId, threadId, runId, previousResponseId, user);
         });

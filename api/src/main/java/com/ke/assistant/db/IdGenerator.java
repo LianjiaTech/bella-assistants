@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.jooq.DSLContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.PostConstruct;
@@ -44,7 +45,7 @@ public class IdGenerator {
      * 使用 double check 模式避免不必要的锁表操作
      */
     @PostConstruct
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 30)
     public void init() {
         log.info("开始初始化ID序列表...");
         
@@ -124,6 +125,7 @@ public class IdGenerator {
      * @param prefix 前缀 (如 "asst", "msg", "run" 等)
      * @return 生成的 ID (如 "asst_1", "msg_123")
      */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 30)
     public String generateId(String prefix) {
         // 尝试从缓存获取ID
         IdRange range = idRangeCache.get(prefix);
@@ -165,7 +167,7 @@ public class IdGenerator {
         // 使用 SELECT ... FOR UPDATE 加行锁，保证分布式环境下的串行性
         IdSequenceRecord existing = db.selectFrom(ID_SEQUENCE)
                 .where(ID_SEQUENCE.PREFIX.eq(prefix))
-                .forUpdate()  // 关键：数据库行锁
+                .forUpdate() // 关键：数据库行锁
                 .fetchOne();
                 
         if (existing == null) {
@@ -195,7 +197,7 @@ public class IdGenerator {
     /**
      * 生成 Assistant ID
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 30)
     public String generateAssistantId() {
         return generateId("asst");
     }
@@ -203,7 +205,7 @@ public class IdGenerator {
     /**
      * 生成 Message ID
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 30)
     public String generateMessageId() {
         return generateId("msg");
     }
@@ -211,7 +213,7 @@ public class IdGenerator {
     /**
      * 生成 Thread ID
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 30)
     public String generateThreadId() {
         return generateId("thread");
     }
@@ -219,7 +221,7 @@ public class IdGenerator {
     /**
      * 生成 Run ID
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 30)
     public String generateRunId() {
         return generateId("run");
     }
@@ -227,7 +229,7 @@ public class IdGenerator {
     /**
      * 生成 Run Step ID
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 30)
     public String generateRunStepId() {
         return generateId("step");
     }
@@ -235,7 +237,7 @@ public class IdGenerator {
     /**
      * 生成 Response ID
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 30)
     public String generateResponseId() {
         return generateId("resp");
     }
