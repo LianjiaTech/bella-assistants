@@ -62,7 +62,7 @@ public class ImageGenerateToolHandler implements BellaToolHandler {
         ImageGenerationToolCall toolCall = new ImageGenerationToolCall();
         toolCall.setDataType("url");
         try {
-            channel.output(context.getToolId(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+            channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
                     .executionStage(ToolStreamEvent.ExecutionStage.prepare)
                     .event(ImageGenerationInProgressEvent.builder().build())
                     .build());
@@ -95,7 +95,7 @@ public class ImageGenerateToolHandler implements BellaToolHandler {
             log.info("开始生成图片: prompt={}, size={}, quality={}, style={}, model={}",
                     prompt, size, quality, style, model);
 
-            channel.output(context.getToolId(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+            channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
                     .executionStage(ToolStreamEvent.ExecutionStage.processing)
                     .event(ImageGenerationGeneratingEvent.builder().build())
                     .build());
@@ -103,7 +103,7 @@ public class ImageGenerateToolHandler implements BellaToolHandler {
             // 调用OpenAI图像生成API，返回 (图片url, base64String)
             Pair<String, String> result = generateImage(prompt, size, quality, style, model, responseFormat, definition);
 
-            channel.output(context.getToolId(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+            channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
                     .executionStage(ToolStreamEvent.ExecutionStage.processing)
                     .event(ImageGenerationPartialImageEvent.builder()
                             .partialImageIndex(1)
@@ -133,7 +133,7 @@ public class ImageGenerateToolHandler implements BellaToolHandler {
             return new ToolResult(errorMsg);
         } finally {
             toolCall.setStatus(status);
-            channel.output(context.getToolId(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+            channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
                     .executionStage(ToolStreamEvent.ExecutionStage.completed)
                     .event(ImageGenerationCompletedEvent.builder().build())
                     .result(toolCall)

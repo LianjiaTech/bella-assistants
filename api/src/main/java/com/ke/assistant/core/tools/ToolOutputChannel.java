@@ -2,6 +2,7 @@ package com.ke.assistant.core.tools;
 
 import com.ke.assistant.core.TaskExecutor;
 import com.ke.assistant.core.run.ExecutionContext;
+import com.theokanning.openai.assistants.assistant.Tool;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
@@ -84,6 +85,13 @@ public class ToolOutputChannel implements Runnable {
     }
 
     public void output(String toolCallId, Object output) {
+        outputCache.computeIfAbsent(toolCallId, key -> new ArrayList<>()).add(output);
+    }
+
+    public void output(String toolCallId, Tool tool, Object output) {
+        if(tool.hidden()) {
+            return;
+        }
         outputCache.computeIfAbsent(toolCallId, key -> new ArrayList<>()).add(output);
     }
 

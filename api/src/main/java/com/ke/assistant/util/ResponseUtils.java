@@ -1,5 +1,6 @@
 package com.ke.assistant.util;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.Lists;
 import com.ke.assistant.core.run.RunStatus;
@@ -29,28 +30,35 @@ import com.theokanning.openai.response.InputValue;
 import com.theokanning.openai.response.InstructionsValue;
 import com.theokanning.openai.response.ItemReference;
 import com.theokanning.openai.response.ItemStatus;
+import com.theokanning.openai.response.MessageRole;
 import com.theokanning.openai.response.Response;
 import com.theokanning.openai.response.ResponseStatus;
 import com.theokanning.openai.response.ToolChoiceValue;
 import com.theokanning.openai.response.content.InputAudio;
 import com.theokanning.openai.response.content.InputContent;
+import com.theokanning.openai.response.content.InputContentValue;
 import com.theokanning.openai.response.content.InputFile;
 import com.theokanning.openai.response.content.InputImage;
 import com.theokanning.openai.response.content.InputMessage;
 import com.theokanning.openai.response.content.InputText;
 import com.theokanning.openai.response.content.OutputContent;
+import com.theokanning.openai.response.content.OutputContentValue;
 import com.theokanning.openai.response.content.OutputMessage;
 import com.theokanning.openai.response.content.OutputText;
 import com.theokanning.openai.response.content.Reasoning;
 import com.theokanning.openai.response.content.Refusal;
 import com.theokanning.openai.response.tool.ComputerToolCall;
 import com.theokanning.openai.response.tool.CustomToolCall;
+import com.theokanning.openai.response.tool.FileSearchToolCall;
 import com.theokanning.openai.response.tool.FunctionToolCall;
+import com.theokanning.openai.response.tool.ImageGenerationToolCall;
 import com.theokanning.openai.response.tool.LocalShellToolCall;
 import com.theokanning.openai.response.tool.ToolCall;
+import com.theokanning.openai.response.tool.WebSearchToolCall;
 import com.theokanning.openai.response.tool.output.ComputerToolCallOutput;
 import com.theokanning.openai.response.tool.output.CustomToolCallOutput;
 import com.theokanning.openai.response.tool.output.FunctionToolCallOutput;
+import com.theokanning.openai.response.tool.output.LocalShellCallOutput;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.springframework.util.Assert;
@@ -243,11 +251,11 @@ public class ResponseUtils {
             } else if(conversationItem instanceof FunctionToolCallOutput) {
                 FunctionToolCallOutput output = (FunctionToolCallOutput) conversationItem;
                 ToolMessage toolMessage = toolResult(output.getCallId(), output.getOutput());
-                setToolResult(toolMessage, last, messages);
+                setToolResult(toolMessage, last, messages, output.getType());
             }  else if(conversationItem instanceof CustomToolCallOutput) {
                 CustomToolCallOutput output = (CustomToolCallOutput) conversationItem;
                 ToolMessage toolMessage = toolResult(output.getCallId(), output.getOutput());
-                setToolResult(toolMessage, last, messages);
+                setToolResult(toolMessage, last, messages, output.getType());
             }  else if(conversationItem instanceof ComputerToolCallOutput) {
                 //todo: 处理computer use
                 throw new BizParamCheckException("can not supported ComputerUseToolCallOutput");
@@ -325,42 +333,38 @@ public class ResponseUtils {
         if(toolCallItem instanceof FunctionToolCall) {
             FunctionToolCall call = (FunctionToolCall) toolCallItem;
             ChatToolCall toolCall = chatToolCall(call.getCallId(), JacksonUtils.deserialize(call.getArguments()));
-            setToolCall(toolCall, last, messages);
+            setToolCall(toolCall, last, messages, toolCallItem.getType());
         }  else if(toolCallItem instanceof LocalShellToolCall) {
             LocalShellToolCall localShellToolCall = (LocalShellToolCall) toolCallItem;
             // tool call
             ChatToolCall toolCall = chatToolCall(localShellToolCall.getCallId(),
                     JacksonUtils.deserialize(JacksonUtils.serialize(localShellToolCall.getAction())));
-            last = setToolCall(toolCall, last, messages);
+            last = setToolCall(toolCall, last, messages, toolCallItem.getType());
             // tool result
             String output = localShellToolCall.getStatus() == ItemStatus.INCOMPLETE ? "Failed to run the local shell." : "Finish to run the local shell.";
             ToolMessage toolResult = toolResult(localShellToolCall.getCallId(), output);
-            setToolResult(toolResult, last, messages);
-
+            setToolResult(toolResult, last, messages, toolCallItem.getType());
         } else if(toolCallItem instanceof CustomToolCall) {
             CustomToolCall customToolCall = (CustomToolCall) toolCallItem;
             Map<String, String> inputMap = new HashMap<>();
             inputMap.put("input_data", customToolCall.getInput());
             ChatToolCall toolCall = chatToolCall(customToolCall.getCallId(), JacksonUtils.deserialize(JacksonUtils.serialize(inputMap)));
-            setToolCall(toolCall, last, messages);
+            setToolCall(toolCall, last, messages, toolCallItem.getType());
         }  else if(toolCallItem instanceof ComputerToolCall) {
             //todo: 处理computer use
             throw new BizParamCheckException("can not supported ComputerUseToolCall");
-        }
-        else {
+        } else {
             Pair<ChatToolCall, ToolMessage> pair = getToolInfo(toolCallItem, runStepMap, fetcher);
             ChatToolCall toolCall = pair.getLeft();
             ToolMessage toolResult = pair.getRight();
             Assert.notNull(toolCall, "invalid tool call id");
             Assert.notNull(toolResult, "invalid tool call id");
-            Map<String, String> meta = new HashMap<>();
-            meta.put("itemId", toolCallItem.getId());
             // tool call
-            Message tooCallMessage = setToolCall(toolCall, last, messages);
-            tooCallMessage.setMetadata(meta);
+            Message tooCallMessage = setToolCall(toolCall, last, messages, toolCallItem.getType());
+            tooCallMessage.getMetadata().put("itemId", toolCallItem.getId());
             // tool result
-            Message toolResultMessage = setToolResult(toolResult, tooCallMessage, messages);
-            toolResultMessage.setMetadata(meta);
+            Message toolResultMessage = setToolResult(toolResult, tooCallMessage, messages, toolCallItem.getType());
+            toolResultMessage.getMetadata().put("itemId", toolCallItem.getId());
         }
     }
 
@@ -375,12 +379,15 @@ public class ResponseUtils {
         return toolCall;
     }
 
-    private static Message setToolCall(ChatToolCall toolCall, Message last, List<Message> messages) {
+    private static Message setToolCall(ChatToolCall toolCall, Message last, List<Message> messages, String type) {
         Message tooCallMessage = setRoleOrNewMessage(last, "assistant", messages);
         MessageContent toolCallContent = new MessageContent();
         toolCallContent.setType("tool_call");
         toolCallContent.setToolCall(toolCall);
         tooCallMessage.getContent().add(toolCallContent);
+        Map<String, String> meta = new HashMap<>();
+        meta.put("item_type", type);
+        tooCallMessage.setMetadata(meta);
         return tooCallMessage;
     }
 
@@ -391,12 +398,15 @@ public class ResponseUtils {
         return toolResult;
     }
 
-    private static Message setToolResult(ToolMessage toolResult, Message last, List<Message> messages) {
+    private static Message setToolResult(ToolMessage toolResult, Message last, List<Message> messages, String type) {
         Message toolResultMessage = setRoleOrNewMessage(last, "tool", messages);
         MessageContent toolResultContent = new MessageContent();
         toolResultContent.setType("tool_result");
         toolResultContent.setToolResult(toolResult);
         toolResultMessage.getContent().add(toolResultContent);
+        Map<String, String> meta = new HashMap<>();
+        meta.put("item_type", type);
+        toolResultMessage.setMetadata(meta);
         return toolResultMessage;
     }
 
@@ -462,5 +472,359 @@ public class ResponseUtils {
         text.setAnnotations(new ArrayList<>());
         content.setText(text);
         return content;
+    }
+
+    public static List<ConversationItem> convertMessagesToConversationItems(List<Message> messages) {
+        List<ConversationItem> conversationItems = new ArrayList<>();
+
+        for (Message message : messages) {
+            if (message == null || message.getContent() == null || message.getContent().isEmpty()) {
+                continue;
+            }
+
+            String role = message.getRole();
+            List<MessageContent> contents = message.getContent();
+
+            // Process reasoning content first if present
+            processReasoningContent(message, conversationItems);
+
+            // Group regular text/image contents into a single message
+            List<InputContent> inputContents = new ArrayList<>();
+            List<OutputContent> outputContents = new ArrayList<>();
+
+            for (MessageContent content : contents) {
+                if (content == null) continue;
+
+                String type = content.getType();
+
+                switch (type) {
+                    case "text":
+                        processTextContent(content, role, inputContents, outputContents);
+                        break;
+
+                    case "image_url":
+                        processImageUrlContent(content, role, inputContents);
+                        break;
+
+                    case "image_file":
+                        processImageFileContent(content, role, inputContents);
+                        break;
+
+                    case "tool_call":
+                        processToolCallContent(content, message, conversationItems);
+                        break;
+
+                    case "tool_result":
+                        processToolResultContent(content, message, conversationItems);
+                        break;
+                }
+            }
+
+            // Add accumulated text/image contents as messages
+            addAccumulatedContents(role, inputContents, outputContents, conversationItems);
+
+            // Process file attachments
+            processFileAttachments(message, role, conversationItems);
+        }
+
+        return conversationItems;
+    }
+
+    private static void processReasoningContent(Message message, List<ConversationItem> conversationItems) {
+        if (message.getReasoningContent() != null && !message.getReasoningContent().isEmpty()) {
+            Reasoning reasoning = new Reasoning();
+            reasoning.setContent(Lists.newArrayList(
+                Reasoning.ReasoningText.builder()
+                    .text(message.getReasoningContent())
+                    .build()
+            ));
+            conversationItems.add(reasoning);
+        }
+    }
+
+    private static void processTextContent(MessageContent content, String role,
+                                          List<InputContent> inputContents,
+                                          List<OutputContent> outputContents) {
+        if (content.getText() != null && content.getText().getValue() != null) {
+            if ("user".equals(role) || "system".equals(role) || "developer".equals(role)) {
+                InputText inputText = new InputText();
+                inputText.setText(content.getText().getValue());
+                inputContents.add(inputText);
+            } else if ("assistant".equals(role)) {
+                OutputText outputText = new OutputText();
+                outputText.setText(content.getText().getValue());
+                outputContents.add(outputText);
+            }
+        }
+    }
+
+    private static void processImageUrlContent(MessageContent content, String role,
+                                              List<InputContent> inputContents) {
+        if (content.getImageUrl() != null && "user".equals(role)) {
+            InputImage inputImage = new InputImage();
+            inputImage.setImageUrl(content.getImageUrl().getUrl());
+            inputImage.setDetail(content.getImageUrl().getDetail());
+            inputContents.add(inputImage);
+        }
+    }
+
+    private static void processImageFileContent(MessageContent content, String role,
+                                                List<InputContent> inputContents) {
+        if (content.getImageFile() != null && "user".equals(role)) {
+            InputImage inputImage = new InputImage();
+            inputImage.setFileId(content.getImageFile().getFileId());
+            inputImage.setDetail(content.getImageFile().getDetail());
+            inputContents.add(inputImage);
+        }
+    }
+
+    private static void processToolCallContent(MessageContent content, Message message,
+                                              List<ConversationItem> conversationItems) {
+        if (content.getToolCall() == null) return;
+
+        ChatToolCall toolCall = content.getToolCall();
+        String toolCallId = toolCall.getId();
+
+        // Get the item type from metadata to determine the correct tool call type
+        String itemType = message.getMetadata() != null ?
+            message.getMetadata().get("item_type") : null;
+
+        // Get item ID from message metadata if available
+        String itemId = message.getMetadata() != null ?
+            message.getMetadata().get("itemId") : null;
+
+        if ("function_call".equals(itemType)) {
+            conversationItems.add(createFunctionToolCall(toolCall, toolCallId, itemId));
+        } else if ("local_shell_call".equals(itemType)) {
+            conversationItems.add(createLocalShellToolCall(toolCall, toolCallId, itemId));
+        } else if ("custom_tool_call".equals(itemType)) {
+            conversationItems.add(createCustomToolCall(toolCall, toolCallId, itemId));
+        } else if ("file_search_call".equals(itemType)) {
+            conversationItems.add(createFileSearchToolCall(toolCall, itemId));
+        } else if ("web_search_call".equals(itemType)) {
+            conversationItems.add(createWebSearchToolCall(toolCall, itemId));
+        } else if ("image_generation_call".equals(itemType)) {
+            conversationItems.add(createImageGenerationToolCall(itemId));
+        }
+    }
+
+    private static FunctionToolCall createFunctionToolCall(ChatToolCall toolCall, String toolCallId, String itemId) {
+        FunctionToolCall functionCall = new FunctionToolCall();
+        functionCall.setCallId(toolCallId);
+        functionCall.setName(toolCall.getFunction().getName());
+        functionCall.setArguments(toolCall.getFunction().getArguments() != null
+            ? toolCall.getFunction().getArguments().toString()
+            : "{}");
+        functionCall.setStatus(ItemStatus.COMPLETED);
+        functionCall.setId(itemId);
+        return functionCall;
+    }
+
+    private static LocalShellToolCall createLocalShellToolCall(ChatToolCall toolCall, String toolCallId, String itemId) {
+        LocalShellToolCall localShellCall = new LocalShellToolCall();
+        localShellCall.setCallId(toolCallId);
+
+        // Parse action from arguments
+        JsonNode arguments = toolCall.getFunction().getArguments();
+        if (arguments != null) {
+            localShellCall.setAction(JacksonUtils.deserialize(
+                arguments.toString(),
+                LocalShellToolCall.ShellAction.class
+            ));
+        }
+        localShellCall.setStatus(ItemStatus.COMPLETED);
+        localShellCall.setId(itemId);
+        return localShellCall;
+    }
+
+    private static CustomToolCall createCustomToolCall(ChatToolCall toolCall, String toolCallId, String itemId) {
+        CustomToolCall customCall = new CustomToolCall();
+        customCall.setCallId(toolCallId);
+
+        // Extract input from arguments
+        JsonNode arguments = toolCall.getFunction().getArguments();
+        if (arguments != null && arguments.has("input_data")) {
+            customCall.setInput(arguments.get("input_data").asText());
+        }
+        customCall.setId(itemId);
+        return customCall;
+    }
+
+    private static FileSearchToolCall createFileSearchToolCall(ChatToolCall toolCall, String itemId) {
+        FileSearchToolCall fileSearchCall = new FileSearchToolCall();
+        fileSearchCall.setId(itemId);
+        fileSearchCall.setStatus(ItemStatus.COMPLETED);
+
+        // Extract query from arguments
+        JsonNode arguments = toolCall.getFunction() != null ? toolCall.getFunction().getArguments() : null;
+        if (arguments != null && arguments.has("query")) {
+            fileSearchCall.setQueries(Lists.newArrayList(arguments.get("query").asText()));
+        }
+
+        return fileSearchCall;
+    }
+
+    private static WebSearchToolCall createWebSearchToolCall(ChatToolCall toolCall, String itemId) {
+        WebSearchToolCall webSearchCall = new WebSearchToolCall();
+        webSearchCall.setId(itemId);
+        webSearchCall.setStatus(ItemStatus.COMPLETED);
+
+        // Extract query from arguments and create SearchAction
+        JsonNode arguments = toolCall.getFunction() != null ? toolCall.getFunction().getArguments() : null;
+        if (arguments != null && arguments.has("query")) {
+            WebSearchToolCall.SearchAction searchAction = new WebSearchToolCall.SearchAction();
+            searchAction.setQuery(arguments.get("query").asText());
+            webSearchCall.setAction(searchAction);
+        }
+
+        return webSearchCall;
+    }
+
+    private static ImageGenerationToolCall createImageGenerationToolCall(String itemId) {
+        ImageGenerationToolCall imageGenCall = new ImageGenerationToolCall();
+        imageGenCall.setId(itemId);
+        imageGenCall.setStatus(ItemStatus.COMPLETED);
+        imageGenCall.setDataType("url");
+        return imageGenCall;
+    }
+
+    private static void processToolResultContent(MessageContent content, Message message,
+                                                List<ConversationItem> conversationItems) {
+        if (content.getToolResult() == null) return;
+
+        ToolMessage toolResult = content.getToolResult();
+        String toolCallId = toolResult.getToolCallId();
+        String output = toolResult.getContent();
+
+        // Get the item type from metadata to determine the correct output type
+        String itemType = message.getMetadata() != null ?
+            message.getMetadata().get("item_type") : null;
+
+        if ("function_call_output".equals(itemType) || "function_call".equals(itemType)) {
+            FunctionToolCallOutput functionOutput = new FunctionToolCallOutput();
+            functionOutput.setCallId(toolCallId);
+            functionOutput.setOutput(output);
+            conversationItems.add(functionOutput);
+        } else if ("local_shell_call_output".equals(itemType) || "local_shell_call".equals(itemType)) {
+            LocalShellCallOutput localShellOutput = new LocalShellCallOutput();
+            localShellOutput.setId(toolCallId);
+            localShellOutput.setOutput(output);
+            localShellOutput.setStatus(ItemStatus.COMPLETED);
+            conversationItems.add(localShellOutput);
+        } else if ("custom_tool_call_output".equals(itemType) || "custom_tool_call".equals(itemType)) {
+            CustomToolCallOutput customOutput = new CustomToolCallOutput();
+            customOutput.setCallId(toolCallId);
+            customOutput.setOutput(output);
+            conversationItems.add(customOutput);
+        } else if ("file_search_call".equals(itemType) || "web_search_call".equals(itemType) || "image_generation_call".equals(itemType)) {
+            ConversationItem previousItem = findPreviousToolCall(conversationItems, toolCallId);
+            if(previousItem instanceof FileSearchToolCall) {
+                FileSearchToolCall toolCall = (FileSearchToolCall) previousItem;
+                List<FileSearchToolCall.SearchResult> searchResults = JacksonUtils.deserialize(output, new TypeReference<List<FileSearchToolCall.SearchResult>>() {});
+                if(searchResults == null) {
+                    searchResults = new ArrayList<>();
+                    FileSearchToolCall.SearchResult result = new FileSearchToolCall.SearchResult();
+                    result.setText(output);
+                    searchResults.add(result);
+                }
+                toolCall.setResults(searchResults);
+            } else if(previousItem instanceof ImageGenerationToolCall) {
+                ImageGenerationToolCall toolCall = (ImageGenerationToolCall) previousItem;
+                toolCall.setResult(output);
+            }
+        }
+    }
+
+    private static void addAccumulatedContents(String role, List<InputContent> inputContents,
+                                              List<OutputContent> outputContents,
+                                              List<ConversationItem> conversationItems) {
+        if (!inputContents.isEmpty()) {
+            InputMessage inputMessage = new InputMessage();
+            inputMessage.setRole(getMessageRole(role));
+
+            if (inputContents.size() == 1 && inputContents.get(0) instanceof InputText) {
+                // Single text content - use string form
+                inputMessage.setContent(InputContentValue.of(((InputText) inputContents.get(0)).getText()));
+            } else {
+                // Multiple contents - use array form
+                inputMessage.setContent(InputContentValue.of(inputContents));
+            }
+
+            conversationItems.add(inputMessage);
+        }
+
+        if (!outputContents.isEmpty()) {
+            OutputMessage outputMessage = new OutputMessage();
+            outputMessage.setRole(MessageRole.ASSISTANT);
+            outputMessage.setStatus(ItemStatus.COMPLETED);
+
+            if (outputContents.size() == 1 && outputContents.get(0) instanceof OutputText) {
+                // Single text content - use string form
+                outputMessage.setContent(OutputContentValue.of(((OutputText) outputContents.get(0)).getText()));
+            } else {
+                // Multiple contents - use array form
+                outputMessage.setContent(OutputContentValue.of(outputContents));
+            }
+
+            conversationItems.add(outputMessage);
+        }
+    }
+
+    private static void processFileAttachments(Message message, String role,
+                                              List<ConversationItem> conversationItems) {
+        if (message.getAttachments() != null && !message.getAttachments().isEmpty()) {
+            for (Attachment attachment : message.getAttachments()) {
+                if (attachment.getFileId() != null) {
+                    InputFile inputFile = new InputFile();
+                    inputFile.setFileId(attachment.getFileId());
+
+                    InputMessage fileMessage = new InputMessage();
+                    fileMessage.setRole(getMessageRole(role));
+                    fileMessage.setContent(InputContentValue.of(Lists.newArrayList(inputFile)));
+
+                    conversationItems.add(fileMessage);
+                }
+            }
+        }
+    }
+
+    private static ConversationItem findPreviousToolCall(List<ConversationItem> items, String toolCallId) {
+        for (int i = items.size() - 1; i >= 0; i--) {
+            ConversationItem item = items.get(i);
+            if (item instanceof FileSearchToolCall) {
+                FileSearchToolCall call = (FileSearchToolCall) item;
+                if (toolCallId.equals(call.getId())) {
+                    return call;
+                }
+            } else if (item instanceof WebSearchToolCall) {
+                WebSearchToolCall call = (WebSearchToolCall) item;
+                if (toolCallId.equals(call.getId())) {
+                    return call;
+                }
+            } else if (item instanceof ImageGenerationToolCall) {
+                ImageGenerationToolCall call = (ImageGenerationToolCall) item;
+                if (toolCallId.equals(call.getId())) {
+                    return call;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static MessageRole getMessageRole(String role) {
+        if (role == null) {
+            return MessageRole.USER;
+        }
+        switch (role.toLowerCase()) {
+            case "assistant":
+                return MessageRole.ASSISTANT;
+            case "system":
+                return MessageRole.SYSTEM;
+            case "developer":
+                return MessageRole.DEVELOPER;
+            case "user":
+            default:
+                return MessageRole.USER;
+        }
     }
 }

@@ -24,10 +24,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * 文档检索工具处理器
@@ -49,9 +51,9 @@ public class RetrievalToolHandler implements BellaToolHandler {
     public ToolResult doExecute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
         String query = Optional.ofNullable(arguments.get("query")).map(Object::toString).orElse(null);
         ItemStatus status = ItemStatus.INCOMPLETE;
+        List<FileSearchToolCall.SearchResult> results = new ArrayList<>();
         try {
-
-            channel.output(context.getToolId(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+            channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
                     .executionStage(ToolStreamEvent.ExecutionStage.prepare)
                     .event(FileSearchInProgressEvent.builder().build())
                     .build());
@@ -67,7 +69,7 @@ public class RetrievalToolHandler implements BellaToolHandler {
                     .post(RequestBody.create(JacksonUtils.serialize(requestBody), okhttp3.MediaType.parse("application/json")))
                     .build();
 
-            channel.output(context.getToolId(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+            channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
                     .executionStage(ToolStreamEvent.ExecutionStage.processing)
                     .event(FileSearchSearchingEvent.builder().build())
                     .build());
@@ -76,19 +78,21 @@ public class RetrievalToolHandler implements BellaToolHandler {
             RetrievalResponse response = HttpUtils.httpRequest(request, RetrievalResponse.class);
 
             // 构建返回结果
-            buildRetrievalResponse(response);
+            results = buildRetrievalResponse(response);
 
+            String value = JacksonUtils.serialize(results);
             if(isFinal()) {
-                channel.output(context.getToolId(), response.getValue());
+                channel.output(context.getToolId(), value);
             }
-
             status = ItemStatus.COMPLETED;
-            return new ToolResult(ToolResult.ToolResultType.text, response.getValue());
+            return new ToolResult(ToolResult.ToolResultType.text, value);
         } finally {
             FileSearchToolCall toolCall = new FileSearchToolCall();
             toolCall.setQueries(Lists.newArrayList(query));
             toolCall.setStatus(status);
-            channel.output(context.getToolId(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+            toolCall.setResults(results);
+            channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+                    .result(toolCall)
                     .executionStage(ToolStreamEvent.ExecutionStage.completed)
                     .event(FileSearchCompletedEvent.builder().build())
                     .build());
@@ -114,7 +118,7 @@ public class RetrievalToolHandler implements BellaToolHandler {
     /**
      * 构建响应
      */
-    private void buildRetrievalResponse(RetrievalResponse response) {
+    private List<FileSearchToolCall.SearchResult> buildRetrievalResponse(RetrievalResponse response) {
         // 处理空结果的情况
         if (response.getList() == null || response.getList().isEmpty()) {
             // 创建默认的空chunk
@@ -129,8 +133,13 @@ public class RetrievalToolHandler implements BellaToolHandler {
 
             response.setList(Lists.newArrayList(emptyChunk));
         }
-        response.setValue("");
-        response.getList().forEach(chunk -> response.setValue(response.getValue().concat(chunk.getContent()).concat("\n")));
+        return response.getList().stream().map(chunk -> {
+            FileSearchToolCall.SearchResult searchResult = new FileSearchToolCall.SearchResult();
+            searchResult.setFileId(chunk.getFileId());
+            searchResult.setScore(chunk.getScore());
+            searchResult.setText(chunk.getContent());
+            return searchResult;
+        }).collect(Collectors.toList());
     }
     
     @Override
@@ -188,7 +197,6 @@ public class RetrievalToolHandler implements BellaToolHandler {
         @JsonProperty("create_at")
         private long createdAt;
         private String object;
-        private String value;
         private List<Chunk> list;
     }
     

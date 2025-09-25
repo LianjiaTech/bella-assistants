@@ -49,7 +49,7 @@ public class WebSearchTavilyToolHandler implements ToolHandler {
     public ToolResult execute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
         ItemStatus status = ItemStatus.INCOMPLETE;
         try {
-            channel.output(context.getToolId(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+            channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
                     .executionStage(ToolStreamEvent.ExecutionStage.prepare)
                     .event(WebSearchInProgressEvent.builder().build())
                     .build());
@@ -66,7 +66,7 @@ public class WebSearchTavilyToolHandler implements ToolHandler {
             // 构建请求体
             TavilySearchRequest searchRequest = buildSearchRequest(query);
 
-            channel.output(context.getToolId(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+            channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
                     .executionStage(ToolStreamEvent.ExecutionStage.processing)
                     .event(WebSearchSearchingEvent.builder().build())
                     .build());
@@ -90,7 +90,7 @@ public class WebSearchTavilyToolHandler implements ToolHandler {
         } finally {
             WebSearchToolCall toolCall = new WebSearchToolCall();
             toolCall.setStatus(status);
-            channel.output(context.getToolId(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+            channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
                     .executionStage(ToolStreamEvent.ExecutionStage.completed)
                     .event(WebSearchCompletedEvent.builder().build())
                     .result(toolCall)
