@@ -25,6 +25,7 @@ import com.theokanning.openai.response.Response;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.util.Assert;
 
 import java.time.LocalDateTime;
@@ -127,6 +128,8 @@ public class ExecutionContext {
     private Response response; // 用于区分是否为Response API调用
 
     private CompletableFuture<Object> future; // 用于block模式，获取结果
+
+    private boolean reasoningShutDown;
 
     public ExecutionContext(Map<String, Object> bellaContext, Supplier<String> toolCallStepIdSupplier) {
         this.bellaContext = bellaContext;
@@ -609,4 +612,7 @@ public class ExecutionContext {
         return run.getTruncationStrategy() != null && run.getTruncationStrategy().getType().equals("disable");
     }
 
+    public boolean isSupportReasoningContent() {
+        return getModelFeatures().isReason_content() && StringUtils.isNotBlank(getRun().getReasoningEffort()) && !reasoningShutDown;
+    }
 }

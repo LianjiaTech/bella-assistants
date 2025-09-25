@@ -3,6 +3,7 @@ package com.ke.assistant.service;
 import com.google.common.collect.Lists;
 import com.ke.assistant.core.run.RunStatus;
 import com.ke.assistant.db.IdGenerator;
+import com.ke.assistant.db.generated.tables.pojos.MessageDb;
 import com.ke.assistant.db.generated.tables.pojos.ResponseIdMappingDb;
 import com.ke.assistant.db.generated.tables.pojos.ThreadDb;
 import com.ke.assistant.db.repo.ResponseIdMappingRepo;
@@ -71,6 +72,12 @@ public class ResponseService {
      * Create a new response
      */
     public ResponseCreateResult createResponse(CreateResponseRequest request) {
+        if(Boolean.FALSE == request.getStore() && (request.getPreviousResponseId() != null || request.getConversation() != null)) {
+            throw new BizParamCheckException("store can not be set `false` when you request with previous_response_id or conversation");
+        }
+        if(request.getPreviousResponseId() != null && request.getConversation() != null) {
+            throw new BizParamCheckException("only one can be set with previous_response_id or conversation");
+        }
         List<Tool> tools = ToolUtils.convertFromToolDefinition(request.getTools());
         ToolResources toolResources = toolResources(tools);
 
@@ -237,15 +244,8 @@ public class ResponseService {
                             .filter(toolCall -> toolCall.getFunction() != null && toolCall.getFunction().getOutput() == null)
                             .collect(Collectors.toList());
                     if(!toolCalls.isEmpty()) {
-                        preMessage = new Message();
-                        preMessage.setRole("assistant");
-                        preMessage.setContent(new ArrayList<>());
-                        for (com.theokanning.openai.assistants.run.ToolCall toolCall : toolCalls) {
-                            MessageContent messageContent = new MessageContent();
-                            messageContent.setType("tool_call");
-                            messageContent.setToolCall(MessageUtils.convertToChatToolCall(toolCall));
-                            preMessage.getContent().add(messageContent);
-                        }
+                        MessageDb toolCallDb = MessageUtils.convertToolCallMessageFromStepDetails(null, runStep.getStepDetails());
+                        preMessage = MessageUtils.convertToInfo(toolCallDb);
                         needAdded = true;
                         break;
                     }

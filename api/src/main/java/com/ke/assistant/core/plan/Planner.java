@@ -10,6 +10,7 @@ import com.ke.assistant.core.tools.handlers.definition.CustomToolHandler;
 import com.ke.assistant.service.MessageService;
 import com.ke.assistant.service.RunService;
 import com.ke.assistant.util.MessageUtils;
+import com.ke.assistant.util.MetaConstants;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.ke.bella.openapi.utils.Renders;
 import com.theokanning.openai.assistants.assistant.Tool;
@@ -17,6 +18,7 @@ import com.theokanning.openai.assistants.message.Message;
 import com.theokanning.openai.assistants.message.MessageContent;
 import com.theokanning.openai.assistants.run_step.RunStep;
 import com.theokanning.openai.assistants.run_step.StepDetails;
+import com.theokanning.openai.completion.chat.AssistantMultipleMessage;
 import com.theokanning.openai.completion.chat.ChatMessage;
 import com.theokanning.openai.completion.chat.ChatTool;
 import com.theokanning.openai.completion.chat.SystemMessage;
@@ -215,6 +217,9 @@ public class Planner {
         // 线程下的所有RunSteps
         Map<String, List<RunStep>> runStepMap = runService.getThreadSteps(context.getThreadId()).stream().collect(Collectors.groupingBy(RunStep::getRunId));
 
+        Message lastAssistantMessage = null;
+        ChatMessage lastAssistantChatMessage = null;
+
         for(Message message : messages) {
             if(message.getRole().equals("user")) {
                 ChatMessage chatMessage = MessageUtils.formatChatCompletionMessage(message, context.getFileInfos(), context.isVisionModel());
@@ -229,6 +234,8 @@ public class Planner {
                     }
                 }
                 context.addChatMessage(assistantMessage);
+                lastAssistantMessage = message;
+                lastAssistantChatMessage = assistantMessage;
             } else if(message.getRole().equals("tool")) {
                 message.getContent().stream().map(MessageContent::getToolResult).forEach(context::addChatMessage);
             }
@@ -243,6 +250,21 @@ public class Planner {
                 }
                 RunStatus status = RunStatus.fromValue(runStep.getStatus());
                 MessageUtils.convertToolCallMessages(stepDetails.getToolCalls(), runStep.getLastError(), runStep.getMetadata(), context.isSupportReasonInput(), status == RunStatus.REQUIRES_ACTION).forEach(context::addChatMessage);
+            }
+        } else if(context.isSupportReasonInput()){
+            // 如果最后一条assistant message为tool call，且开启了推理输出
+            // 对于某些模型必须添加思考过程，通过historyToolStep构建时，一定是当前run轮次的工具调用，会自动添加，不需要再次判断
+            // 非tool call则不添加，节省tokens
+            if(lastAssistantChatMessage instanceof AssistantMultipleMessage) {
+                AssistantMultipleMessage chatMsg = (AssistantMultipleMessage) lastAssistantChatMessage;
+                if(chatMsg.getToolCalls() != null && !chatMsg.getToolCalls().isEmpty()) {
+                    chatMsg.setReasoningContent(lastAssistantMessage.getReasoningContent());
+                    chatMsg.setReasoningContentSignature(lastAssistantMessage.getMetadata().get(MetaConstants.REASONING_SIG));
+                    chatMsg.setRedactedReasoningContent(lastAssistantMessage.getMetadata().get(MetaConstants.REDACTED_REASONING));
+                    if(chatMsg.getRedactedReasoningContent() == null && (chatMsg.getReasoningContent() == null || chatMsg.getReasoningContentSignature() == null)) {
+                        context.setReasoningShutDown(true);
+                    }
+                }
             }
         }
     }

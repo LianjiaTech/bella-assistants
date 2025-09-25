@@ -29,6 +29,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static com.ke.assistant.util.MessageUtils.convertToInfo;
+
 /**
  * Message Service
  */
@@ -150,7 +152,7 @@ public class MessageService {
      */
     public List<Message> getAdditionalMessages(String threadId, LocalDateTime from, LocalDateTime to) {
         List<MessageDb> messages = messageRepo.findByThreadIdWithIntervalIncludeHidden(threadId, from, to);
-        return messages.stream().map(this::convertToInfo).collect(Collectors.toList());
+        return messages.stream().map(MessageUtils::convertToInfo).collect(Collectors.toList());
     }
 
     /**
@@ -182,7 +184,7 @@ public class MessageService {
                         String commandType = (String) contentList.get(0).get("type");
                         // 如果是clear命令，只返回该命令之后的消息
                         if ("clear".equals(commandType)) {
-                            return messages.subList(i + 1, messages.size()).stream().map(this::convertToInfo).collect(Collectors.toList());
+                            return messages.subList(i + 1, messages.size()).stream().map(MessageUtils::convertToInfo).collect(Collectors.toList());
                         }
                     }
                 } catch (Exception e) {
@@ -192,7 +194,7 @@ public class MessageService {
         }
 
         // 如果不需要过滤或没有找到clear命令，返回完整消息列表
-        return messages.stream().map(this::convertToInfo).collect(Collectors.toList());
+        return messages.stream().map(MessageUtils::convertToInfo).collect(Collectors.toList());
     }
 
 
@@ -205,7 +207,7 @@ public class MessageService {
             throw new ResourceNotFoundException("Thread not found: " + threadId);
         }
         List<MessageDb> messages = messageRepo.findByThreadIdWithCursor(threadId, after, before, limit, order);
-        return messages.stream().map(this::convertToInfo).collect(Collectors.toList());
+        return messages.stream().map(MessageUtils::convertToInfo).collect(Collectors.toList());
     }
 
     /**
@@ -336,47 +338,6 @@ public class MessageService {
     @Transactional
     public int deleteMessagesByThreadId(String threadId) {
         return messageRepo.deleteByThreadId(threadId);
-    }
-
-    /**
-     * 将MessageDb转换为MessageInfo
-     */
-    private Message convertToInfo(MessageDb messageDb) {
-        if(messageDb == null) {
-            return null;
-        }
-
-        Message info = new Message();
-        BeanUtils.copyProperties(messageDb, info);
-
-        if(messageDb.getCreatedAt() != null) {
-            info.setCreatedAt((int) messageDb.getCreatedAt().toEpochSecond(ZoneOffset.ofHours(8)));
-        }
-
-        // 转换metadata从JSON字符串到Map
-        if(StringUtils.isNotBlank(messageDb.getMetadata())) {
-            info.setMetadata(JacksonUtils.toMap(messageDb.getMetadata()));
-        }
-
-        // content字段处理 - 数据库存储的是Content对象数组的JSON
-        if(StringUtils.isNotBlank(messageDb.getContent())) {
-            // 数据库中存储的格式：[{"type": "text", "text": {"value": "内容", "annotations": []}}]
-            info.setContent(JacksonUtils.deserialize(messageDb.getContent(), new TypeReference<List<MessageContent>>() {
-            }));
-        }
-
-        // attachments字段反序列化
-        if(StringUtils.isNotBlank(messageDb.getAttachments())) {
-            info.setAttachments(JacksonUtils.deserialize(messageDb.getAttachments(), new TypeReference<List<Attachment>>() {
-            }));
-        }
-
-        if(info.getMetadata() != null && info.getMetadata().containsKey(MetaConstants.INCOMPLETE_REASON)) {
-            IncompleteDetails incompleteDetails = new IncompleteDetails(info.getMetadata().get(MetaConstants.INCOMPLETE_REASON));
-            info.setIncompleteDetails(incompleteDetails);
-        }
-
-        return info;
     }
 
     private MessageDb convertToDb(Message message) {

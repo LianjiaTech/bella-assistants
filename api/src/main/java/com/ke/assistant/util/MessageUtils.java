@@ -1,5 +1,6 @@
 package com.ke.assistant.util;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.ke.assistant.core.file.FileInfo;
 import com.ke.assistant.db.generated.tables.pojos.MessageDb;
@@ -9,13 +10,16 @@ import com.ke.bella.openapi.utils.Renders;
 import com.ke.bella.openapi.utils.TokenCounter;
 import com.knuddels.jtokkit.api.EncodingType;
 import com.theokanning.openai.assistants.assistant.FileSearchRankingOptions;
+import com.theokanning.openai.assistants.message.IncompleteDetails;
 import com.theokanning.openai.assistants.message.Message;
 import com.theokanning.openai.assistants.message.MessageContent;
 import com.theokanning.openai.assistants.message.MessageRequest;
+import com.theokanning.openai.assistants.message.content.Text;
 import com.theokanning.openai.assistants.run.ToolCall;
 import com.theokanning.openai.assistants.run.ToolCallCodeInterpreter;
 import com.theokanning.openai.assistants.run.ToolCallFileSearch;
 import com.theokanning.openai.assistants.run.ToolCallFunction;
+import com.theokanning.openai.assistants.run_step.StepDetails;
 import com.theokanning.openai.assistants.thread.Attachment;
 import com.theokanning.openai.common.LastError;
 import com.theokanning.openai.completion.chat.AssistantMessage;
@@ -30,6 +34,7 @@ import com.theokanning.openai.completion.chat.UserMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -608,6 +613,80 @@ public class MessageUtils {
             return;
         }
         throw new BizParamCheckException("The first message role must be user");
+    }
+
+    public static MessageDb convertToolCallMessageFromStepDetails(String threadId, StepDetails details) {
+        // Create assistant tool_call message
+        MessageDb toolCallMsg = new MessageDb();
+        toolCallMsg.setThreadId(threadId);
+        toolCallMsg.setRole("assistant");
+        Map<String, String> meta = new HashMap<>();
+        List<MessageContent> toolCallContent = new ArrayList<>();
+        if (StringUtils.isNotBlank(details.getText())) {
+            MessageContent c = new MessageContent();
+            c.setType("text");
+            c.setText(new Text(details.getText(), new ArrayList<>()));
+            toolCallContent.add(c);
+        }
+        for (ToolCall tc : details.getToolCalls()) {
+            MessageContent c = new MessageContent();
+            c.setType("tool_call");
+            c.setToolCall(MessageUtils.convertToChatToolCall(tc));
+            toolCallContent.add(c);
+        }
+        toolCallMsg.setContent(JacksonUtils.serialize(toolCallContent));
+        if(StringUtils.isNotBlank(details.getReasoningContent())) {
+            toolCallMsg.setReasoningContent(details.getReasoningContent());
+        }
+        if(StringUtils.isNotBlank(details.getReasoningContentSignature())) {
+            meta.put(MetaConstants.REASONING_SIG, details.getReasoningContentSignature());
+        }
+        if(StringUtils.isNotBlank(details.getRedactedReasoningContent())) {
+            meta.put(MetaConstants.REDACTED_REASONING, details.getRedactedReasoningContent());
+        }
+        toolCallMsg.setMetadata(JacksonUtils.serialize(meta));
+        return toolCallMsg;
+    }
+
+    /**
+     * 将MessageDb转换为MessageInfo
+     */
+    public static Message convertToInfo(MessageDb messageDb) {
+        if(messageDb == null) {
+            return null;
+        }
+
+        Message info = new Message();
+        BeanUtils.copyProperties(messageDb, info);
+
+        if(messageDb.getCreatedAt() != null) {
+            info.setCreatedAt((int) messageDb.getCreatedAt().toEpochSecond(ZoneOffset.ofHours(8)));
+        }
+
+        // 转换metadata从JSON字符串到Map
+        if(StringUtils.isNotBlank(messageDb.getMetadata())) {
+            info.setMetadata(JacksonUtils.toMap(messageDb.getMetadata()));
+        }
+
+        // content字段处理 - 数据库存储的是Content对象数组的JSON
+        if(StringUtils.isNotBlank(messageDb.getContent())) {
+            // 数据库中存储的格式：[{"type": "text", "text": {"value": "内容", "annotations": []}}]
+            info.setContent(JacksonUtils.deserialize(messageDb.getContent(), new TypeReference<List<MessageContent>>() {
+            }));
+        }
+
+        // attachments字段反序列化
+        if(StringUtils.isNotBlank(messageDb.getAttachments())) {
+            info.setAttachments(JacksonUtils.deserialize(messageDb.getAttachments(), new TypeReference<List<Attachment>>() {
+            }));
+        }
+
+        if(info.getMetadata() != null && info.getMetadata().containsKey(MetaConstants.INCOMPLETE_REASON)) {
+            IncompleteDetails incompleteDetails = new IncompleteDetails(info.getMetadata().get(MetaConstants.INCOMPLETE_REASON));
+            info.setIncompleteDetails(incompleteDetails);
+        }
+
+        return info;
     }
 
 }

@@ -13,12 +13,14 @@ import com.ke.assistant.db.repo.ThreadRepo;
 import com.ke.assistant.model.RunCreateResult;
 import com.ke.assistant.util.BeanUtils;
 import com.ke.assistant.util.MessageUtils;
+import com.ke.assistant.util.MetaConstants;
 import com.ke.assistant.util.ToolResourceUtils;
 import com.ke.bella.openapi.BellaContext;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.assistants.message.Message;
 import com.theokanning.openai.assistants.message.MessageContent;
 import com.theokanning.openai.assistants.message.MessageRequest;
+import com.theokanning.openai.assistants.message.content.Text;
 import com.theokanning.openai.assistants.run.CreateThreadAndRunRequest;
 import com.theokanning.openai.assistants.run.Run;
 import com.theokanning.openai.assistants.run.RunCreateRequest;
@@ -348,18 +350,7 @@ public class ThreadService {
         }
 
         // Create assistant tool_call message
-        MessageDb toolCallMsg = new MessageDb();
-        toolCallMsg.setThreadId(threadId);
-        toolCallMsg.setRole("assistant");
-
-        List<MessageContent> toolCallContent = new ArrayList<>();
-        for (ToolCall tc : details.getToolCalls()) {
-            MessageContent c = new MessageContent();
-            c.setType("tool_call");
-            c.setToolCall(MessageUtils.convertToChatToolCall(tc));
-            toolCallContent.add(c);
-        }
-        toolCallMsg.setContent(JacksonUtils.serialize(toolCallContent));
+        MessageDb toolCallMsg = MessageUtils.convertToolCallMessageFromStepDetails(threadId, details);
         messagesToCreate.add(toolCallMsg);
 
         // Create tool_result message (only if outputs exist)

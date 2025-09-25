@@ -39,12 +39,12 @@ public class ChatService {
                     .topP(context.getTopP())
                     .temperature(context.getTemperature())
                     .build();
-            if(context.getChatTools() != null) {
+            if(context.getChatTools() != null && !context.getChatTools().isEmpty()) {
                 request.setTools(context.getChatTools());
                 request.setToolChoice(context.getToolChoice());
             }
             // 开启深度思考，通常深度思考模型不支持温度参数
-            if(context.getModelFeatures().isReason_content() && StringUtils.isNotBlank(context.getRun().getReasoningEffort())) {
+            if(context.isSupportReasoningContent()) {
                 request.setReasoningEffort(context.getRun().getReasoningEffort());
                 request.setTemperature(null);
             }

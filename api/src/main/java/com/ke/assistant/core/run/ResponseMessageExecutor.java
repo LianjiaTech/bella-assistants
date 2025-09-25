@@ -293,17 +293,18 @@ public class ResponseMessageExecutor implements Runnable {
             AssistantMessage assistantMessage = chunk.getChoices().get(0).getMessage();
             if(assistantMessage != null) {
 
+                if(assistantMessage.getReasoningContentSignature() != null) {
+                    currentReasoningSignature.append(assistantMessage.getReasoningContentSignature());
+                }
+                if(assistantMessage.getRedactedReasoningContent() != null) {
+                    currentRedactedReasoningContent.append(assistantMessage.getRedactedReasoningContent());
+                }
+
                 // Handle reasoning content
                 if(assistantMessage.getReasoningContent() != null && !assistantMessage.getReasoningContent().isEmpty()) {
                     ensureReasoningItem();
                     sendReasoningDelta(assistantMessage.getReasoningContent());
                     currentReasoning.append(assistantMessage.getReasoningContent());
-                    if(assistantMessage.getReasoningContentSignature() != null) {
-                        currentReasoningSignature.append(assistantMessage.getReasoningContentSignature());
-                    }
-                    if(assistantMessage.getRedactedReasoningContent() != null) {
-                        currentRedactedReasoningContent.append(assistantMessage.getRedactedReasoningContent());
-                    }
                 }
 
                 // Handle content
