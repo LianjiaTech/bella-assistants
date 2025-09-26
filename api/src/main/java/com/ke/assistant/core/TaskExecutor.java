@@ -9,6 +9,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
+import com.ke.assistant.db.context.RepoContext;
 
 public class TaskExecutor {
     static ThreadFactory rtf = new NamedThreadFactory("bella-runner-", false);
@@ -30,19 +31,67 @@ public class TaskExecutor {
     static ExecutorService caller = new ThreadPoolExecutor(100, 1000, 10L, TimeUnit.SECONDS, new ArrayBlockingQueue<>(1000, true), ctf);
 
     public static CompletableFuture<Void> addRunner(Runnable r) {
-        return CompletableFuture.runAsync(r, runner);
+        return CompletableFuture.runAsync(wrapWithRepoContext(r), runner);
     }
 
     public static CompletableFuture<Void> addExecutor(Runnable r) {
-        return CompletableFuture.runAsync(r, executor);
+        return CompletableFuture.runAsync(wrapWithRepoContext(r), executor);
     }
 
     public static CompletableFuture<Void> addToolSender(Runnable r) {
-        return CompletableFuture.runAsync(r, caller);
+        return CompletableFuture.runAsync(wrapWithRepoContext(r), caller);
     }
 
     public static <T> CompletableFuture<T> supplyCaller(Supplier<T> supplier) {
-        return CompletableFuture.supplyAsync(supplier, caller);
+        return CompletableFuture.supplyAsync(wrapWithRepoContext(supplier), caller);
+    }
+
+    /**
+     * 包装 Runnable，处理 RepoContext 的传递和清理
+     */
+    private static Runnable wrapWithRepoContext(Runnable r) {
+        // 在提交任务的线程中获取当前的 RepoContext 快照
+        RepoContext.State repoContextSnapshot = RepoContext.capture();
+
+        return () -> {
+            // 在执行线程中恢复 RepoContext
+            if (repoContextSnapshot != null) {
+                RepoContext.attach(repoContextSnapshot);
+            }
+
+            try {
+                r.run();
+            } finally {
+                // 确保在执行线程结束时清理 RepoContext
+                if (repoContextSnapshot != null) {
+                    RepoContext.detach();
+                }
+            }
+        };
+    }
+
+    /**
+     * 包装 Supplier，处理 RepoContext 的传递和清理
+     */
+    private static <T> Supplier<T> wrapWithRepoContext(Supplier<T> supplier) {
+        // 在提交任务的线程中获取当前的 RepoContext 快照
+        RepoContext.State repoContextSnapshot = RepoContext.capture();
+
+        return () -> {
+            // 在执行线程中恢复 RepoContext
+            if (repoContextSnapshot != null) {
+                RepoContext.attach(repoContextSnapshot);
+            }
+
+            try {
+                return supplier.get();
+            } finally {
+                // 确保在执行线程结束时清理 RepoContext
+                if (repoContextSnapshot != null) {
+                    RepoContext.detach();
+                }
+            }
+        };
     }
 
     public static class NamedThreadFactory implements ThreadFactory {

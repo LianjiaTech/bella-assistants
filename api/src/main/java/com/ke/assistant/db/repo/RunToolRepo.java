@@ -3,6 +3,7 @@ package com.ke.assistant.db.repo;
 import com.ke.assistant.db.generated.tables.pojos.RunToolDb;
 import com.ke.assistant.db.generated.tables.records.RunToolRecord;
 import lombok.RequiredArgsConstructor;
+import com.ke.assistant.db.context.RepoContext;
 import org.jooq.DSLContext;
 import org.springframework.stereotype.Repository;
 
@@ -20,12 +21,18 @@ public class RunToolRepo implements BaseRepo {
     private final DSLContext dsl;
 
     public RunToolDb findById(Integer id) {
+        if (isNoStoreMode()) {
+            return getContextStore().findRunToolById(id);
+        }
         return dsl.selectFrom(RUN_TOOL)
                 .where(RUN_TOOL.ID.eq(id))
                 .fetchOneInto(RunToolDb.class);
     }
 
     public List<RunToolDb> findByRunId(String runId) {
+        if (isNoStoreMode()) {
+            return getContextStore().findRunToolsByRunId(runId);
+        }
         return dsl.selectFrom(RUN_TOOL)
                 .where(RUN_TOOL.RUN_ID.eq(runId))
                 .orderBy(RUN_TOOL.CREATED_AT.desc())
@@ -36,6 +43,11 @@ public class RunToolRepo implements BaseRepo {
         // 自增 ID，不需要设置
         fillCreateTime(tool);
 
+        if (isNoStoreMode()) {
+            // 自增 ID，内存模式使用RepoContext分配
+            return getContextStore().insertRunTool(tool);
+        }
+
         RunToolRecord record = dsl.newRecord(RUN_TOOL, tool);
         record.store();
 
@@ -45,6 +57,10 @@ public class RunToolRepo implements BaseRepo {
     public boolean update(RunToolDb tool) {
         fillUpdateTime(tool);
 
+        if (isNoStoreMode()) {
+            return getContextStore().updateRunTool(tool);
+        }
+
         return dsl.update(RUN_TOOL)
                 .set(dsl.newRecord(RUN_TOOL, tool))
                 .where(RUN_TOOL.ID.eq(tool.getId()))
@@ -52,6 +68,9 @@ public class RunToolRepo implements BaseRepo {
     }
 
     public boolean existsById(Integer id) {
+        if (isNoStoreMode()) {
+            return getContextStore().existsRunToolById(id);
+        }
         return dsl.fetchExists(
                 dsl.selectFrom(RUN_TOOL)
                         .where(RUN_TOOL.ID.eq(id))

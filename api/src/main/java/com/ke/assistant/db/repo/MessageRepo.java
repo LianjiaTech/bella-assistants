@@ -1,6 +1,7 @@
 package com.ke.assistant.db.repo;
 
 import com.ke.assistant.db.IdGenerator;
+import com.ke.assistant.db.context.RepoContext;
 import com.ke.assistant.db.generated.tables.pojos.MessageDb;
 import com.ke.assistant.db.generated.tables.records.MessageRecord;
 import lombok.RequiredArgsConstructor;
@@ -9,7 +10,9 @@ import org.jooq.DSLContext;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.ke.assistant.db.generated.Tables.MESSAGE;
 
@@ -28,6 +31,10 @@ public class MessageRepo implements BaseRepo {
      * 根据 ID 查询 Message
      */
     public MessageDb findById(String threadId, String id) {
+        
+        if (isNoStoreMode()) {
+            return getContextStore().findMessageById(id);
+        }
         return dsl.selectFrom(MESSAGE)
                 .where(MESSAGE.ID.eq(id))
                 .fetchOneInto(MessageDb.class);
@@ -37,6 +44,11 @@ public class MessageRepo implements BaseRepo {
      * 根据 ID 查询 Message
      */
     public MessageDb findByIdForUpdate(String threadId, String id) {
+        
+        if (isNoStoreMode()) {
+            // Non-store mode doesn't need DB-level locks
+            return getContextStore().findMessageById(id);
+        }
         return dsl.selectFrom(MESSAGE)
                 .where(MESSAGE.ID.eq(id))
                 .forUpdate()
@@ -47,6 +59,10 @@ public class MessageRepo implements BaseRepo {
      * 根据 Thread ID 查询 Message 列表
      */
     public List<MessageDb> findByThreadId(String threadId) {
+        
+        if (isNoStoreMode()) {
+            return getContextStore().findMessagesByThreadId(threadId);
+        }
         return dsl.selectFrom(MESSAGE)
                 .where(MESSAGE.THREAD_ID.eq(threadId))
                 .and(MESSAGE.MESSAGE_STATUS.eq("original"))
@@ -58,6 +74,10 @@ public class MessageRepo implements BaseRepo {
      * 根据 Thread ID 和 最大创建时间 查询 Message 列表
      */
     public List<MessageDb> findByThreadIdWithLimit(String threadId, LocalDateTime lessThanCreateAt) {
+        
+        if (isNoStoreMode()) {
+            return getContextStore().findMessagesByThreadIdWithLimit(threadId, lessThanCreateAt);
+        }
         return dsl.selectFrom(MESSAGE)
                 .where(MESSAGE.THREAD_ID.eq(threadId))
                 .and(MESSAGE.CREATED_AT.lessThan(lessThanCreateAt))
@@ -70,6 +90,10 @@ public class MessageRepo implements BaseRepo {
      * 根据 Thread ID 和 创建时间间隔查询
      */
     public List<MessageDb> findByThreadIdWithIntervalIncludeHidden(String threadId, LocalDateTime from, LocalDateTime to) {
+        
+        if (isNoStoreMode()) {
+            return getContextStore().findMessagesByThreadIdWithIntervalIncludeHidden(threadId, from, to);
+        }
         return dsl.selectFrom(MESSAGE)
                 .where(MESSAGE.THREAD_ID.eq(threadId))
                 .and(MESSAGE.CREATED_AT.greaterThan(from))
@@ -83,6 +107,28 @@ public class MessageRepo implements BaseRepo {
      * 基于游标的分页查询 Thread 下的 Message
      */
     public List<MessageDb> findByThreadIdWithCursor(String threadId, String after, String before, int limit, String order) {
+        
+        if (isNoStoreMode()) {
+            // Simplified in-memory pagination by createdAt
+            List<MessageDb> all = getContextStore().findMessagesByThreadId(threadId);
+            if (after != null && !after.isEmpty()) {
+                MessageDb afterMsg = getContextStore().findMessageById(after);
+                if (afterMsg != null) {
+                    all = all.stream().filter(m -> m.getCreatedAt().isAfter(afterMsg.getCreatedAt())).collect(Collectors.toList());
+                }
+            }
+            if (before != null && !before.isEmpty()) {
+                MessageDb beforeMsg = getContextStore().findMessageById(before);
+                if (beforeMsg != null) {
+                    all = all.stream().filter(m -> m.getCreatedAt().isBefore(beforeMsg.getCreatedAt())).collect(Collectors.toList());
+                }
+            }
+            Comparator<MessageDb> cmp = Comparator.comparing(MessageDb::getCreatedAt);
+            if (!"asc".equalsIgnoreCase(order)) {
+                cmp = cmp.reversed();
+            }
+            return all.stream().sorted(cmp).limit(limit).collect(Collectors.toList());
+        }
         return findWithCursor(
                 dsl,
                 MESSAGE,
@@ -106,6 +152,10 @@ public class MessageRepo implements BaseRepo {
             message.setId(idGenerator.generateMessageId());
         }
 
+        if (isNoStoreMode()) {
+            fillCreateTime(message);
+            return getContextStore().insertMessage(message);
+        }
         fillCreateTime(message);
 
         MessageRecord record = dsl.newRecord(MESSAGE, message);
@@ -118,6 +168,11 @@ public class MessageRepo implements BaseRepo {
      * 更新 Message
      */
     public boolean update(MessageDb message) {
+        
+        if (isNoStoreMode()) {
+            fillUpdateTime(message);
+            return getContextStore().updateMessage(message);
+        }
         fillUpdateTime(message);
 
         return dsl.update(MESSAGE)
@@ -130,6 +185,10 @@ public class MessageRepo implements BaseRepo {
      * 删除 Message
      */
     public boolean deleteById(String threadId, String id) {
+        
+        if (isNoStoreMode()) {
+            return getContextStore().messages.remove(id) != null;
+        }
         return dsl.deleteFrom(MESSAGE)
                 .where(MESSAGE.ID.eq(id))
                 .execute() > 0;
@@ -139,6 +198,10 @@ public class MessageRepo implements BaseRepo {
      * 根据 Thread ID 获取最近的消息（倒序）
      */
     public List<MessageDb> findRecentByThreadId(String threadId, int limit) {
+        
+        if (isNoStoreMode()) {
+            return getContextStore().findRecentMessagesByThreadId(threadId, limit);
+        }
         return dsl.selectFrom(MESSAGE)
                 .where(MESSAGE.THREAD_ID.eq(threadId))
                 .and(MESSAGE.MESSAGE_STATUS.eq("original"))
@@ -151,6 +214,10 @@ public class MessageRepo implements BaseRepo {
      * 删除 Thread 下的所有 Message
      */
     public int deleteByThreadId(String threadId) {
+        
+        if (isNoStoreMode()) {
+            return getContextStore().deleteMessagesByThreadId(threadId);
+        }
         return dsl.deleteFrom(MESSAGE)
                 .where(MESSAGE.THREAD_ID.eq(threadId))
                 .execute();

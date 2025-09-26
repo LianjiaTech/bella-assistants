@@ -104,10 +104,8 @@ public class ResponseService {
         String runId = idGenerator.generateRunId();
 
         // create response entity
-        if(Boolean.FALSE != request.getStore()) {
-            ResponseIdMappingDb db = checkAndStore(responseId, threadId, runId, request.getPreviousResponseId(), request.getUser());
-            threadId = db.getThreadId(); // fork后threadId可能变化
-        }
+        ResponseIdMappingDb db = checkAndStore(responseId, threadId, runId, request.getPreviousResponseId(), request.getUser());
+        threadId = db.getThreadId(); // fork后threadId可能变化
 
         String instructions = systemPrompt.length() > 0 ? systemPrompt.toString() : null;
         RunCreateRequest runCreateRequest = ResponseUtils.convertToRunRequest(request, instructions, tools,

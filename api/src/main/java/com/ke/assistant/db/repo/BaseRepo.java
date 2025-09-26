@@ -1,5 +1,6 @@
 package com.ke.assistant.db.repo;
 
+import com.ke.assistant.db.context.RepoContext;
 import lombok.var;
 import org.apache.commons.lang3.StringUtils;
 import org.jooq.Condition;
@@ -17,6 +18,22 @@ import java.util.function.Function;
  * 基础 Repository 接口
  */
 public interface BaseRepo {
+
+    /**
+     * 判断是否处于 no-store 模式
+     * @return true 如果处于 no-store 模式，false 否则
+     */
+    default boolean isNoStoreMode() {
+        return RepoContext.isActive();
+    }
+
+    /**
+     * 获取 RepoContext Store
+     * @return RepoContext.Store 如果处于 no-store 模式，null 否则
+     */
+    default RepoContext.Store getContextStore() {
+        return RepoContext.store();
+    }
 
     /**
      * 填充创建时间信息

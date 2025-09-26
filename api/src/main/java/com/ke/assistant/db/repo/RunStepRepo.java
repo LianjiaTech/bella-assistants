@@ -1,6 +1,7 @@
 package com.ke.assistant.db.repo;
 
 import com.ke.assistant.db.IdGenerator;
+import com.ke.assistant.db.context.RepoContext;
 import com.ke.assistant.db.generated.tables.pojos.RunStepDb;
 import com.ke.assistant.db.generated.tables.records.RunStepRecord;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,10 @@ public class RunStepRepo implements BaseRepo {
      * 根据 ID 查询 Run Step
      */
     public RunStepDb findById(String threadId, String id) {
+        
+        if (isNoStoreMode()) {
+            return getContextStore().findRunStepById(id);
+        }
         return dsl.selectFrom(RUN_STEP)
                 .where(RUN_STEP.ID.eq(id))
                 .fetchOneInto(RunStepDb.class);
@@ -37,6 +42,10 @@ public class RunStepRepo implements BaseRepo {
      * 根据 ID 查询 Run Step forUpdate
      */
     public RunStepDb findByIdForUpdate(String threadId, String id) {
+        
+        if (isNoStoreMode()) {
+            return getContextStore().findRunStepById(id);
+        }
         return dsl.selectFrom(RUN_STEP)
                 .where(RUN_STEP.ID.eq(id))
                 .forUpdate()
@@ -48,6 +57,10 @@ public class RunStepRepo implements BaseRepo {
      * 根据 RunID 查询 正在等待工具结果的 Run Step forUpdate
      */
     public RunStepDb findActionRequiredForUpdate(String threadId, String runId) {
+        
+        if (isNoStoreMode()) {
+            return getContextStore().findActionRequiredForUpdate(runId);
+        }
         return dsl.selectFrom(RUN_STEP)
                 .where(RUN_STEP.RUN_ID.eq(runId))
                 .and(RUN_STEP.STATUS.eq("requires_action"))
@@ -59,6 +72,10 @@ public class RunStepRepo implements BaseRepo {
      * 根据 Run ID 查询 Run Step 列表
      */
     public List<RunStepDb> findByRunId(String threadId, String runId) {
+        
+        if (isNoStoreMode()) {
+            return getContextStore().findRunStepsByRunId(threadId, runId);
+        }
         return dsl.selectFrom(RUN_STEP)
                 .where(RUN_STEP.RUN_ID.eq(runId))
                 .orderBy(RUN_STEP.CREATED_AT.asc())
@@ -69,6 +86,10 @@ public class RunStepRepo implements BaseRepo {
      * 根据 Thread ID 查询 Run Step 列表
      */
     public List<RunStepDb> findByThreadId(String threadId) {
+        
+        if (isNoStoreMode()) {
+            return getContextStore().findRunStepsByThreadId(threadId);
+        }
         return dsl.selectFrom(RUN_STEP)
                 .where(RUN_STEP.THREAD_ID.eq(threadId))
                 .orderBy(RUN_STEP.CREATED_AT.asc())
@@ -79,6 +100,10 @@ public class RunStepRepo implements BaseRepo {
      * 根据 Thread ID 和 Run IDs 查询 Run Step 列表
      */
     public List<RunStepDb> findByRunIds(String threadId, List<String> runIds) {
+        
+        if (isNoStoreMode()) {
+            return getContextStore().findRunStepsByRunIds(threadId, runIds);
+        }
         return dsl.selectFrom(RUN_STEP)
                 .where(RUN_STEP.THREAD_ID.eq(threadId))
                 .and(RUN_STEP.RUN_ID.in(runIds))
@@ -90,6 +115,10 @@ public class RunStepRepo implements BaseRepo {
      * 根据 Run ID 查询 Run Step 列表（支持游标分页）
      */
     public List<RunStepDb> findByRunIdWithCursor(String threadId, String runId, String after, String before, int limit, String order) {
+        
+        if (isNoStoreMode()) {
+            return getContextStore().findRunStepsByRunId(threadId, runId);
+        }
         return findWithCursor(
                 dsl,
                 RUN_STEP,
@@ -117,6 +146,10 @@ public class RunStepRepo implements BaseRepo {
             runStep.setMetadata("{}");
         }
 
+        
+        if (isNoStoreMode()) {
+            return getContextStore().insertRunStep(runStep);
+        }
         fillCreateTime(runStep);
 
         RunStepRecord record = dsl.newRecord(RUN_STEP, runStep);
@@ -129,6 +162,10 @@ public class RunStepRepo implements BaseRepo {
      * 更新 Run Step
      */
     public boolean update(RunStepDb runStep) {
+        
+        if (isNoStoreMode()) {
+            return getContextStore().updateRunStep(runStep);
+        }
         fillUpdateTime(runStep);
 
         return dsl.update(RUN_STEP)
@@ -141,6 +178,13 @@ public class RunStepRepo implements BaseRepo {
      * 更新 Step Details
      */
     public boolean updateStepDetails(String threadId, String id, String stepDetails) {
+        
+        if (isNoStoreMode()) {
+            RunStepDb db = getContextStore().findRunStepById(id);
+            if (db == null) return false;
+            db.setStepDetails(stepDetails);
+            return getContextStore().updateRunStep(db);
+        }
         return dsl.update(RUN_STEP)
                 .set(RUN_STEP.STEP_DETAILS, stepDetails)
                 .set(RUN_STEP.UPDATED_AT, LocalDateTime.now())

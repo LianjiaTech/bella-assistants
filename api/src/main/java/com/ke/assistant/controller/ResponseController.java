@@ -2,6 +2,7 @@ package com.ke.assistant.controller;
 
 import com.ke.assistant.core.run.ExecutionContext;
 import com.ke.assistant.core.run.RunExecutor;
+import com.ke.assistant.db.context.RepoContext;
 import com.ke.assistant.model.ResponseCreateResult;
 import com.ke.assistant.service.ResponseService;
 import com.ke.bella.openapi.BellaContext;
@@ -46,29 +47,40 @@ public class ResponseController {
 
         request.setUser(BellaContext.getOwnerCode());
 
-        // Create response and prepare for execution
-        ResponseCreateResult result = responseService.createResponse(request);
-
-        SseEmitter emitter = null;
-        // If streaming is requested, return SseEmitter
-        if (Boolean.TRUE.equals(request.getStream())) {
-            emitter = new SseEmitter(600000L); // 10 minute timeout
+        boolean nonStore = Boolean.FALSE.equals(request.getStore());
+        if (nonStore) {
+            RepoContext.activate();
         }
 
-        // Start response execution
-        ExecutionContext context = runExecutor.startResponseRun(
-            result.getThreadId(),
-            result.getRunId(),
-            result.getAssistantMessageId(),
-            result.getAdditionalMessages(),
-            result.isNewThread(),
-            result.getResponse(),
-            emitter,
-            BellaContext.snapshot()
-        );
+        try {
+            // Create response and prepare for execution
+            ResponseCreateResult result = responseService.createResponse(request);
 
-        return Boolean.TRUE.equals(request.getStream()) ? emitter :
-                Boolean.TRUE.equals(request.getBackground()) ? result.getResponse() : context.blockingGetResult(600);
+            SseEmitter emitter = null;
+            // If streaming is requested, return SseEmitter
+            if (Boolean.TRUE.equals(request.getStream())) {
+                emitter = new SseEmitter(600000L); // 10 minute timeout
+            }
+
+            // Start response execution
+            ExecutionContext context = runExecutor.startResponseRun(
+                result.getThreadId(),
+                result.getRunId(),
+                result.getAssistantMessageId(),
+                result.getAdditionalMessages(),
+                result.isNewThread(),
+                result.getResponse(),
+                emitter,
+                BellaContext.snapshot()
+            );
+
+            return Boolean.TRUE.equals(request.getStream()) ? emitter :
+                    Boolean.TRUE.equals(request.getBackground()) ? result.getResponse() : context.blockingGetResult(600);
+        } finally {
+            if (nonStore) {
+                RepoContext.detach();
+            }
+        }
     }
 
     /**

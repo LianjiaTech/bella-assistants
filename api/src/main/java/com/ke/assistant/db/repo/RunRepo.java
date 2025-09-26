@@ -1,6 +1,7 @@
 package com.ke.assistant.db.repo;
 
 import com.ke.assistant.db.IdGenerator;
+import com.ke.assistant.db.context.RepoContext;
 import com.ke.assistant.db.generated.tables.pojos.RunDb;
 import com.ke.assistant.db.generated.tables.records.RunRecord;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,10 @@ public class RunRepo implements BaseRepo {
      * 根据 ID 查询 Run
      */
     public RunDb findById(String threadId, String id) {
+        
+        if (isNoStoreMode()) {
+            return getContextStore().findRunById(id);
+        }
         return dsl.selectFrom(RUN)
                 .where(RUN.ID.eq(id))
                 .fetchOneInto(RunDb.class);
@@ -37,6 +42,10 @@ public class RunRepo implements BaseRepo {
      * 根据 ID 查询 Run
      */
     public RunDb findByIdForUpdate(String threadId, String id) {
+        
+        if (isNoStoreMode()) {
+            return getContextStore().findRunById(id);
+        }
         return dsl.selectFrom(RUN)
                 .where(RUN.ID.eq(id))
                 .forUpdate()
@@ -47,6 +56,10 @@ public class RunRepo implements BaseRepo {
      * 根据 Thread ID 查询 Run 列表
      */
     public List<RunDb> findByThreadId(String threadId) {
+        
+        if (isNoStoreMode()) {
+            return getContextStore().findRunsByThreadId(threadId);
+        }
         return dsl.selectFrom(RUN)
                 .where(RUN.THREAD_ID.eq(threadId))
                 .orderBy(RUN.CREATED_AT.desc())
@@ -57,6 +70,10 @@ public class RunRepo implements BaseRepo {
      * 根据 Thread ID 查询 任意Run
      */
     public RunDb findAnyByThreadId(String threadId) {
+        
+        if (isNoStoreMode()) {
+            return getContextStore().findAnyRunByThreadId(threadId);
+        }
         return dsl.selectFrom(RUN)
                 .where(RUN.THREAD_ID.eq(threadId))
                 .orderBy(RUN.CREATED_AT.desc())
@@ -69,6 +86,11 @@ public class RunRepo implements BaseRepo {
      * 基于游标的分页查询 Thread 下的 Run
      */
     public List<RunDb> findByThreadIdWithCursor(String threadId, String after, String before, int limit, String order) {
+        
+        if (isNoStoreMode()) {
+            // Simplify to recent runs in non-store mode
+            return getContextStore().findRunsByThreadId(threadId);
+        }
         return findWithCursor(
                 dsl,
                 RUN,
@@ -92,6 +114,9 @@ public class RunRepo implements BaseRepo {
             run.setId(idGenerator.generateRunId());
         }
 
+        if (isNoStoreMode()) {
+            return getContextStore().insertRun(run);
+        }
         fillCreateTime(run);
 
         RunRecord record = dsl.newRecord(RUN, run);
@@ -104,6 +129,10 @@ public class RunRepo implements BaseRepo {
      * 更新 Run
      */
     public boolean update(RunDb run) {
+        
+        if (isNoStoreMode()) {
+            return getContextStore().updateRun(run);
+        }
         fillUpdateTime(run);
 
         return dsl.update(RUN)
@@ -113,6 +142,14 @@ public class RunRepo implements BaseRepo {
     }
 
     public boolean updateRequireAction(String threadId, String id, String requireAction) {
+        
+        if (isNoStoreMode()) {
+            RunDb db = getContextStore().findRunById(id);
+            if (db == null) return false;
+            db.setRequiredAction(requireAction);
+            db.setUpdatedAt(LocalDateTime.now());
+            return getContextStore().updateRun(db);
+        }
         return dsl.update(RUN)
                 .set(RUN.REQUIRED_ACTION, requireAction)
                 .set(RUN.UPDATED_AT, LocalDateTime.now())

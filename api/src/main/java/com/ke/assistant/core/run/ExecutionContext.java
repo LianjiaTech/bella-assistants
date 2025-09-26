@@ -605,7 +605,7 @@ public class ExecutionContext {
     }
 
     public boolean isHidden() {
-        return !isStore() || isNoExecute();
+        return isNoExecute();
     }
 
     public boolean isDisableTruncate() {
