@@ -7,10 +7,14 @@ import com.ke.assistant.service.ResponseService;
 import com.ke.bella.openapi.BellaContext;
 import com.theokanning.openai.response.CreateResponseRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.NotImplementedException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -37,7 +41,7 @@ public class ResponseController {
      * POST /v1/responses
      */
     @PostMapping
-    public Object createResponse(@RequestBody CreateResponseRequest request) throws ExecutionException, InterruptedException, TimeoutException {
+    public Object createResponses(@RequestBody CreateResponseRequest request) throws ExecutionException, InterruptedException, TimeoutException {
         log.info("Creating response with model: {}, stream: {}", request.getModel(), request.getStream());
 
         request.setUser(BellaContext.getOwnerCode());
@@ -65,6 +69,19 @@ public class ResponseController {
 
         return Boolean.TRUE.equals(request.getStream()) ? emitter :
                 Boolean.TRUE.equals(request.getBackground()) ? result.getResponse() : context.blockingGetResult(600);
+    }
+
+    /**
+     * get responses execution result
+     */
+    @GetMapping("/{response_id}")
+    public Object getResponses(@PathVariable("response_id") String responseId,
+            @RequestParam(required = false) boolean stream,
+            @RequestParam(value = "starting_after", required = false) Integer startingAfter) {
+        if(stream) {
+            throw new NotImplementedException("Can not support stream mode");
+        }
+        return responseService.getResponse(responseId);
     }
     
 }

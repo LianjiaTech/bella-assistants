@@ -361,10 +361,10 @@ public class ResponseUtils {
             Assert.notNull(toolResult, "invalid tool call id");
             // tool call
             Message tooCallMessage = setToolCall(toolCall, last, messages, toolCallItem.getType());
-            tooCallMessage.getMetadata().put("itemId", toolCallItem.getId());
+            tooCallMessage.getMetadata().put("item_id", toolCallItem.getId());
             // tool result
             Message toolResultMessage = setToolResult(toolResult, tooCallMessage, messages, toolCallItem.getType());
-            toolResultMessage.getMetadata().put("itemId", toolCallItem.getId());
+            toolResultMessage.getMetadata().put("item_id", toolCallItem.getId());
         }
     }
 
@@ -509,19 +509,29 @@ public class ResponseUtils {
                     case "image_file":
                         processImageFileContent(content, role, inputContents);
                         break;
-
-                    case "tool_call":
-                        processToolCallContent(content, message, conversationItems);
-                        break;
-
-                    case "tool_result":
-                        processToolResultContent(content, message, conversationItems);
-                        break;
                 }
             }
 
             // Add accumulated text/image contents as messages
             addAccumulatedContents(role, inputContents, outputContents, conversationItems);
+
+            // 同一个message中工具调用相关的内容加到后面
+            for (MessageContent content : contents) {
+                if(content == null)
+                    continue;
+
+                String type = content.getType();
+
+                switch (type) {
+                case "tool_call":
+                    processToolCallContent(content, message, conversationItems);
+                    break;
+
+                case "tool_result":
+                    processToolResultContent(content, message, conversationItems);
+                    break;
+                }
+            }
 
             // Process file attachments
             processFileAttachments(message, role, conversationItems);
@@ -585,13 +595,11 @@ public class ResponseUtils {
         ChatToolCall toolCall = content.getToolCall();
         String toolCallId = toolCall.getId();
 
+        Map<String, String> mataData = message.getMetadata();
         // Get the item type from metadata to determine the correct tool call type
-        String itemType = message.getMetadata() != null ?
-            message.getMetadata().get("item_type") : null;
-
+        String itemType = mataData.getOrDefault(toolCallId + "_type", mataData.get("item_type"));
         // Get item ID from message metadata if available
-        String itemId = message.getMetadata() != null ?
-            message.getMetadata().get("itemId") : null;
+        String itemId = mataData.getOrDefault(toolCallId + "_id", mataData.get("item_id"));
 
         if ("function_call".equals(itemType)) {
             conversationItems.add(createFunctionToolCall(toolCall, toolCallId, itemId));
@@ -696,31 +704,43 @@ public class ResponseUtils {
         String toolCallId = toolResult.getToolCallId();
         String output = toolResult.getContent();
 
-        // Get the item type from metadata to determine the correct output type
-        String itemType = message.getMetadata() != null ?
-            message.getMetadata().get("item_type") : null;
+        Map<String, String> mataData = message.getMetadata();
+        // Get the item type from metadata to determine the correct tool call type
+        String itemType = mataData.getOrDefault(toolCallId + "_type", mataData.get("item_type"));
+        // Get item ID from message metadata if available
+        String itemId = mataData.getOrDefault(toolCallId + "_id", mataData.get("item_id"));
 
-        if ("function_call_output".equals(itemType) || "function_call".equals(itemType)) {
+        if ("function_call_output".equals(itemType)) {
             FunctionToolCallOutput functionOutput = new FunctionToolCallOutput();
             functionOutput.setCallId(toolCallId);
             functionOutput.setOutput(output);
             conversationItems.add(functionOutput);
-        } else if ("local_shell_call_output".equals(itemType) || "local_shell_call".equals(itemType)) {
+        } else if ("local_shell_call_output".equals(itemType)) {
             LocalShellCallOutput localShellOutput = new LocalShellCallOutput();
             localShellOutput.setId(toolCallId);
             localShellOutput.setOutput(output);
             localShellOutput.setStatus(ItemStatus.COMPLETED);
             conversationItems.add(localShellOutput);
-        } else if ("custom_tool_call_output".equals(itemType) || "custom_tool_call".equals(itemType)) {
+        } else if ("custom_tool_call_output".equals(itemType)) {
             CustomToolCallOutput customOutput = new CustomToolCallOutput();
             customOutput.setCallId(toolCallId);
             customOutput.setOutput(output);
             conversationItems.add(customOutput);
         } else if ("file_search_call".equals(itemType) || "web_search_call".equals(itemType) || "image_generation_call".equals(itemType)) {
-            ConversationItem previousItem = findPreviousToolCall(conversationItems, toolCallId);
+            ConversationItem previousItem = findPreviousToolCall(conversationItems, itemId);
+            Map<String, Object> map = JacksonUtils.toMap(output);
             if(previousItem instanceof FileSearchToolCall) {
                 FileSearchToolCall toolCall = (FileSearchToolCall) previousItem;
-                List<FileSearchToolCall.SearchResult> searchResults = JacksonUtils.deserialize(output, new TypeReference<List<FileSearchToolCall.SearchResult>>() {});
+                List<FileSearchToolCall.SearchResult> searchResults;
+                if(map.containsKey("message")) {
+                    searchResults = JacksonUtils.deserialize((String) map.get("message"),
+                            new TypeReference<List<FileSearchToolCall.SearchResult>>() {
+                            });
+                } else {
+                    FileSearchToolCall.SearchResult searchResult = new FileSearchToolCall.SearchResult();
+                    searchResult.setText((String) map.getOrDefault("error", "no_message"));
+                    searchResults = Lists.newArrayList(searchResult);
+                }
                 if(searchResults == null) {
                     searchResults = new ArrayList<>();
                     FileSearchToolCall.SearchResult result = new FileSearchToolCall.SearchResult();
@@ -729,8 +749,9 @@ public class ResponseUtils {
                 }
                 toolCall.setResults(searchResults);
             } else if(previousItem instanceof ImageGenerationToolCall) {
+                String data = (String) map.getOrDefault("message", map.getOrDefault("error", "no_message"));
                 ImageGenerationToolCall toolCall = (ImageGenerationToolCall) previousItem;
-                toolCall.setResult(output);
+                toolCall.setResult(data);
             }
         }
     }
@@ -788,22 +809,24 @@ public class ResponseUtils {
         }
     }
 
-    private static ConversationItem findPreviousToolCall(List<ConversationItem> items, String toolCallId) {
-        for (int i = items.size() - 1; i >= 0; i--) {
-            ConversationItem item = items.get(i);
+    private static ConversationItem findPreviousToolCall(List<ConversationItem> items, String itemId) {
+        if(itemId == null) {
+            return null;
+        }
+        for (ConversationItem item : items) {
             if (item instanceof FileSearchToolCall) {
                 FileSearchToolCall call = (FileSearchToolCall) item;
-                if (toolCallId.equals(call.getId())) {
+                if (itemId.equals(call.getId())) {
                     return call;
                 }
             } else if (item instanceof WebSearchToolCall) {
                 WebSearchToolCall call = (WebSearchToolCall) item;
-                if (toolCallId.equals(call.getId())) {
+                if (itemId.equals(call.getId())) {
                     return call;
                 }
             } else if (item instanceof ImageGenerationToolCall) {
                 ImageGenerationToolCall call = (ImageGenerationToolCall) item;
-                if (toolCallId.equals(call.getId())) {
+                if (itemId.equals(call.getId())) {
                     return call;
                 }
             }
@@ -826,5 +849,40 @@ public class ResponseUtils {
             default:
                 return MessageRole.USER;
         }
+    }
+
+    public static String converterToToolCallItemType(Tool tool) {
+        if(tool instanceof Tool.Function) {
+            return "function_call";
+        }
+        if(tool instanceof Tool.LocalShell) {
+            return "local_shell_call";
+        }
+        if(tool instanceof Tool.Custom) {
+            return "custom_tool_call";
+        }
+        if(tool instanceof Tool.Retrieval) {
+            return "file_search_call";
+        }
+        if(tool instanceof Tool.WebSearch || tool instanceof Tool.WebSearchTavily) {
+            return "web_search_call";
+        }
+        if(tool instanceof Tool.ImgGenerate) {
+            return "image_generation_call";
+        }
+        return "unknown";
+    }
+
+    public static String converterToToolOutputItemType(Tool tool) {
+        if(tool instanceof Tool.Function) {
+            return "function_call_output";
+        }
+        if(tool instanceof Tool.LocalShell) {
+            return "local_shell_call_output";
+        }
+        if(tool instanceof Tool.Custom) {
+            return "custom_tool_call_output";
+        }
+        return converterToToolCallItemType(tool);
     }
 }

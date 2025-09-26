@@ -426,6 +426,19 @@ public class RunStateManager {
                 .type("tool_calls")
                 .toolCalls(results)
                 .build();
+        Map<String, String> metaData = context.getCurrentMetaData();
+        if(metaData.containsKey(MetaConstants.TEXT)) {
+            stepDetails.setText(metaData.get(MetaConstants.TEXT));
+        }
+        if(metaData.containsKey(MetaConstants.REASONING)) {
+            stepDetails.setReasoningContent(metaData.get(MetaConstants.REASONING));
+        }
+        if(metaData.containsKey(MetaConstants.REASONING_SIG)) {
+            stepDetails.setReasoningContentSignature(metaData.get(MetaConstants.REASONING_SIG));
+        }
+        if(metaData.containsKey(MetaConstants.REDACTED_REASONING)) {
+            stepDetails.setRedactedReasoningContent(metaData.get(MetaConstants.REDACTED_REASONING));
+        }
         String stepDetailsJson = JacksonUtils.serialize(stepDetails);
         runStepRepo.updateStepDetails(context.getThreadId(), stepId, stepDetailsJson);
         if(errorMessage != null) {

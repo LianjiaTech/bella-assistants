@@ -13,18 +13,13 @@ import com.ke.assistant.db.repo.ThreadRepo;
 import com.ke.assistant.model.RunCreateResult;
 import com.ke.assistant.util.BeanUtils;
 import com.ke.assistant.util.MessageUtils;
-import com.ke.assistant.util.MetaConstants;
 import com.ke.assistant.util.ToolResourceUtils;
 import com.ke.bella.openapi.BellaContext;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.assistants.message.Message;
-import com.theokanning.openai.assistants.message.MessageContent;
 import com.theokanning.openai.assistants.message.MessageRequest;
-import com.theokanning.openai.assistants.message.content.Text;
 import com.theokanning.openai.assistants.run.CreateThreadAndRunRequest;
-import com.theokanning.openai.assistants.run.Run;
 import com.theokanning.openai.assistants.run.RunCreateRequest;
-import com.theokanning.openai.assistants.run.ToolCall;
 import com.theokanning.openai.assistants.run_step.RunStep;
 import com.theokanning.openai.assistants.run_step.StepDetails;
 import com.theokanning.openai.assistants.thread.Attachment;
@@ -353,25 +348,9 @@ public class ThreadService {
         MessageDb toolCallMsg = MessageUtils.convertToolCallMessageFromStepDetails(threadId, details);
         messagesToCreate.add(toolCallMsg);
 
-        // Create tool_result message (only if outputs exist)
-        boolean hasOutput = details.getToolCalls().stream().anyMatch(tc ->
-                (tc.getFunction() != null && tc.getFunction().getOutput() != null)
-                        || (tc.getCodeInterpreter() != null && tc.getCodeInterpreter().getOutputs() != null)
-                        || (tc.getFileSearch() != null && tc.getFileSearch().getResults() != null)
-        );
-        if(hasOutput) {
-            MessageDb toolResultMsg = new MessageDb();
-            toolResultMsg.setThreadId(threadId);
-            toolResultMsg.setRole("tool");
+        MessageDb toolResultMsg = MessageUtils.convertToToolResult(threadId, details, runStep.getLastError());
 
-            List<MessageContent> toolResultContent = new ArrayList<>();
-            for (ToolCall tc : details.getToolCalls()) {
-                MessageContent rc = new MessageContent();
-                rc.setType("tool_result");
-                rc.setToolResult(MessageUtils.convertToToolMessage(tc, runStep.getLastError()));
-                toolResultContent.add(rc);
-            }
-            toolResultMsg.setContent(JacksonUtils.serialize(toolResultContent));
+        if(toolResultMsg != null) {
             messagesToCreate.add(toolResultMsg);
         }
     }

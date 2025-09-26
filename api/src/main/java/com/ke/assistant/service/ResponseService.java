@@ -14,6 +14,7 @@ import com.ke.assistant.util.ResponseUtils;
 import com.ke.assistant.util.ToolUtils;
 import com.ke.bella.openapi.BellaContext;
 import com.ke.bella.openapi.common.exception.BizParamCheckException;
+import com.ke.bella.openapi.common.exception.ResourceNotFoundException;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.assistants.assistant.FunctionResources;
 import com.theokanning.openai.assistants.assistant.Tool;
@@ -26,8 +27,10 @@ import com.theokanning.openai.assistants.run.RunCreateRequest;
 import com.theokanning.openai.assistants.run_step.RunStep;
 import com.theokanning.openai.assistants.thread.Attachment;
 import com.theokanning.openai.assistants.thread.Thread;
+import com.theokanning.openai.response.ConversationItem;
 import com.theokanning.openai.response.CreateResponseRequest;
 import com.theokanning.openai.response.Response;
+import com.theokanning.openai.response.ResponseItem;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.tuple.Triple;
@@ -125,6 +128,75 @@ public class ResponseService {
                 .additionalMessages(runResult.getAdditionalMessages())
                 .isNewThread(threadId.equals(previousThreadId))
                 .build();
+    }
+
+    /**
+     * get responses execution result
+     */
+    public Response getResponse(String responseId) {
+        // Get response mapping from database
+        ResponseIdMappingDb mappingDb = responseIdMappingRepo.findByResponseId(responseId);
+        if (mappingDb == null) {
+            throw new ResourceNotFoundException("Response not found: " + responseId);
+        }
+
+        // Get the run from database
+        Run run = runService.getRunById(mappingDb.getThreadId(), mappingDb.getRunId());
+        if (run == null) {
+            throw new ResourceNotFoundException("Run not found for response: " + responseId);
+        }
+
+        Map<String, Tool> toolMap = run.getTools() == null ? new HashMap<>() :
+                run.getTools().stream().collect(Collectors.toMap(Tool::getType, Function.identity(), (existing, replacement) -> existing));
+
+        // Build basic response from run
+        Response response = ResponseUtils.buildResponseFromRun(run, responseId);
+
+        // If run is completed or failed, add output messages
+        RunStatus status = RunStatus.fromValue(run.getStatus());
+        if (status.isStopExecution()) {
+            // Get all run steps to extract messages
+            List<RunStep> runSteps = runService.getRunSteps(mappingDb.getThreadId(), mappingDb.getRunId());
+
+            // Collect all messages from run steps
+            List<Message> messages = new ArrayList<>();
+            Message assistantMessage = null;
+            for (RunStep runStep : runSteps) {
+                RunStatus runStepStatus = RunStatus.fromValue(runStep.getStatus());
+                if(!runStepStatus.isStopExecution()) {
+                    continue;
+                }
+                if ("message_creation".equals(runStep.getType())) {
+                    // Get the assistant message created in this step
+                    if (runStep.getStepDetails() != null &&
+                        runStep.getStepDetails().getMessageCreation() != null) {
+                        String messageId = runStep.getStepDetails().getMessageCreation().getMessageId();
+                        assistantMessage = messageService.getMessageById(mappingDb.getThreadId(), messageId);
+                    }
+                } else if ("tool_calls".equals(runStep.getType())) {
+                    processToolCallSteps(runStep, toolMap, messages);
+                }
+            }
+
+            if(assistantMessage != null) {
+                messages.add(assistantMessage);
+            }
+
+            // Convert messages to conversation items (output)
+            if (!messages.isEmpty()) {
+                List<ConversationItem> conversationItems = ResponseUtils.convertMessagesToConversationItems(messages);
+
+                // Filter to only include ResponseItems (output items)
+                List<ResponseItem> outputItems = conversationItems.stream()
+                    .filter(item -> item instanceof ResponseItem)
+                    .map(item -> (ResponseItem) item)
+                    .collect(Collectors.toList());
+
+                response.setOutput(outputItems);
+            }
+        }
+
+        return response;
     }
 
     private ToolResources toolResources(List<Tool> tools) {
@@ -305,6 +377,42 @@ public class ResponseService {
         threadDb.setMetadata(JacksonUtils.serialize(meta));
 
         return threadService.createThread(threadDb, null, new ArrayList<>());
+    }
+
+    private void processToolCallSteps(RunStep runStep, Map<String, Tool> toolMap, List<Message> messages) {
+        // Extract tool call messages from step details
+        if (runStep.getStepDetails() != null &&
+                runStep.getStepDetails().getToolCalls() != null) {
+            Map<String, String> toolCallItemTypes = new HashMap<>();
+            Map<String, String> toolResultItemTypes = new HashMap<>();
+            Map<String, String> itemIds = new HashMap<>();
+            runStep.getStepDetails().getToolCalls().forEach(
+                    toolCall -> {
+                        Tool tool =  toolMap.getOrDefault(toolCall.getType(), toolMap.get(toolCall.getFunction() == null ?
+                                "custom_tool" : toolCall.getFunction().getName()));
+                        if(tool != null && !tool.hidden()) {
+                            String itemId = runStep.getThreadId().concat("_").concat(runStep.getId()).concat("_").concat(toolCall.getId());
+                            toolCallItemTypes.put(toolCall.getId() + "_type", ResponseUtils.converterToToolCallItemType(tool));
+                            toolResultItemTypes.put(toolCall.getId() + "_type", ResponseUtils.converterToToolOutputItemType(tool));
+                            itemIds.put(toolCall.getId() + "_id", itemId);
+                        }
+                    }
+            );
+            MessageDb toolCallDb = MessageUtils.convertToolCallMessageFromStepDetails(runStep.getThreadId(), runStep.getStepDetails());
+            Message toolCallMessage = MessageUtils.convertToInfo(toolCallDb);
+            if (toolCallMessage != null) {
+                toolCallMessage.getMetadata().putAll(toolCallItemTypes);
+                toolCallMessage.getMetadata().putAll(itemIds);
+                messages.add(toolCallMessage);
+                MessageDb toolResultDb = MessageUtils.convertToToolResult(runStep.getThreadId(), runStep.getStepDetails(), runStep.getLastError());
+                if(toolResultDb != null) {
+                    Message toolResultMessage = MessageUtils.convertToInfo(toolResultDb);
+                    toolResultMessage.getMetadata().putAll(toolResultItemTypes);
+                    toolResultMessage.getMetadata().putAll(itemIds);
+                    messages.add(toolResultMessage);
+                }
+            }
+        }
     }
 
 }

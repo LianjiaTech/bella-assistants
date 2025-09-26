@@ -648,6 +648,31 @@ public class MessageUtils {
         return toolCallMsg;
     }
 
+    public static MessageDb convertToToolResult(String threadId, StepDetails details, LastError lastError) {
+        // Create tool_result message (only if outputs exist)
+        boolean hasOutput = details.getToolCalls().stream().anyMatch(tc ->
+                (tc.getFunction() != null && tc.getFunction().getOutput() != null)
+                        || (tc.getCodeInterpreter() != null && tc.getCodeInterpreter().getOutputs() != null)
+                        || (tc.getFileSearch() != null && tc.getFileSearch().getResults() != null)
+        );
+        if(!hasOutput) {
+            return null;
+        }
+        MessageDb toolResultMsg = new MessageDb();
+        toolResultMsg.setThreadId(threadId);
+        toolResultMsg.setRole("tool");
+
+        List<MessageContent> toolResultContent = new ArrayList<>();
+        for (ToolCall tc : details.getToolCalls()) {
+            MessageContent rc = new MessageContent();
+            rc.setType("tool_result");
+            rc.setToolResult(convertToToolMessage(tc, lastError));
+            toolResultContent.add(rc);
+        }
+        toolResultMsg.setContent(JacksonUtils.serialize(toolResultContent));
+        return toolResultMsg;
+    }
+
     /**
      * 将MessageDb转换为MessageInfo
      */

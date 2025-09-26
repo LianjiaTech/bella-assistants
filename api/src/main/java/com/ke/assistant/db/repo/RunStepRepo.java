@@ -8,6 +8,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.jooq.DSLContext;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static com.ke.assistant.db.generated.Tables.RUN_STEP;
@@ -142,7 +143,7 @@ public class RunStepRepo implements BaseRepo {
     public boolean updateStepDetails(String threadId, String id, String stepDetails) {
         return dsl.update(RUN_STEP)
                 .set(RUN_STEP.STEP_DETAILS, stepDetails)
-                .set(RUN_STEP.UPDATED_AT, java.time.LocalDateTime.now())
+                .set(RUN_STEP.UPDATED_AT, LocalDateTime.now())
                 .where(RUN_STEP.ID.eq(id))
                 .execute() > 0;
     }

@@ -248,7 +248,7 @@ public class ResponseMessageExecutor implements Runnable {
                     if(content.length() > 0) {
                         content.append("\n");
                     }
-                    content.append(outputText);
+                    content.append(outputText.getText());
                 }
             }
 
