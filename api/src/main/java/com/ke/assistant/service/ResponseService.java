@@ -71,6 +71,9 @@ public class ResponseService {
     @Autowired
     private ResponseIdMappingRepo responseIdMappingRepo;
 
+    @Autowired
+    private ImageStorageService imageStorageService;
+
     /**
      * Create a new response
      */
@@ -212,7 +215,7 @@ public class ResponseService {
     }
 
     private void buildMessage(CreateResponseRequest request, StringBuilder systemPrompt, List<Message> inputMessages) {
-        List<Message> messages = ResponseUtils.checkAndConvertInputToMessages(request, runService::getRunStep);
+        List<Message> messages = ResponseUtils.checkAndConvertInputToMessages(request, runService::getRunStep, imageStorageService::processImageUrl);
         for(Message message : messages) {
             if(message.getRole().equals("system") || message.getRole().equals("developer")) {
                 message.getContent().stream().map(MessageContent::getText)

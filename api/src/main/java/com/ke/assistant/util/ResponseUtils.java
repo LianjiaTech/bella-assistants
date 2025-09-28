@@ -77,6 +77,12 @@ public class ResponseUtils {
         RunStep fetch(String threadId, String stepId);
     }
 
+
+    @FunctionalInterface
+    public interface ImageUrlProcessor {
+        String processImageUrl(String imageUrl);
+    }
+
     public static RunCreateRequest convertToRunRequest(CreateResponseRequest request, String systemPrompt, List<Tool> tools,
             String responseId, String threadId, String previousThreadId, String previousRunId) {
         // Create run request
@@ -186,9 +192,11 @@ public class ResponseUtils {
                 .previousResponseId(metadata.get(MetaConstants.PREVIOUS_RES_ID))
                 .truncation(run.getTruncationStrategy() != null ? run.getTruncationStrategy().getType() : "auto");
 
-        // Add conversation reference
-        ConversationValue conversationValue = ConversationValue.of(run.getThreadId());
-        builder.conversation(conversationValue);
+        if(Boolean.parseBoolean(run.getMetadata().get(MetaConstants.STORE))) {
+            // Add conversation reference
+            ConversationValue conversationValue = ConversationValue.of(run.getThreadId());
+            builder.conversation(conversationValue);
+        }
 
         // Add usage if available
         builder.usage(Response.Usage.fromChatUsage(run.getUsage()));
@@ -215,7 +223,7 @@ public class ResponseUtils {
     }
 
 
-    public static List<Message> checkAndConvertInputToMessages(CreateResponseRequest request, RunStepFetcher fetcher) {
+    public static List<Message> checkAndConvertInputToMessages(CreateResponseRequest request, RunStepFetcher fetcher, ImageUrlProcessor imageProcessor) {
         List<Message> messages = new ArrayList<>();
         if(request.getInput() != null) {
             if(request.getInput().getInputType() == InputValue.InputType.STRING) {
@@ -224,7 +232,7 @@ public class ResponseUtils {
                 message.setContent(Lists.newArrayList(textContent(request.getInput().getStringValue())));
                 messages.add(message);
             } else if(request.getInput().getInputType() == InputValue.InputType.OBJECT_LIST) {
-                messages = convertConversationItemsToMessages(request.getInput().getObjectListValue(), fetcher);
+                messages = convertConversationItemsToMessages(request.getInput().getObjectListValue(), fetcher, imageProcessor);
             }
         }
         for(int i = 1; i < messages.size(); i++) {
@@ -233,14 +241,14 @@ public class ResponseUtils {
         return messages;
     }
 
-    private static List<Message> convertConversationItemsToMessages(List<ConversationItem> conversationItems, RunStepFetcher fetcher) {
+    private static List<Message> convertConversationItemsToMessages(List<ConversationItem> conversationItems, RunStepFetcher fetcher, ImageUrlProcessor imageProcessor) {
         Map<String, RunStep> runStepMap = new HashMap<>();
         List<Message> messages = new ArrayList<>();
         messages.add(message());
         for(ConversationItem conversationItem : conversationItems) {
             Message last = messages.get(messages.size() - 1);
             if(conversationItem instanceof InputMessage) {
-                processInputMessage((InputMessage) conversationItem, last, messages);
+                processInputMessage((InputMessage) conversationItem, last, messages, imageProcessor);
             } else if(conversationItem instanceof OutputMessage) {
                 OutputMessage outputMessage = (OutputMessage) conversationItem;
                 processOutputMessage(outputMessage, last, messages);
@@ -269,7 +277,7 @@ public class ResponseUtils {
         return messages;
     }
 
-    private static void processInputMessage(InputMessage inputMessage, Message last, List<Message> messages) {
+    private static void processInputMessage(InputMessage inputMessage, Message last, List<Message> messages, ImageUrlProcessor imageProcessor) {
         String role = inputMessage.getRole().getValue();
         Message message = setRoleOrNewMessage(last, role, messages);
         if(inputMessage.getContent().isString()) {
@@ -283,13 +291,18 @@ public class ResponseUtils {
                     InputImage inputImage = (InputImage) inputContent;
                     MessageContent messageContent = new MessageContent();
                     if(inputImage.getImageUrl() != null) {
-                        messageContent.setImageUrl(new ImageUrl(inputImage.getImageUrl(), inputImage.getDetail()));
+                        // Process image URL - convert base64 to S3 URL if needed
+                        String processedUrl = imageProcessor != null ? imageProcessor.processImageUrl(inputImage.getImageUrl()) : inputImage.getImageUrl();
+                        messageContent.setType("image_url");
+                        messageContent.setImageUrl(new ImageUrl(processedUrl, inputImage.getDetail()));
+                        message.getContent().add(messageContent);
                     } else {
+                        messageContent.setType("image_file");
                         messageContent.setImageFile(new ImageFile(inputImage.getFileId(), inputImage.getDetail()));
+                        message.getContent().add(messageContent);
                     }
                 } else if(inputContent instanceof InputFile) {
                     InputFile inputFile = (InputFile) inputContent;
-
                     message.getAttachments().add(new Attachment(inputFile.getFileId(), Lists.newArrayList(new Tool.Retrieval(true, true), new Tool.ReadFiles(true, true))));
                 } else if(inputContent instanceof InputAudio) {
                     // todo: support InputAudio

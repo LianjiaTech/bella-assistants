@@ -8,6 +8,7 @@ import com.ke.assistant.core.tools.ToolContext;
 import com.ke.assistant.core.tools.ToolOutputChannel;
 import com.ke.assistant.core.tools.ToolResult;
 import com.ke.assistant.core.tools.ToolStreamEvent;
+import com.ke.assistant.db.context.RepoContext;
 import com.ke.assistant.service.S3Service;
 import com.ke.bella.openapi.server.OpenAiServiceFactory;
 import com.theokanning.openai.assistants.assistant.Tool;
@@ -60,14 +61,15 @@ public class ImageGenerateToolHandler implements BellaToolHandler {
     public ToolResult doExecute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
         ItemStatus status = ItemStatus.INCOMPLETE;
         ImageGenerationToolCall toolCall = new ImageGenerationToolCall();
-        toolCall.setDataType("url");
+        boolean noStore = RepoContext.isActive();
+        toolCall.setDataType(noStore ? "b64_json" : "url");
         try {
             channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
                     .executionStage(ToolStreamEvent.ExecutionStage.prepare)
                     .event(ImageGenerationInProgressEvent.builder().build())
                     .build());
             // 检查S3服务是否配置
-            if(!s3Service.isConfigured()) {
+            if(!s3Service.isConfigured() && !noStore) {
                 return new ToolResult("S3存储服务未配置，无法生成图片。");
             }
 
@@ -101,19 +103,19 @@ public class ImageGenerateToolHandler implements BellaToolHandler {
                     .build());
 
             // 调用OpenAI图像生成API，返回 (图片url, base64String)
-            Pair<String, String> result = generateImage(prompt, size, quality, style, model, responseFormat, definition);
+            Pair<String, String> result = generateImage(prompt, size, quality, style, model, responseFormat, definition, noStore);
 
             channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
                     .executionStage(ToolStreamEvent.ExecutionStage.processing)
                     .event(ImageGenerationPartialImageEvent.builder()
                             .partialImageIndex(1)
-                            .partialImageUrl(result.getLeft()).build())
+                            .partialImageUrl(noStore ? result.getRight() : result.getLeft()).build())
                     .build());
 
-            toolCall.setResult(result.getLeft());
+            toolCall.setResult(noStore ? result.getRight() : result.getLeft());
 
             ImageUrl output = new ImageUrl();
-            output.setUrl(result.getLeft());
+            output.setUrl(noStore ? result.getRight() : result.getLeft());
 
             if(isFinal()) {
                 channel.output(context.getToolId(), output);
@@ -121,7 +123,7 @@ public class ImageGenerateToolHandler implements BellaToolHandler {
 
             log.info("图片生成完成");
             status = ItemStatus.COMPLETED;
-            return new ToolResult(ToolResult.ToolResultType.image_url, result.getLeft());
+            return new ToolResult(ToolResult.ToolResultType.image_url, noStore ? "Generate the required Image Successfully" : result.getLeft());
         } catch (Exception e) {
             log.error("图片生成或上传到S3失败", e);
             String errorMsg = "图片生成或上传到S3失败: " + e.getMessage();
@@ -144,7 +146,7 @@ public class ImageGenerateToolHandler implements BellaToolHandler {
     /**
      * 使用OpenAI API生成图片
      */
-    private Pair<String, String> generateImage(String prompt, String size, String quality, String style, String model, String responseFormat, ImageGenerationTool definition) {
+    private Pair<String, String> generateImage(String prompt, String size, String quality, String style, String model, String responseFormat, ImageGenerationTool definition, boolean noStore) {
         try {
             CreateImageRequest.CreateImageRequestBuilder requestBuilder = CreateImageRequest.builder();
 
@@ -189,10 +191,13 @@ public class ImageGenerateToolHandler implements BellaToolHandler {
                 
                 // 将Base64数据转换为字节数组
                 byte[] imageBytes = Base64.getDecoder().decode(base64Data);
-                
-                // 上传到S3并返回URL
-                String s3Url = s3Service.uploadChart(imageBytes, "png");
-                log.info("Generated image uploaded to S3: {}", s3Url);
+
+                String s3Url = null;
+                if(!noStore) {
+                    // 上传到S3并返回URL
+                    s3Url = s3Service.uploadChart(imageBytes, "png");
+                    log.info("Generated image uploaded to S3: {}", s3Url);
+                }
                 
                 return Pair.of(s3Url, base64Data);
             } else {
