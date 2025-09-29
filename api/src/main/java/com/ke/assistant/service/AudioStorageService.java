@@ -1,5 +1,6 @@
 package com.ke.assistant.service;
 
+import com.ke.assistant.db.context.RepoContext;
 import com.ke.bella.openapi.server.OpenAiServiceFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +27,11 @@ public class AudioStorageService {
     public String uploadAudio(String base64Data, String format) {
         byte[] audioBytes = Base64.getDecoder().decode(base64Data);
         String fileExtension = "." + format.toLowerCase();
-        return openAiServiceFactory.create().uploadFile("storage", audioBytes, UUID.randomUUID() + fileExtension).getId();
+        String fileName = UUID.randomUUID() + fileExtension;
+        if(RepoContext.isActive()) {
+            return RepoContext.store().upload(fileName, audioBytes);
+        }
+        return openAiServiceFactory.create().uploadFile("storage", audioBytes, fileName).getId();
     }
 }
 

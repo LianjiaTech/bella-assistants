@@ -7,6 +7,7 @@ import com.ke.assistant.core.tools.BellaToolHandler;
 import com.ke.assistant.core.tools.ToolContext;
 import com.ke.assistant.core.tools.ToolOutputChannel;
 import com.ke.assistant.core.tools.ToolResult;
+import com.ke.assistant.db.context.RepoContext;
 import com.ke.bella.openapi.server.OpenAiServiceFactory;
 import com.theokanning.openai.audio.CreateTranscriptionRequest;
 import com.theokanning.openai.audio.TranscriptionResult;
@@ -47,11 +48,16 @@ public class AudioTranscriptionToolHandler extends BellaToolHandler {
         File tempFile = null;
         try {
             tempFile = File.createTempFile("audio-", "." + format);
-            openAiServiceFactory.create().retrieveFileContentAndSave(fileId, tempFile.toPath());
+            if(RepoContext.isActive()) {
+                RepoContext.store().retrieveFileContentAndSave(fileId, tempFile.toPath());
+            } else {
+                openAiServiceFactory.create().retrieveFileContentAndSave(fileId, tempFile.toPath());
+            }
             CreateTranscriptionRequest req = CreateTranscriptionRequest.builder()
                     .model(transcriptionToolProperties.getModel())
                     .responseFormat("json")
                     .build();
+
             TranscriptionResult result = openAiServiceFactory.create().createTranscription(req, tempFile);
             String transcription = result != null ? result.getText() : "转录音频失败";
             return ToolResult.builder()

@@ -8,6 +8,10 @@ import com.ke.assistant.db.generated.tables.pojos.RunToolDb;
 import com.ke.assistant.db.generated.tables.pojos.ThreadDb;
 import com.ke.assistant.db.generated.tables.pojos.ThreadFileRelationDb;
 
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -77,6 +81,7 @@ public class RepoContext {
         public final Map<String, RunStepDb> runSteps = new ConcurrentHashMap<>();
         public final Map<Integer, RunToolDb> runTools = new ConcurrentHashMap<>();
         public final Map<String, ResponseIdMappingDb> responseIdMappings = new ConcurrentHashMap<>();
+        public final Map<String, byte[]> fileMap = new ConcurrentHashMap<>();
 
         // --------------- ThreadDb ops ---------------
         public ThreadDb insertThread(ThreadDb thread) {
@@ -396,5 +401,26 @@ public class RepoContext {
         public boolean existsResponseIdMappingByResponseId(String responseId) {
             return responseIdMappings.containsKey(responseId);
         }
+
+
+        // --------------- File ops ---------------
+        public String upload(String fileName, byte[] fileData) {
+            fileMap.put(fileName, fileData);
+            return fileName;
+        }
+
+        public void retrieveFileContentAndSave(String fileId, Path path) throws IOException {
+            if(!fileMap.containsKey(fileId)) {
+                return;
+            }
+            Path parentDir = path.getParent();
+            if (parentDir != null) {
+                Files.createDirectories(parentDir);
+            }
+            try(OutputStream os = Files.newOutputStream(path)) {
+                os.write(fileMap.get(fileId));
+            }
+        }
+
     }
 }
