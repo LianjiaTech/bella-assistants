@@ -8,11 +8,12 @@ Bella Assistant 是一个企业级的智能助手 API 服务，实现了完整�
 
 ### 🎯 核心特性
 
-- **OpenAI 兼容 API**: 完全兼容 OpenAI Assistant API 规范
-- **多工具集成**: 内置天气查询、网页搜索、图表生成、RAG 检索等工具
-- **流式响应**: 支持 Server-Sent Events (SSE) 实时流式输出
+- **OpenAI 兼容 API**: 完整覆盖 Assistants API（Assistants/Threads/Messages/Runs）
+- **Responses API 支持**: 兼容 OpenAI Responses API（创建支持 SSE 流式）
+- **多工具集成**: 内置天气、网页搜索、爬虫、图表、RAG/检索、图像生成、语音转写、视觉识别等
+- **流式响应**: 支持 Server-Sent Events (SSE) 实时流式输出（Run 与 Response 创建）
 - **智能规划**: 基于模板的规划系统，自动决策执行流程
-- **文件处理**: 支持文件上传、存储和引用
+- **文件处理**: S3/MinIO 文件上传存储与引用，支持公共访问 URL
 - **内存管理**: 自动管理对话上下文长度，支持长对话
 - **并行执行**: 多工具并行调用，提升响应效率
 
@@ -66,6 +67,16 @@ spring:
   redis:
     host: localhost
     port: 6379
+bella:
+  openapi:
+    host: http://localhost:8080
+  assistant:
+    s3:
+      bucket-name: bella-assistant
+      endpoint: http://localhost:9000   # MinIO 示例
+      access-key: minio
+      secret-key: minio123
+      path-style-access: true
 ```
 
 ### 4. 构建和运行
@@ -86,6 +97,28 @@ mvn spring-boot:run
 - 健康检查: http://localhost:8087/actuator/health
 
 ## 📖 API 使用
+
+### Responses API（创建与查询）
+
+创建响应（支持 SSE 流式）：
+
+```bash
+curl -X POST http://localhost:8087/v1/responses \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4o",
+    "input": [{"role":"user","content":[{"type":"input_text","text":"你好"}]}],
+    "stream": true
+  }'
+```
+
+查询响应执行结果：
+
+```bash
+curl -X GET http://localhost:8087/v1/responses/{response_id}
+```
+
+说明：`GET /v1/responses/{response_id}` 暂不支持流式返回，创建时 `stream=true` 可获得 SSE 流。
 
 ### 创建助手
 
@@ -150,6 +183,8 @@ src/main/java/com/ke/assistant/
 4. **并行执行**: 运行执行器协调 AI 服务和工具执行
 5. **流式输出**: 实时 SSE 流式响应给客户端
 6. **状态管理**: 管理运行状态转换和错误处理
+
+注：Response 的创建同样支持 SSE 流式输出；Response 的 GET 查询目前为非流式。
 
 ## 🔨 开发指南
 
@@ -231,6 +266,14 @@ docker run -d \
 | `bella.s3.endpoint` | S3 存储端点 | - |
 | `bella.assistant.max-context-length` | 最大上下文长度 | 32000 |
 
+环境变量与常用配置（摘自 `api/src/main/resources/application.yml`）：
+
+- `S3_BUCKET_NAME`：S3/MinIO 存储桶名称（默认 `bella-assistant`）
+- `S3_REGION`、`S3_ACCESS_KEY`、`S3_SECRET_KEY`、`S3_ENDPOINT`、`S3_PATH_STYLE_ACCESS`、`S3_PUBLIC_BASE_URL`
+- `WEB_SEARCH_TAVILY_APIKEY`：Tavily 搜索 API Key
+- `WEATHER_SEARCH_APIKEY`：高德天气 API Key
+- `RETRIEVAL_URL`：检索服务地址；`RAG_TOOL_URL`：RAG 服务地址
+
 ### 监控指标
 
 应用提供以下监控端点：
@@ -243,14 +286,20 @@ docker run -d \
 
 | 工具类型 | 功能描述 | 配置键 |
 |----------|----------|--------|
-| `web_search` | 网页搜索 | `bella.assistant.tools.web_search` |
-| `weather` | 天气查询 | `bella.assistant.tools.weather` |
-| `chart_bar` | 柱状图生成 | `bella.assistant.tools.chart` |
-| `chart_line` | 折线图生成 | `bella.assistant.tools.chart` |
-| `chart_pie` | 饼图生成 | `bella.assistant.tools.chart` |
-| `rag` | 文档检索 | `bella.assistant.tools.rag` |
-| `image_generate` | 图像生成 | `bella.assistant.tools.image_generate` |
-| `read_files` | 文件读取 | - |
+| `web_search_tavily` | 网页搜索（Tavily） | `bella.assistant.tools.web-search-tavily.*` |
+| `web_crawler` | 站点爬取 | `bella.assistant.tools.web-crawler.*` |
+| `weather_search` | 天气查询（高德） | `bella.assistant.tools.weather-search.*` |
+| `rag` | RAG 检索 | `bella.assistant.tools.rag.*` |
+| `retrieval` | 语义检索 | `bella.assistant.tools.retrieval.*` |
+| `image_generate` | 图像生成（DALL·E 3） | `bella.assistant.tools.image-generate.*` |
+| `img_vision` | 图像理解（Vision） | `bella.assistant.tools.img-vision.*` |
+| `bar_tool` | 柱状图生成 | `bella.assistant.tools.bar-tool.*` |
+| `line_tool` | 折线图生成 | `bella.assistant.tools.line-tool.*` |
+| `pie_tool` | 饼图生成 | `bella.assistant.tools.pie-tool.*` |
+| `audio_transcription` | 语音转写 | `bella.assistant.tools.audio-transcription.*` |
+| `read_files` | 文件读取 | `bella.assistant.tools.read-files.*` |
+
+说明：`Local Shell` 为工具定义事件（服务器不会执行本地命令），用于兼容 Responses API 的工具调用流。
 
 ## 🤝 贡献
 
@@ -272,7 +321,7 @@ docker run -d \
 
 如果遇到问题，请：
 
-1. 查看 [文档](docs/)
+1. 查看 [文档](https://doc.bella.top/docs/bella-assistant/intro)
 2. 搜索已有的 [Issues](issues)
 3. 创建新的 Issue 描述问题
 
