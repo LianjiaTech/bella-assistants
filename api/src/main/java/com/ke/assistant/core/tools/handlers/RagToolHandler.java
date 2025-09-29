@@ -32,7 +32,7 @@ import java.util.Optional;
  */
 @Slf4j
 @Component
-public class RagToolHandler implements BellaToolHandler {
+public class RagToolHandler extends BellaToolHandler {
     
     @Autowired
     private AssistantProperties assistantProperties;

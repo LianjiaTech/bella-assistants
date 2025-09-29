@@ -148,5 +148,7 @@ bella:
         width: 800
         height: 600
         is-final: true
+      audio-transcription:
+        model: ${DEFAULT_TRANSCRIPTION_MODEL}
 
 

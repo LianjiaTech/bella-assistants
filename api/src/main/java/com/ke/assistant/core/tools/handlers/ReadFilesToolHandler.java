@@ -1,5 +1,6 @@
 package com.ke.assistant.core.tools.handlers;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.Lists;
 import com.ke.assistant.configuration.AssistantProperties;
 import com.ke.assistant.configuration.ToolProperties;
@@ -25,7 +26,7 @@ import java.util.Optional;
  * 文件读取工具处理器
  */
 @Component
-public class ReadFilesToolHandler implements BellaToolHandler {
+public class ReadFilesToolHandler extends BellaToolHandler {
     
     @Autowired
     private AssistantProperties assistantProperties;
@@ -81,8 +82,8 @@ public class ReadFilesToolHandler implements BellaToolHandler {
     private String processFileResponse(String fileId, ReadFileResponse response) {
         if(response.getDetail() != null && !response.getDetail().isEmpty()) {
             return "文件id" + fileId + "读取失败: " + response.getDetail();
-        } else if(response.getMarkdown() != null) {
-            return response.getMarkdown();
+        } else if(response.getMarkdownResult() != null) {
+            return response.getMarkdownResult();
         } else {
             return "文件内容为空";
         }
@@ -127,6 +128,7 @@ public class ReadFilesToolHandler implements BellaToolHandler {
     @Data
     public static class ReadFileResponse {
         private String detail;     // 错误信息
-        private String markdown;   // 文件内容(markdown格式)
+        @JsonProperty("markdown_result")
+        private String markdownResult;   // 文件内容(markdown格式)
     }
 }

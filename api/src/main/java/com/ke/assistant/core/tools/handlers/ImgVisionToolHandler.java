@@ -28,7 +28,7 @@ import java.util.Optional;
  */
 @Slf4j
 @Component
-public class ImgVisionToolHandler implements BellaToolHandler {
+public class ImgVisionToolHandler extends BellaToolHandler {
 
     @Autowired
     private OpenAiServiceFactory openAiServiceFactory;

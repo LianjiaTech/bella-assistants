@@ -15,6 +15,7 @@ import com.theokanning.openai.assistants.message.Message;
 import com.theokanning.openai.assistants.message.MessageContent;
 import com.theokanning.openai.assistants.message.MessageRequest;
 import com.theokanning.openai.assistants.message.content.Text;
+import com.theokanning.openai.assistants.message.content.AudioData;
 import com.theokanning.openai.assistants.run.ToolCall;
 import com.theokanning.openai.assistants.run.ToolCallCodeInterpreter;
 import com.theokanning.openai.assistants.run.ToolCallFileSearch;
@@ -228,7 +229,7 @@ public class MessageUtils {
             if("text".equals(content.getType())) {
                 MultiMediaContent mmContent = new MultiMediaContent();
                 mmContent.setType("text");
-                mmContent.setText(content.getText().getValue() + attachInfo);
+                mmContent.setText(content.getText().getValue() + attachInfo );
                 // 只在一条消息中添加即可
                 attachInfo = "";
                 result.add(mmContent);
@@ -251,6 +252,19 @@ public class MessageUtils {
                     mmContent.setText(sb.toString());
                 }
                 result.add(mmContent);
+            } else if("audio".equals(content.getType())) {
+                // 将音频元数据格式化为文本，作为text传递给模型
+                AudioData audio = content.getAudioData();
+                if (audio != null) {
+                    Map<String, Object> audioMap = new HashMap<>();
+                    audioMap.put("audio", audio);
+                    String audioInfo = Renders.render("templates/audio_transcription.pebble", audioMap);
+
+                    MultiMediaContent mmContent = new MultiMediaContent();
+                    mmContent.setType("text");
+                    mmContent.setText(audioInfo);
+                    result.add(mmContent);
+                }
             }
         }
 
@@ -352,7 +366,7 @@ public class MessageUtils {
                 return "text";
             }
             // 检查是否所有内容都是音频类型
-            else if(contentTypes.stream().allMatch("audio_url"::equals)) {
+            else if(contentTypes.stream().allMatch(type -> "audio_url".equals(type) || "audio".equals(type))) {
                 return "audio";
             }
             // 检查是否所有内容都是命令类型

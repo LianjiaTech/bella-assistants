@@ -1,0 +1,6 @@
+{% set a = audio %}
+用户上传了一段音频，音频信息如下：
+<Audio>
+{% if a.fileId %}<file_id>{{a.fileId}}</file_id>{% endif %}
+{% if a.format %}<format>{{a.format}}</format>{% endif %}
+</Audio>

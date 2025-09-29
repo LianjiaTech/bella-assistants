@@ -7,9 +7,9 @@ import java.util.Map;
 /**
  * 使用Bella Endpoint实现的工具，执行时需要传递BellaContext上下文
  */
-public interface BellaToolHandler extends ToolHandler {
+public abstract class BellaToolHandler implements ToolHandler {
 
-    default ToolResult execute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
+    public final ToolResult execute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
         try{
             BellaContext.replace(context.getBellaContext());
             return doExecute(context, arguments, channel);
@@ -18,6 +18,6 @@ public interface BellaToolHandler extends ToolHandler {
         }
     }
 
-    ToolResult doExecute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel);
+    protected abstract ToolResult doExecute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel);
 
 }

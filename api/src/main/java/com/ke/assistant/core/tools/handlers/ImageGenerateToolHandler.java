@@ -39,7 +39,7 @@ import java.util.Optional;
  */
 @Slf4j
 @Component
-public class ImageGenerateToolHandler implements BellaToolHandler {
+public class ImageGenerateToolHandler extends BellaToolHandler {
 
     @Autowired
     private OpenAiServiceFactory openAiServiceFactory;

@@ -74,6 +74,9 @@ public class ResponseService {
     @Autowired
     private ImageStorageService imageStorageService;
 
+    @Autowired
+    private AudioStorageService audioStorageService;
+
     /**
      * Create a new response
      */
@@ -215,7 +218,12 @@ public class ResponseService {
     }
 
     private void buildMessage(CreateResponseRequest request, StringBuilder systemPrompt, List<Message> inputMessages) {
-        List<Message> messages = ResponseUtils.checkAndConvertInputToMessages(request, runService::getRunStep, imageStorageService::processImageUrl);
+        List<Message> messages = ResponseUtils.checkAndConvertInputToMessages(
+                request,
+                runService::getRunStep,
+                imageStorageService::processImageUrl,
+                audioStorageService::uploadAudio
+        );
         for(Message message : messages) {
             if(message.getRole().equals("system") || message.getRole().equals("developer")) {
                 message.getContent().stream().map(MessageContent::getText)

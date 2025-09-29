@@ -4,11 +4,13 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.Lists;
 import com.ke.assistant.core.run.RunStatus;
+import com.ke.assistant.service.AudioStorageService;
 import com.ke.bella.openapi.common.exception.BizParamCheckException;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.assistants.assistant.Tool;
 import com.theokanning.openai.assistants.message.Message;
 import com.theokanning.openai.assistants.message.MessageContent;
+import com.theokanning.openai.assistants.message.content.AudioData;
 import com.theokanning.openai.assistants.message.content.ImageFile;
 import com.theokanning.openai.assistants.message.content.Text;
 import com.theokanning.openai.assistants.run.AllowedTools;
@@ -81,6 +83,11 @@ public class ResponseUtils {
     @FunctionalInterface
     public interface ImageUrlProcessor {
         String processImageUrl(String imageUrl);
+    }
+
+    @FunctionalInterface
+    public interface AudioUploader {
+        String upload(String base64Data, String format);
     }
 
     public static RunCreateRequest convertToRunRequest(CreateResponseRequest request, String systemPrompt, List<Tool> tools,
@@ -223,7 +230,10 @@ public class ResponseUtils {
     }
 
 
-    public static List<Message> checkAndConvertInputToMessages(CreateResponseRequest request, RunStepFetcher fetcher, ImageUrlProcessor imageProcessor) {
+    public static List<Message> checkAndConvertInputToMessages(CreateResponseRequest request,
+                                                               RunStepFetcher fetcher,
+                                                               ImageUrlProcessor imageProcessor,
+                                                               AudioUploader audioUploader) {
         List<Message> messages = new ArrayList<>();
         if(request.getInput() != null) {
             if(request.getInput().getInputType() == InputValue.InputType.STRING) {
@@ -232,7 +242,7 @@ public class ResponseUtils {
                 message.setContent(Lists.newArrayList(textContent(request.getInput().getStringValue())));
                 messages.add(message);
             } else if(request.getInput().getInputType() == InputValue.InputType.OBJECT_LIST) {
-                messages = convertConversationItemsToMessages(request.getInput().getObjectListValue(), fetcher, imageProcessor);
+                messages = convertConversationItemsToMessages(request.getInput().getObjectListValue(), fetcher, imageProcessor, audioUploader);
             }
         }
         for(int i = 1; i < messages.size(); i++) {
@@ -241,14 +251,17 @@ public class ResponseUtils {
         return messages;
     }
 
-    private static List<Message> convertConversationItemsToMessages(List<ConversationItem> conversationItems, RunStepFetcher fetcher, ImageUrlProcessor imageProcessor) {
+    private static List<Message> convertConversationItemsToMessages(List<ConversationItem> conversationItems,
+                                                                    RunStepFetcher fetcher,
+                                                                    ImageUrlProcessor imageProcessor,
+                                                                    AudioUploader audioUploader) {
         Map<String, RunStep> runStepMap = new HashMap<>();
         List<Message> messages = new ArrayList<>();
         messages.add(message());
         for(ConversationItem conversationItem : conversationItems) {
             Message last = messages.get(messages.size() - 1);
             if(conversationItem instanceof InputMessage) {
-                processInputMessage((InputMessage) conversationItem, last, messages, imageProcessor);
+                processInputMessage((InputMessage) conversationItem, last, messages, imageProcessor, audioUploader);
             } else if(conversationItem instanceof OutputMessage) {
                 OutputMessage outputMessage = (OutputMessage) conversationItem;
                 processOutputMessage(outputMessage, last, messages);
@@ -277,7 +290,11 @@ public class ResponseUtils {
         return messages;
     }
 
-    private static void processInputMessage(InputMessage inputMessage, Message last, List<Message> messages, ImageUrlProcessor imageProcessor) {
+    private static void processInputMessage(InputMessage inputMessage,
+                                            Message last,
+                                            List<Message> messages,
+                                            ImageUrlProcessor imageProcessor,
+                                            AudioUploader audioUploader) {
         String role = inputMessage.getRole().getValue();
         Message message = setRoleOrNewMessage(last, role, messages);
         if(inputMessage.getContent().isString()) {
@@ -305,8 +322,23 @@ public class ResponseUtils {
                     InputFile inputFile = (InputFile) inputContent;
                     message.getAttachments().add(new Attachment(inputFile.getFileId(), Lists.newArrayList(new Tool.Retrieval(true, true), new Tool.ReadFiles(true, true))));
                 } else if(inputContent instanceof InputAudio) {
-                    // todo: support InputAudio
-                    throw new BizParamCheckException("can not support audio data");
+                    InputAudio inputAudio = (InputAudio) inputContent;
+                    InputAudio.AudioData inAudio = inputAudio.getInputAudio();
+                    if (inAudio == null || inAudio.getData() == null || inAudio.getFormat() == null) {
+                        throw new BizParamCheckException("invalid audio input: missing data or format");
+                    }
+
+                    String fileId = audioUploader.upload(inAudio.getData(), inAudio.getFormat());
+
+                    // Store audio as MessageContent type "audio" with audio_data payload
+                    MessageContent audioContent = new MessageContent();
+                    audioContent.setType("audio");
+                    AudioData audioDataOut = new AudioData();
+                    audioDataOut.setFileId(fileId);
+                    audioDataOut.setFormat(inAudio.getFormat());
+                    audioContent.setAudioData(audioDataOut);
+                    message.getContent().add(audioContent);
+                    message.getAttachments().add(new Attachment(fileId, Lists.newArrayList(new Tool.AudioTranscription())));
                 }
             }
         }

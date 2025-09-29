@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
  * 文档检索工具处理器
  */
 @Component
-public class RetrievalToolHandler implements BellaToolHandler {
+public class RetrievalToolHandler extends BellaToolHandler {
     
     @Autowired
     private AssistantProperties assistantProperties;

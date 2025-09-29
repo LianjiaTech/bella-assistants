@@ -16,6 +16,7 @@ public class ToolProperties {
     private BarToolProperties barTool = new BarToolProperties();
     private LineToolProperties lineTool = new LineToolProperties();
     private PieToolProperties pieTool = new PieToolProperties();
+    private AudioTranscriptionToolProperties audioTranscription = new AudioTranscriptionToolProperties();
     
     @Data
     public static class RagToolProperties {
@@ -97,5 +98,10 @@ public class ToolProperties {
         private int width = 800;
         private int height = 600;
         private boolean isFinal = true;
+    }
+
+    @Data
+    public static class AudioTranscriptionToolProperties {
+        private String model = "gpt-4o-audio";
     }
 }
