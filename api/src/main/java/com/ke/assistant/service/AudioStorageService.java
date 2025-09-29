@@ -10,7 +10,7 @@ import java.util.UUID;
 
 /**
  * Service for handling audio storage and base64 conversion.
- * Supports saving base64 audio inputs to S3 and returning a public URL.
+ * Supports saving base64 audio data to file-api and returning a public file id.
  */
 @Service
 @Slf4j
