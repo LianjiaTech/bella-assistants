@@ -4,7 +4,6 @@ import com.ke.assistant.core.memory.ContextTruncator;
 import com.ke.assistant.core.plan.template.TemplateContext;
 import com.ke.assistant.core.plan.template.TemplateContextBuilder;
 import com.ke.assistant.core.run.ExecutionContext;
-import com.ke.assistant.core.run.RunStatus;
 import com.ke.assistant.core.tools.ToolFetcher;
 import com.ke.assistant.core.tools.handlers.definition.CustomToolHandler;
 import com.ke.assistant.service.MessageService;
@@ -248,8 +247,7 @@ public class Planner {
                 if(stepDetails.getToolCalls() == null) {
                     continue;
                 }
-                RunStatus status = RunStatus.fromValue(runStep.getStatus());
-                MessageUtils.convertToolCallMessages(stepDetails.getToolCalls(), runStep.getLastError(), runStep.getMetadata(), context.isSupportReasonInput(), status == RunStatus.REQUIRES_ACTION).forEach(context::addChatMessage);
+                MessageUtils.convertToolCallMessages(stepDetails.getToolCalls(), runStep.getLastError(), runStep.getMetadata(), context.isSupportReasonInput()).forEach(context::addChatMessage);
             }
         } else if(context.isSupportReasonInput()){
             // 如果最后一条assistant message为tool call，且开启了推理输出

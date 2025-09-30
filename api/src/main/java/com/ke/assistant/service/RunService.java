@@ -98,7 +98,7 @@ public class RunService {
 
         Assistant assistant = null;
 
-        String responseId = request.getMetadata().get(MetaConstants.RESPONSE_ID);
+        String responseId = request.getMetadata() == null ? null : request.getMetadata().get(MetaConstants.RESPONSE_ID);
 
         if(responseId == null) {
             assistant = assistantService.getAssistantById(request.getAssistantId());

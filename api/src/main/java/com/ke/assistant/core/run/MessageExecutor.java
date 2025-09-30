@@ -120,7 +120,7 @@ public class MessageExecutor implements Runnable {
                 if(!context.hasInProgressToolCalls()) {
                     MessageContent messageContent = new MessageContent();
                     messageContent.setType("text");
-                    messageContent.setText(new Text(content.toString(), new ArrayList<>()));
+                    messageContent.setText(new Text(content.toString(), context.getAnnotations()));
                     runStateManager.finishMessageCreation(context, messageContent, reasoning.toString(), usage, meatData);
                     ++index;
                 } else {

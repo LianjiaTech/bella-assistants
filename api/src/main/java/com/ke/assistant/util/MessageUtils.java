@@ -429,10 +429,6 @@ public class MessageUtils {
     }
 
     public static List<ChatMessage> convertToolCallMessages(List<ToolCall> toolCalls, LastError lastError, Map<String, String> metaData, boolean supportReasoningInput) {
-        return convertToolCallMessages(toolCalls, lastError, metaData, supportReasoningInput, true);
-    }
-
-    public static List<ChatMessage> convertToolCallMessages(List<ToolCall> toolCalls, LastError lastError, Map<String, String> metaData, boolean supportReasoningInput , boolean includeResult) {
         List<ChatMessage> result = new ArrayList<>();
         AssistantMessage toolCallMessage = new AssistantMessage();
         List<ChatToolCall> chatToolCalls = new ArrayList<>();
@@ -493,9 +489,7 @@ public class MessageUtils {
             }
         }
         result.add(toolCallMessage);
-        if(includeResult) {
-            result.addAll(toolResultMessages);
-        }
+        result.addAll(toolResultMessages);
         return result;
     }
 

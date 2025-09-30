@@ -9,8 +9,10 @@ import com.ke.assistant.core.tools.ToolHandler;
 import com.ke.assistant.core.tools.ToolOutputChannel;
 import com.ke.assistant.core.tools.ToolResult;
 import com.ke.assistant.core.tools.ToolStreamEvent;
+import com.ke.assistant.util.AnnotationUtils;
 import com.ke.bella.openapi.utils.HttpUtils;
 import com.ke.bella.openapi.utils.JacksonUtils;
+import com.theokanning.openai.assistants.message.content.Annotation;
 import com.theokanning.openai.response.ItemStatus;
 import com.theokanning.openai.response.stream.WebSearchCompletedEvent;
 import com.theokanning.openai.response.stream.WebSearchInProgressEvent;
@@ -19,6 +21,7 @@ import com.theokanning.openai.response.tool.WebSearchToolCall;
 import lombok.Data;
 import okhttp3.Request;
 import okhttp3.RequestBody;
+import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -28,6 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Tavily搜索工具处理器
@@ -49,10 +53,12 @@ public class WebSearchTavilyToolHandler implements ToolHandler {
     public ToolResult execute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
         ItemStatus status = ItemStatus.INCOMPLETE;
         try {
-            channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
-                    .executionStage(ToolStreamEvent.ExecutionStage.prepare)
-                    .event(WebSearchInProgressEvent.builder().build())
-                    .build());
+            if(channel != null) {
+                channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+                        .executionStage(ToolStreamEvent.ExecutionStage.prepare)
+                        .event(WebSearchInProgressEvent.builder().build())
+                        .build());
+            }
             if(tavilyProperties.getApiKey() == null) {
                 throw new IllegalStateException("Tavily apikey is null");
             }
@@ -66,10 +72,12 @@ public class WebSearchTavilyToolHandler implements ToolHandler {
             // 构建请求体
             TavilySearchRequest searchRequest = buildSearchRequest(query);
 
-            channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
-                    .executionStage(ToolStreamEvent.ExecutionStage.processing)
-                    .event(WebSearchSearchingEvent.builder().build())
-                    .build());
+            if(channel != null) {
+                channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+                        .executionStage(ToolStreamEvent.ExecutionStage.processing)
+                        .event(WebSearchSearchingEvent.builder().build())
+                        .build());
+            }
 
             Request request = new Request.Builder()
                     .header("Authorization", "Bearer " + tavilyProperties.getApiKey())
@@ -80,21 +88,27 @@ public class WebSearchTavilyToolHandler implements ToolHandler {
             // 发送请求
             TavilySearchResponse response = HttpUtils.httpRequest(request, TavilySearchResponse.class, 30, 30);
 
-            List<TavilySearchResult> resultData = processSearchResults(response);
+            Pair<Boolean, List<TavilySearchResult>> result = processSearchResults(response);
 
             // 构建输出内容
-            String output = JacksonUtils.serialize(resultData);
+            String output = JacksonUtils.serialize(result.getRight());
+
+            List<Annotation> annotations = result.getLeft() ? result.getRight().stream()
+                    .map(searchResult -> AnnotationUtils.buildWebSearch(searchResult.url, searchResult.title))
+                    .collect(Collectors.toList()) : new ArrayList<>();
 
             status = ItemStatus.COMPLETED;
-            return new ToolResult(ToolResult.ToolResultType.text, output);
+            return new ToolResult(ToolResult.ToolResultType.text, output, annotations);
         } finally {
             WebSearchToolCall toolCall = new WebSearchToolCall();
             toolCall.setStatus(status);
-            channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
-                    .executionStage(ToolStreamEvent.ExecutionStage.completed)
-                    .event(WebSearchCompletedEvent.builder().build())
-                    .result(toolCall)
-                    .build());
+            if(channel != null) {
+                channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+                        .executionStage(ToolStreamEvent.ExecutionStage.completed)
+                        .event(WebSearchCompletedEvent.builder().build())
+                        .result(toolCall)
+                        .build());
+            }
         }
     }
     
@@ -113,7 +127,7 @@ public class WebSearchTavilyToolHandler implements ToolHandler {
     /**
      * 处理搜索结果
      */
-    private List<TavilySearchResult> processSearchResults(TavilySearchResponse response) {
+    private Pair<Boolean, List<TavilySearchResult>> processSearchResults(TavilySearchResponse response) {
         List<TavilySearchResult> resultData = new ArrayList<>();
 
         if(response.getResults() != null) {
@@ -124,6 +138,7 @@ public class WebSearchTavilyToolHandler implements ToolHandler {
                 resultItem.setUrl(result.getUrl());
                 resultData.add(resultItem);
             }
+
         }
 
         // 如果没有结果
@@ -133,9 +148,10 @@ public class WebSearchTavilyToolHandler implements ToolHandler {
             errorResult.setResult("暂时无法请求");
             errorResult.setUrl("暂时无法请求");
             resultData.add(errorResult);
+            return Pair.of(false, resultData);
         }
-        
-        return resultData;
+
+        return Pair.of(true, resultData);
     }
     
     @Override

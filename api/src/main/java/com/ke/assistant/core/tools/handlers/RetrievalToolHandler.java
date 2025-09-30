@@ -9,9 +9,11 @@ import com.ke.assistant.core.tools.ToolContext;
 import com.ke.assistant.core.tools.ToolOutputChannel;
 import com.ke.assistant.core.tools.ToolResult;
 import com.ke.assistant.core.tools.ToolStreamEvent;
+import com.ke.assistant.util.AnnotationUtils;
 import com.ke.bella.openapi.utils.HttpUtils;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.assistants.assistant.Tool;
+import com.theokanning.openai.assistants.message.content.Annotation;
 import com.theokanning.openai.response.ItemStatus;
 import com.theokanning.openai.response.stream.FileSearchCompletedEvent;
 import com.theokanning.openai.response.stream.FileSearchInProgressEvent;
@@ -53,10 +55,12 @@ public class RetrievalToolHandler extends BellaToolHandler {
         ItemStatus status = ItemStatus.INCOMPLETE;
         List<FileSearchToolCall.SearchResult> results = new ArrayList<>();
         try {
-            channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
-                    .executionStage(ToolStreamEvent.ExecutionStage.prepare)
-                    .event(FileSearchInProgressEvent.builder().build())
-                    .build());
+            if(channel != null) {
+                channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+                        .executionStage(ToolStreamEvent.ExecutionStage.prepare)
+                        .event(FileSearchInProgressEvent.builder().build())
+                        .build());
+            }
 
             if(query == null || query.trim().isEmpty()) {
                 throw new IllegalArgumentException("query is null");
@@ -68,11 +72,12 @@ public class RetrievalToolHandler extends BellaToolHandler {
                     .url(retrievalProperties.getUrl())
                     .post(RequestBody.create(JacksonUtils.serialize(requestBody), okhttp3.MediaType.parse("application/json")))
                     .build();
-
-            channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
-                    .executionStage(ToolStreamEvent.ExecutionStage.processing)
-                    .event(FileSearchSearchingEvent.builder().build())
-                    .build());
+            if(channel != null) {
+                channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+                        .executionStage(ToolStreamEvent.ExecutionStage.processing)
+                        .event(FileSearchSearchingEvent.builder().build())
+                        .build());
+            }
 
             // 发送请求
             RetrievalResponse response = HttpUtils.httpRequest(request, RetrievalResponse.class);
@@ -80,22 +85,29 @@ public class RetrievalToolHandler extends BellaToolHandler {
             // 构建返回结果
             results = buildRetrievalResponse(response);
 
+            List<Annotation> annotations = response.getList() == null ? new ArrayList<>() :
+                    response.getList().stream()
+                            .map(chunk -> AnnotationUtils.buildFileSearch(chunk.fileId, chunk.fileName, chunk.chunkId, chunk.score, chunk.fileTag))
+                            .collect(Collectors.toList());
+
             String value = JacksonUtils.serialize(results);
             if(isFinal()) {
                 channel.output(context.getToolId(), value);
             }
             status = ItemStatus.COMPLETED;
-            return new ToolResult(ToolResult.ToolResultType.text, value);
+            return new ToolResult(ToolResult.ToolResultType.text, value, annotations);
         } finally {
             FileSearchToolCall toolCall = new FileSearchToolCall();
             toolCall.setQueries(Lists.newArrayList(query));
             toolCall.setStatus(status);
             toolCall.setResults(results);
-            channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
-                    .result(toolCall)
-                    .executionStage(ToolStreamEvent.ExecutionStage.completed)
-                    .event(FileSearchCompletedEvent.builder().build())
-                    .build());
+            if(channel != null) {
+                channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+                        .result(toolCall)
+                        .executionStage(ToolStreamEvent.ExecutionStage.completed)
+                        .event(FileSearchCompletedEvent.builder().build())
+                        .build());
+            }
         }
     }
     

@@ -1,12 +1,16 @@
 package com.ke.assistant.core.tools;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.theokanning.openai.assistants.message.content.Annotation;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.Getter;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Data
@@ -18,6 +22,8 @@ public class ToolResult {
     private final Object message;
     private final String error;
     private final Map<String, String> meta;
+    @JsonIgnore
+    private final List<Annotation> annotations;
 
     public boolean isNull() {
         return message == null && error == null;
@@ -42,6 +48,16 @@ public class ToolResult {
         this.error = null;
         this.meta = new HashMap<>();
         this.meta.put("mime_type", type.getDefaultMineType());
+        this.annotations = new ArrayList<>();
+    }
+
+    public ToolResult(ToolResultType type, Object message, List<Annotation> annotations) {
+        this.type = type;
+        this.message = message;
+        this.error = null;
+        this.meta = new HashMap<>();
+        this.meta.put("mime_type", type.getDefaultMineType());
+        this.annotations = annotations;
     }
 
     public ToolResult(ToolResultType type, Object message, String mineType) {
@@ -50,6 +66,7 @@ public class ToolResult {
         this.error = null;
         this.meta = new HashMap<>();
         this.meta.put("mime_type", mineType);
+        this.annotations = new ArrayList<>();
     }
 
     public ToolResult(String error) {
@@ -57,6 +74,7 @@ public class ToolResult {
         this.type = ToolResultType.text;
         this.message = error;
         this.meta = new HashMap<>();
+        this.annotations = new ArrayList<>();
     }
 
 }

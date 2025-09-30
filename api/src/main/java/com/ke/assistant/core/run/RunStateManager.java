@@ -439,6 +439,9 @@ public class RunStateManager {
         if(metaData.containsKey(MetaConstants.REDACTED_REASONING)) {
             stepDetails.setRedactedReasoningContent(metaData.get(MetaConstants.REDACTED_REASONING));
         }
+        if(!context.getCurrentAnnotations().isEmpty()) {
+            stepDetails.setAnnotations(context.getCurrentAnnotations());
+        }
         String stepDetailsJson = JacksonUtils.serialize(stepDetails);
         runStepRepo.updateStepDetails(context.getThreadId(), stepId, stepDetailsJson);
         if(errorMessage != null) {
@@ -470,7 +473,11 @@ public class RunStateManager {
      */
     @Transactional
     public boolean updateToolRunStepStatus(String runStepId, RunStatus newStatus, LastError lastError, ExecutionContext context) {
-        return updateRunStep(runStepId, newStatus, lastError, context, null, null, true);
+        boolean success = updateRunStep(runStepId, newStatus, lastError, context, null, null, true);
+        if(success && newStatus.isTerminal()) {
+            context.archiveCurrentAnnotations();
+        }
+        return success;
     }
 
     @Transactional

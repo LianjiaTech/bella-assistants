@@ -186,6 +186,9 @@ public class ToolExecutor implements Runnable {
             } else if(toolCall.getFunction() != null) {
                 toolCall.getFunction().setOutput(JacksonUtils.serialize(result));
             }
+            if(result.getAnnotations() != null) {
+                context.addAnnotations(result.getAnnotations());
+            }
             runStateManager.finishToolCall(context, toolCall, null);
         } catch (Exception e) {
             log.warn(e.getMessage(), e);

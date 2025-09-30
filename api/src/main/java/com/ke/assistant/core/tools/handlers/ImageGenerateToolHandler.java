@@ -64,10 +64,12 @@ public class ImageGenerateToolHandler extends BellaToolHandler {
         boolean noStore = RepoContext.isActive();
         toolCall.setDataType(noStore ? "b64_json" : "url");
         try {
-            channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
-                    .executionStage(ToolStreamEvent.ExecutionStage.prepare)
-                    .event(ImageGenerationInProgressEvent.builder().build())
-                    .build());
+            if(channel != null) {
+                channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+                        .executionStage(ToolStreamEvent.ExecutionStage.prepare)
+                        .event(ImageGenerationInProgressEvent.builder().build())
+                        .build());
+            }
             // 检查S3服务是否配置
             if(!s3Service.isConfigured() && !noStore) {
                 return new ToolResult("S3存储服务未配置，无法生成图片。");
@@ -97,20 +99,24 @@ public class ImageGenerateToolHandler extends BellaToolHandler {
             log.info("开始生成图片: prompt={}, size={}, quality={}, style={}, model={}",
                     prompt, size, quality, style, model);
 
-            channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
-                    .executionStage(ToolStreamEvent.ExecutionStage.processing)
-                    .event(ImageGenerationGeneratingEvent.builder().build())
-                    .build());
+            if(channel != null) {
+                channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+                        .executionStage(ToolStreamEvent.ExecutionStage.processing)
+                        .event(ImageGenerationGeneratingEvent.builder().build())
+                        .build());
+            }
 
             // 调用OpenAI图像生成API，返回 (图片url, base64String)
             Pair<String, String> result = generateImage(prompt, size, quality, style, model, responseFormat, definition, noStore);
 
-            channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
-                    .executionStage(ToolStreamEvent.ExecutionStage.processing)
-                    .event(ImageGenerationPartialImageEvent.builder()
-                            .partialImageIndex(1)
-                            .partialImageUrl(noStore ? result.getRight() : result.getLeft()).build())
-                    .build());
+            if(channel != null) {
+                channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+                        .executionStage(ToolStreamEvent.ExecutionStage.processing)
+                        .event(ImageGenerationPartialImageEvent.builder()
+                                .partialImageIndex(1)
+                                .partialImageUrl(noStore ? result.getRight() : result.getLeft()).build())
+                        .build());
+            }
 
             toolCall.setResult(noStore ? result.getRight() : result.getLeft());
 
@@ -135,11 +141,13 @@ public class ImageGenerateToolHandler extends BellaToolHandler {
             return new ToolResult(errorMsg);
         } finally {
             toolCall.setStatus(status);
-            channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
-                    .executionStage(ToolStreamEvent.ExecutionStage.completed)
-                    .event(ImageGenerationCompletedEvent.builder().build())
-                    .result(toolCall)
-                    .build());
+            if(channel != null) {
+                channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+                        .executionStage(ToolStreamEvent.ExecutionStage.completed)
+                        .event(ImageGenerationCompletedEvent.builder().build())
+                        .result(toolCall)
+                        .build());
+            }
         }
     }
     

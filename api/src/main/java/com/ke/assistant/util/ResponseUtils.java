@@ -36,6 +36,7 @@ import com.theokanning.openai.response.MessageRole;
 import com.theokanning.openai.response.Response;
 import com.theokanning.openai.response.ResponseStatus;
 import com.theokanning.openai.response.ToolChoiceValue;
+import com.theokanning.openai.response.content.Annotation;
 import com.theokanning.openai.response.content.InputAudio;
 import com.theokanning.openai.response.content.InputContent;
 import com.theokanning.openai.response.content.InputContentValue;
@@ -61,6 +62,7 @@ import com.theokanning.openai.response.tool.output.ComputerToolCallOutput;
 import com.theokanning.openai.response.tool.output.CustomToolCallOutput;
 import com.theokanning.openai.response.tool.output.FunctionToolCallOutput;
 import com.theokanning.openai.response.tool.output.LocalShellCallOutput;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.springframework.util.Assert;
@@ -353,7 +355,7 @@ public class ResponseUtils {
             for(OutputContent outputContent : outputMessage.getContent().getArrayValue()) {
                 if(outputContent instanceof OutputText) {
                     OutputText outputText = (OutputText) outputContent;
-                    message.getContent().add(textContent(outputText.getText()));
+                    message.getContent().add(textContent(outputText.getText(), outputText.getAnnotations()));
                 } else if(outputContent instanceof Refusal) {
                     Refusal refusal = (Refusal) outputContent;
                     message.getContent().add(textContent(refusal.getRefusal()));
@@ -519,6 +521,12 @@ public class ResponseUtils {
         return content;
     }
 
+    private static MessageContent textContent(String data, List<Annotation> annotations) {
+        MessageContent content = textContent(data);
+        content.getText().setAnnotations(AnnotationUtils.convertFromResponseAnnotations(annotations));
+        return content;
+    }
+
     public static List<ConversationItem> convertMessagesToConversationItems(List<Message> messages) {
         List<ConversationItem> conversationItems = new ArrayList<>();
 
@@ -608,6 +616,7 @@ public class ResponseUtils {
             } else if ("assistant".equals(role)) {
                 OutputText outputText = new OutputText();
                 outputText.setText(content.getText().getValue());
+                outputText.setAnnotations(AnnotationUtils.convertToResponseAnnotations(content.getText().getAnnotations()));
                 outputContents.add(outputText);
             }
         }
@@ -824,7 +833,7 @@ public class ResponseUtils {
             outputMessage.setRole(MessageRole.ASSISTANT);
             outputMessage.setStatus(ItemStatus.COMPLETED);
 
-            if (outputContents.size() == 1 && outputContents.get(0) instanceof OutputText) {
+            if (outputContents.size() == 1 && outputContents.get(0) instanceof OutputText && CollectionUtils.isEmpty(((OutputText) outputContents.get(0)).getAnnotations())) {
                 // Single text content - use string form
                 outputMessage.setContent(OutputContentValue.of(((OutputText) outputContents.get(0)).getText()));
             } else {

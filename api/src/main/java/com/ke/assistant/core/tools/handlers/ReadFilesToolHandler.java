@@ -8,10 +8,13 @@ import com.ke.assistant.core.tools.BellaToolHandler;
 import com.ke.assistant.core.tools.ToolContext;
 import com.ke.assistant.core.tools.ToolOutputChannel;
 import com.ke.assistant.core.tools.ToolResult;
+import com.ke.assistant.util.AnnotationUtils;
 import com.ke.bella.openapi.utils.HttpUtils;
 import com.ke.bella.openapi.utils.JacksonUtils;
+import com.theokanning.openai.assistants.message.content.Annotation;
 import lombok.Data;
 import okhttp3.Request;
+import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -50,15 +53,20 @@ public class ReadFilesToolHandler extends BellaToolHandler {
 
         Map<String, String> filesContent = new HashMap<>();
 
+        List<Annotation> annotations = new ArrayList<>();
+
         // 循环处理每个文件ID
         for (String fileId : fileIds) {
             ReadFileResponse response = readSingleFile(fileId);
-            String content = processFileResponse(fileId, response);
-            filesContent.put(fileId, content);
+            Pair<Boolean, String> result = processFileResponse(fileId, response);
+            if(result.getLeft()) {
+                annotations.add(AnnotationUtils.buildFileRead(fileId));
+            }
+            filesContent.put(fileId, result.getRight());
         }
 
         String output = JacksonUtils.serialize(filesContent);
-        return new ToolResult(ToolResult.ToolResultType.text, output);
+        return new ToolResult(ToolResult.ToolResultType.text, output, annotations);
     }
 
     
@@ -79,13 +87,13 @@ public class ReadFilesToolHandler extends BellaToolHandler {
     /**
      * 处理文件响应
      */
-    private String processFileResponse(String fileId, ReadFileResponse response) {
+    private Pair<Boolean, String> processFileResponse(String fileId, ReadFileResponse response) {
         if(response.getDetail() != null && !response.getDetail().isEmpty()) {
-            return "文件id" + fileId + "读取失败: " + response.getDetail();
+            return Pair.of(false, "文件id" + fileId + "读取失败: " + response.getDetail());
         } else if(response.getMarkdownResult() != null) {
-            return response.getMarkdownResult();
+            return Pair.of(true, response.getMarkdownResult());
         } else {
-            return "文件内容为空";
+            return Pair.of(false, "文件内容为空");
         }
     }
     

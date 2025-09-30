@@ -110,6 +110,9 @@ public class RunRepo implements BaseRepo {
      */
     public RunDb insert(RunDb run) {
         run.setObject("thread.run");
+        if(run.getMetadata() == null) {
+            run.setMetadata("{}");
+        }
         if(StringUtils.isBlank(run.getId())) {
             run.setId(idGenerator.generateRunId());
         }

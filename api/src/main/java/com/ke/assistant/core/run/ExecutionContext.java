@@ -11,6 +11,7 @@ import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.Usage;
 import com.theokanning.openai.assistants.assistant.Tool;
 import com.theokanning.openai.assistants.message.Message;
+import com.theokanning.openai.assistants.message.content.Annotation;
 import com.theokanning.openai.assistants.run.RequiredAction;
 import com.theokanning.openai.assistants.run.Run;
 import com.theokanning.openai.assistants.run.ToolCall;
@@ -103,9 +104,12 @@ public class ExecutionContext {
     // 历史轮次的已完成工具执行记录，用于消息上下文的构建
     private List<RunStep> historyToolSteps;
 
+
     // 添加的additionalMessages
     private List<Message> additionalMessages;
-    
+
+    // 归档的全量Annotations
+    private final List<Annotation> annotations;
     // 当前轮次的执行结果
     private final List<ChatMessage> chatMessages;                     // 当前聊天构建的消息
     private final List<ChatTool> chatTools;                          // 当前聊天构建的Tools
@@ -113,6 +117,7 @@ public class ExecutionContext {
     private final CopyOnWriteArrayList<ToolCall> currentToolResults;  // 当前工具调用的结果
     // 当前runStep的信息
     private final Map<String, String> currentMetaData;
+    private final CopyOnWriteArrayList<Annotation> currentAnnotations; //当前runStep的annotations
     // {index, ChatToolCall}
     private final ConcurrentHashMap<Integer, ChatToolCall> currentToolTasks;  // 当前待执行的工具
     // 本次run的总消耗
@@ -147,8 +152,10 @@ public class ExecutionContext {
         this.startTime = LocalDateTime.now();
         this.lastUpdateTime = LocalDateTime.now();
         this.chatMessages = new ArrayList<>();
+        this.annotations = new ArrayList<>();
         this.currentToolResults = new CopyOnWriteArrayList<>();
         this.currentMetaData = new HashMap<>();
+        this.currentAnnotations = new CopyOnWriteArrayList<>();
         this.chatTools = new ArrayList<>();
         this.currentToolTasks = new ConcurrentHashMap<>();
         this.historyToolSteps = new ArrayList<>();
@@ -259,6 +266,9 @@ public class ExecutionContext {
      */
     public void addHistoryToolStep(RunStep runStep) {
         historyToolSteps.add(runStep);
+        if(runStep.getStepDetails().getAnnotations() != null) {
+            this.annotations.addAll(runStep.getStepDetails().getAnnotations());
+        }
         incrementStep();
     }
 
@@ -614,5 +624,14 @@ public class ExecutionContext {
 
     public boolean isSupportReasoningContent() {
         return getModelFeatures().isReason_content() && StringUtils.isNotBlank(getRun().getReasoningEffort()) && !reasoningShutDown;
+    }
+
+    public void addAnnotations(List<Annotation> annotations) {
+        this.currentAnnotations.addAll(annotations);
+    }
+
+    public void archiveCurrentAnnotations() {
+        this.annotations.addAll(currentAnnotations);
+        this.currentAnnotations.clear();
     }
 }

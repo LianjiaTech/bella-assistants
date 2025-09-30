@@ -6,6 +6,7 @@ import com.google.common.collect.Lists;
 import com.ke.assistant.core.TaskExecutor;
 import com.ke.assistant.core.tools.ToolExecutor;
 import com.ke.assistant.core.tools.ToolStreamEvent;
+import com.ke.assistant.util.AnnotationUtils;
 import com.ke.assistant.util.MetaConstants;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.Usage;
@@ -263,7 +264,7 @@ public class ResponseMessageExecutor implements Runnable {
             if(!context.hasInProgressToolCalls()) {
                 MessageContent messageContent = new MessageContent();
                 messageContent.setType("text");
-                messageContent.setText(new Text(content.toString(), new ArrayList<>()));
+                messageContent.setText(new Text(content.toString(), context.getAnnotations()));
                 runStateManager.finishMessageCreation(context, messageContent, reasoning, usage, meatData);
             } else {
                 if(content.length() > 0) {
@@ -574,7 +575,7 @@ public class ResponseMessageExecutor implements Runnable {
             // Send content part done
             OutputText outputText = new OutputText();
             outputText.setText(currentText.toString());
-            outputText.setAnnotations(new ArrayList<>());
+            outputText.setAnnotations(AnnotationUtils.convertToResponseAnnotations(context.getAnnotations()));
 
             sendEvent(ContentPartDoneEvent.builder()
                     .sequenceNumber(sequenceNumber++)
