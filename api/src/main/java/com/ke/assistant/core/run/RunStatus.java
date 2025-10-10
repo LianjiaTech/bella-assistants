@@ -86,26 +86,18 @@ public enum RunStatus {
      * 判断是否可以执行状态转换
      */
     public boolean canTransitionTo(RunStatus target) {
-        if(this == target) {
+        if(this == target)
             return true;
-        }
+        if(this.isTerminal())
+            return false; // 终止状态不能转换为其他状态
 
-        // 终止状态不能转换为其他状态
-        if(this.isTerminal()) {
-            return false;
-        }
-
-        switch (this) {
-        case QUEUED:
-            return target == IN_PROGRESS || target == CANCELLED || target == FAILED;
-        case IN_PROGRESS:
-            return target == REQUIRES_ACTION || target == COMPLETED || target == FAILED || target == CANCELLING;
-        case REQUIRES_ACTION:
-            return target == QUEUED || target == IN_PROGRESS || target == COMPLETED || target == FAILED || target == CANCELLING || target == EXPIRED;
-        case CANCELLING:
-            return target == CANCELLED || target == FAILED;
-        default:
-            return false;
-        }
+        return switch (this) {
+            case QUEUED -> target == IN_PROGRESS || target == CANCELLED || target == FAILED;
+            case IN_PROGRESS -> target == REQUIRES_ACTION || target == COMPLETED || target == FAILED || target == CANCELLING;
+            case REQUIRES_ACTION ->
+                    target == QUEUED || target == IN_PROGRESS || target == COMPLETED || target == FAILED || target == CANCELLING || target == EXPIRED;
+            case CANCELLING -> target == CANCELLED || target == FAILED;
+            default -> false;
+        };
     }
 }

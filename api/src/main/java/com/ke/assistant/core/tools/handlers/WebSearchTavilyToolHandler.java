@@ -19,6 +19,7 @@ import com.theokanning.openai.response.stream.WebSearchInProgressEvent;
 import com.theokanning.openai.response.stream.WebSearchSearchingEvent;
 import com.theokanning.openai.response.tool.WebSearchToolCall;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import org.apache.commons.lang3.tuple.Pair;
@@ -36,6 +37,7 @@ import java.util.stream.Collectors;
 /**
  * Tavily搜索工具处理器
  */
+@Slf4j
 @Component
 public class WebSearchTavilyToolHandler implements ToolHandler {
     
@@ -51,11 +53,14 @@ public class WebSearchTavilyToolHandler implements ToolHandler {
     
     @Override
     public ToolResult execute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
-        ItemStatus status = ItemStatus.INCOMPLETE;
+        ItemStatus status = ItemStatus.IN_PROGRESS;
+        WebSearchToolCall toolCall = new WebSearchToolCall();
+        toolCall.setStatus(status);
         try {
             if(channel != null) {
                 channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
                         .executionStage(ToolStreamEvent.ExecutionStage.prepare)
+                        .result(toolCall)
                         .event(WebSearchInProgressEvent.builder().build())
                         .build());
             }
@@ -99,8 +104,11 @@ public class WebSearchTavilyToolHandler implements ToolHandler {
 
             status = ItemStatus.COMPLETED;
             return new ToolResult(ToolResult.ToolResultType.text, output, annotations);
+        } catch (Exception e) {
+            log.warn(e.getMessage(), e);
+            status = ItemStatus.INCOMPLETE;
+            return new ToolResult(ToolResult.ToolResultType.text, e.getMessage(), new ArrayList<>());
         } finally {
-            WebSearchToolCall toolCall = new WebSearchToolCall();
             toolCall.setStatus(status);
             if(channel != null) {
                 channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())

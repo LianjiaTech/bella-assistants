@@ -4,6 +4,9 @@ import com.google.common.collect.Lists;
 import com.ke.assistant.core.TaskExecutor;
 import com.ke.assistant.core.run.ExecutionContext;
 import com.ke.assistant.core.run.RunStateManager;
+import com.ke.assistant.core.tools.handlers.definition.CustomToolHandler;
+import com.ke.assistant.core.tools.handlers.mcp.McpClientFactory;
+import com.ke.assistant.core.tools.handlers.mcp.McpToolListHandler;
 import com.ke.assistant.util.MessageUtils;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.assistants.assistant.Tool;
@@ -13,6 +16,7 @@ import com.theokanning.openai.assistants.run.ToolCall;
 import com.theokanning.openai.assistants.run.ToolCallCodeInterpreterOutput;
 import com.theokanning.openai.assistants.run.ToolCallFileSearchResult;
 import com.theokanning.openai.completion.chat.ChatToolCall;
+import com.theokanning.openai.response.tool.definition.MCPTool;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -43,8 +47,18 @@ public class ToolExecutor implements Runnable {
     public static ToolExecutor start(ExecutionContext context, RunStateManager runStateManager, ToolFetcher toolFetcher) {
         ToolExecutor toolExecutor = new ToolExecutor(context, runStateManager);
         if(CollectionUtils.isNotEmpty(context.getTools())) {
-            context.getTools().stream().filter(tool -> !tool.getType().equals("function")).forEach( tool -> {
-                        ToolHandler handler = toolFetcher.getToolHandler(tool);
+            context.getTools().stream().filter(tool -> !tool.getType().equals("function")).forEach(tool -> {
+                        ToolHandler handler;
+                        if(tool instanceof Tool.Custom custom) {
+                            handler = new CustomToolHandler(custom.getDefinition());
+                        } else if(tool instanceof Tool.MCP mcp) {
+                            MCPTool mcpTool = mcp.getDefinition();
+                            McpClientFactory.McpClientWrapper mcpClient = McpClientFactory.create(mcpTool.getServerUrl(), mcpTool.getAuthorization(),
+                                    mcpTool.getHeaders());
+                            handler = new McpToolListHandler(mcpClient, mcpTool, toolExecutor, context);
+                        } else {
+                            handler = toolFetcher.getToolHandler(tool);
+                        }
                         toolExecutor.register(tool, handler);
                     }
             );
@@ -55,8 +69,12 @@ public class ToolExecutor implements Runnable {
 
     @Override
     public void run() {
-        while (!context.isEnd()) {
-            loop();
+        try {
+            while (!context.isEnd()) {
+                loop();
+            }
+        } finally {
+            toolHandlers.values().forEach(ToolHandler::close);
         }
     }
 

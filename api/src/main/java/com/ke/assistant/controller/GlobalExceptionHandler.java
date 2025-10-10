@@ -32,16 +32,16 @@ public class GlobalExceptionHandler implements HandlerExceptionResolver {
     public ModelAndView resolveException(HttpServletRequest request, HttpServletResponse response, 
                                        Object handler, Exception ex) {
         try {
-            if (ex instanceof ChannelException) {
-                handleChannelException(response, (ChannelException) ex);
-            } else if (ex instanceof MethodArgumentNotValidException) {
-                handleValidationException(response, (MethodArgumentNotValidException) ex);
-            } else if (ex instanceof ConstraintViolationException) {
-                handleConstraintViolationException(response, (ConstraintViolationException) ex);
-            } else if (ex instanceof IllegalArgumentException) {
-                handleIllegalArgumentException(response, (IllegalArgumentException) ex);
-            } else if (ex instanceof RuntimeException) {
-                handleRuntimeException(response, (RuntimeException) ex);
+            if(ex instanceof ChannelException ce) {
+                handleChannelException(response, ce);
+            } else if(ex instanceof MethodArgumentNotValidException manve) {
+                handleValidationException(response, manve);
+            } else if(ex instanceof ConstraintViolationException cve) {
+                handleConstraintViolationException(response, cve);
+            } else if(ex instanceof IllegalArgumentException iae) {
+                handleIllegalArgumentException(response, iae);
+            } else if(ex instanceof RuntimeException re) {
+                handleRuntimeException(response, re);
             } else {
                 handleGenericException(response, ex);
             }

@@ -14,8 +14,8 @@ import com.theokanning.openai.assistants.message.IncompleteDetails;
 import com.theokanning.openai.assistants.message.Message;
 import com.theokanning.openai.assistants.message.MessageContent;
 import com.theokanning.openai.assistants.message.MessageRequest;
-import com.theokanning.openai.assistants.message.content.Text;
 import com.theokanning.openai.assistants.message.content.AudioData;
+import com.theokanning.openai.assistants.message.content.Text;
 import com.theokanning.openai.assistants.run.ToolCall;
 import com.theokanning.openai.assistants.run.ToolCallCodeInterpreter;
 import com.theokanning.openai.assistants.run.ToolCallFileSearch;
@@ -33,7 +33,6 @@ import com.theokanning.openai.completion.chat.SystemMessage;
 import com.theokanning.openai.completion.chat.ToolMessage;
 import com.theokanning.openai.completion.chat.UserMessage;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -61,12 +60,13 @@ public class MessageUtils {
         if (message == null) {
             return null;
         }
-        
+
         // 优先检查是否有copy_message_id
-        if (StringUtils.isNotBlank(message.getMetadata())) {
+        String metadata = message.getMetadata();
+        if(metadata != null && !metadata.isBlank()) {
             try {
-                Map<String, Object> metadata = JacksonUtils.toMap(message.getMetadata());
-                String copyMessageId = (String) metadata.get("copy_message_id");
+                Map<String, Object> metadataMap = JacksonUtils.toMap(metadata);
+                String copyMessageId = (String) metadataMap.get("copy_message_id");
                 if (copyMessageId != null) {
                     return copyMessageId;
                 }
@@ -74,7 +74,7 @@ public class MessageUtils {
                 // 如果解析失败，fallback到使用消息ID
             }
         }
-        
+
         // 返回消息本身的ID
         return message.getId();
     }
@@ -126,7 +126,7 @@ public class MessageUtils {
         // 在metadata中标记原消息ID
         String metadata = sourceMessage.getMetadata();
         Map<String, Object> metadataMap = new HashMap<>();
-        if (StringUtils.isNotBlank(metadata)) {
+        if(metadata != null && !metadata.isBlank()) {
             try {
                 metadataMap = JacksonUtils.toMap(metadata);
             } catch (Exception e) {
@@ -161,12 +161,10 @@ public class MessageUtils {
             textContent.put("text", text);
 
             result.add(textContent);
-        } else if(content instanceof List) {
+        } else if(content instanceof List<?> contentList) {
             // 列表内容，遍历每个元素
-            List<?> contentList = (List<?>) content;
             for (Object item : contentList) {
-                if(item instanceof MultiMediaContent) {
-                    MultiMediaContent mmContent = (MultiMediaContent) item;
+                if(item instanceof MultiMediaContent mmContent) {
 
                     if("text".equals(mmContent.getType())) {
                         Map<String, Object> contentItem = new HashMap<>();
@@ -299,17 +297,17 @@ public class MessageUtils {
                 }
             }
             // 返回string时一定不存在tool call
-            if(content instanceof String) {
-                return new AssistantMessage((String) content);
+            if(content instanceof String s) {
+                return new AssistantMessage(s);
             }
-            if(content instanceof List) {
+            if(content instanceof List<?> contentList) {
                 List<ChatToolCall> toolCalls = messageInfo.getContent().stream().filter(messageContent -> messageContent.getType().equals("tool_call"))
                         .map(MessageContent::getToolCall).filter(Objects::nonNull).collect(Collectors.toList());
                 if(toolCalls.isEmpty()) {
-                    return new AssistantMultipleMessage(((List<?>) content).isEmpty() ? "get no answers" : content);
+                    return new AssistantMultipleMessage(contentList.isEmpty() ? "get no answers" : content);
                 }
                 AssistantMultipleMessage assistantMessage = new AssistantMultipleMessage();
-                if(!((List<?>) content).isEmpty()) {
+                if(!contentList.isEmpty()) {
                     assistantMessage.setContent(content);
                 }
                 assistantMessage.setToolCalls(toolCalls);
@@ -335,20 +333,18 @@ public class MessageUtils {
             return "text";
         }
 
-        if(content instanceof List) {
+        if(content instanceof List contentList) {
             List<String> contentTypes = new ArrayList<>();
-            for (Object item : (List)content) {
+            for (Object item : contentList) {
                 if(item instanceof Map) {
                     Map<String, Object> contentMap = (Map<String, Object>) item;
                     String type = (String) contentMap.get("type");
                     if(type != null) {
                         contentTypes.add(type);
                     }
-                } else if(item instanceof MultiMediaContent) {
-                    MultiMediaContent mmContent = (MultiMediaContent) item;
+                } else if(item instanceof MultiMediaContent mmContent) {
                     contentTypes.add(mmContent.getType());
-                } else if(item instanceof MessageContent) {
-                    MessageContent messageContent = (MessageContent) item;
+                } else if(item instanceof MessageContent messageContent) {
                     contentTypes.add(messageContent.getType());
                 }
             }
@@ -462,7 +458,8 @@ public class MessageUtils {
                     toolResultMessage.setContent(toolCall.getFunction().getOutput());
                 }
             }
-            if(StringUtils.isBlank(toolResultMessage.getContent())) {
+            String content = toolResultMessage.getContent();
+            if(content == null || content.isBlank()) {
                 if(lastError != null) {
                     toolResultMessage.setContent(JacksonUtils.serialize(lastError));
                 } else {
@@ -534,7 +531,8 @@ public class MessageUtils {
                 toolResultMessage.setContent(toolCall.getFunction().getOutput());
             }
         }
-        if(StringUtils.isBlank(toolResultMessage.getContent())) {
+        String content = toolResultMessage.getContent();
+        if(content == null || content.isBlank()) {
             if(lastError != null) {
                 toolResultMessage.setContent(JacksonUtils.serialize(lastError));
             } else {
@@ -554,18 +552,16 @@ public class MessageUtils {
     public static Integer countToken(List<ChatMessage> messages) {
         Integer tokens = 0;
         for(ChatMessage message : messages) {
-            if(message instanceof UserMessage) {
-                UserMessage userMessage = (UserMessage) message;
+            if(message instanceof UserMessage userMessage) {
                 if(userMessage.getContent() == null) {
                     continue;
                 }
-                if(userMessage.getContent() instanceof String) {
-                    tokens += TokenCounter.tokenCount((String) userMessage.getContent(), EncodingType.O200K_BASE);
+                if(userMessage.getContent() instanceof String s) {
+                    tokens += TokenCounter.tokenCount(s, EncodingType.O200K_BASE);
                 } else if(userMessage.getContent() instanceof Collection) {
                     Collection<?> collections = (Collection<?>) ((UserMessage) message).getContent();
                     for(Object content : collections) {
-                        if(content instanceof MultiMediaContent) {
-                            MultiMediaContent mmContent = (MultiMediaContent) content;
+                        if(content instanceof MultiMediaContent mmContent) {
                             if(mmContent.getType().equals("text")) {
                                 tokens += TokenCounter.tokenCount(mmContent.getText(), EncodingType.O200K_BASE);
                             } else {
@@ -630,10 +626,11 @@ public class MessageUtils {
         toolCallMsg.setRole("assistant");
         Map<String, String> meta = new HashMap<>();
         List<MessageContent> toolCallContent = new ArrayList<>();
-        if (StringUtils.isNotBlank(details.getText())) {
+        String text = details.getText();
+        if(text != null && !text.isBlank()) {
             MessageContent c = new MessageContent();
             c.setType("text");
-            c.setText(new Text(details.getText(), new ArrayList<>()));
+            c.setText(new Text(text, new ArrayList<>()));
             toolCallContent.add(c);
         }
         for (ToolCall tc : details.getToolCalls()) {
@@ -643,14 +640,17 @@ public class MessageUtils {
             toolCallContent.add(c);
         }
         toolCallMsg.setContent(JacksonUtils.serialize(toolCallContent));
-        if(StringUtils.isNotBlank(details.getReasoningContent())) {
-            toolCallMsg.setReasoningContent(details.getReasoningContent());
+        String reasoningContent = details.getReasoningContent();
+        if(reasoningContent != null && !reasoningContent.isBlank()) {
+            toolCallMsg.setReasoningContent(reasoningContent);
         }
-        if(StringUtils.isNotBlank(details.getReasoningContentSignature())) {
-            meta.put(MetaConstants.REASONING_SIG, details.getReasoningContentSignature());
+        String reasoningSig = details.getReasoningContentSignature();
+        if(reasoningSig != null && !reasoningSig.isBlank()) {
+            meta.put(MetaConstants.REASONING_SIG, reasoningSig);
         }
-        if(StringUtils.isNotBlank(details.getRedactedReasoningContent())) {
-            meta.put(MetaConstants.REDACTED_REASONING, details.getRedactedReasoningContent());
+        String redactedReasoning = details.getRedactedReasoningContent();
+        if(redactedReasoning != null && !redactedReasoning.isBlank()) {
+            meta.put(MetaConstants.REDACTED_REASONING, redactedReasoning);
         }
         toolCallMsg.setMetadata(JacksonUtils.serialize(meta));
         return toolCallMsg;
@@ -697,21 +697,22 @@ public class MessageUtils {
         }
 
         // 转换metadata从JSON字符串到Map
-        if(StringUtils.isNotBlank(messageDb.getMetadata())) {
-            info.setMetadata(JacksonUtils.toMap(messageDb.getMetadata()));
+        String metadata = messageDb.getMetadata();
+        if(metadata != null && !metadata.isBlank()) {
+            info.setMetadata(JacksonUtils.toMap(metadata));
         }
 
         // content字段处理 - 数据库存储的是Content对象数组的JSON
-        if(StringUtils.isNotBlank(messageDb.getContent())) {
+        String content = messageDb.getContent();
+        if(content != null && !content.isBlank()) {
             // 数据库中存储的格式：[{"type": "text", "text": {"value": "内容", "annotations": []}}]
-            info.setContent(JacksonUtils.deserialize(messageDb.getContent(), new TypeReference<List<MessageContent>>() {
-            }));
+            info.setContent(JacksonUtils.deserialize(content, new TypeReference<>() {}));
         }
 
         // attachments字段反序列化
-        if(StringUtils.isNotBlank(messageDb.getAttachments())) {
-            info.setAttachments(JacksonUtils.deserialize(messageDb.getAttachments(), new TypeReference<List<Attachment>>() {
-            }));
+        String attachments = messageDb.getAttachments();
+        if(attachments != null && !attachments.isBlank()) {
+            info.setAttachments(JacksonUtils.deserialize(attachments, new TypeReference<>() {}));
         }
 
         if(info.getMetadata() != null && info.getMetadata().containsKey(MetaConstants.INCOMPLETE_REASON)) {

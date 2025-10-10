@@ -65,7 +65,7 @@ public class WeatherSearchToolHandler implements ToolHandler {
         Object weatherData = processWeatherData(response);
         
         // 构建输出内容
-        String output = weatherData instanceof String ? (String) weatherData : JacksonUtils.serialize(weatherData);
+        String output = weatherData instanceof String s ? s : JacksonUtils.serialize(weatherData);
         
         return new ToolResult(ToolResult.ToolResultType.text, output);
     }

@@ -109,10 +109,10 @@ public class MessageExecutor implements Runnable {
                     return;
                 }
                 Map<String, String> meatData = new HashMap<>();
-                if(reasoningSignature.length() > 0) {
+                if(!reasoningSignature.isEmpty()) {
                     meatData.put(MetaConstants.REASONING_SIG, reasoningSignature.toString());
                 }
-                if(redactedReasoningContent.length() > 0) {
+                if(!redactedReasoningContent.isEmpty()) {
                     meatData.put(MetaConstants.REDACTED_REASONING, redactedReasoningContent.toString());
                 }
                 context.addUsage(usage);
@@ -124,10 +124,10 @@ public class MessageExecutor implements Runnable {
                     runStateManager.finishMessageCreation(context, messageContent, reasoning.toString(), usage, meatData);
                     ++index;
                 } else {
-                    if(content.length() > 0) {
+                    if(!content.isEmpty()) {
                         meatData.put(MetaConstants.TEXT, content.toString());
                     }
-                    if(reasoning.length() > 0) {
+                    if(!reasoning.isEmpty()) {
                         meatData.put(MetaConstants.REASONING, reasoning.toString());
                     }
                     runStateManager.startToolCalls(context, usage, meatData);
@@ -142,7 +142,7 @@ public class MessageExecutor implements Runnable {
             }
             // 工具处理结束时，存在content输出的工具会发送此消息，需要将输出加入到助手消息中
             if(msg.equals("[TOOL_DONE]")) {
-                if(content.length() > 0) {
+                if(!content.isEmpty()) {
                     MessageContent messageContent = new MessageContent();
                     messageContent.setType("text");
                     messageContent.setText(new Text(content.toString(), new ArrayList<>()));
@@ -160,13 +160,13 @@ public class MessageExecutor implements Runnable {
             return;
         }
         // 异常消息
-        if(msg instanceof LastError) {
+        if(msg instanceof LastError lastError) {
             try {
                 OpenAiError error = new OpenAiError();
                 OpenAiError.OpenAiErrorDetails details = new OpenAiError.OpenAiErrorDetails();
-                details.setMessage(((LastError) msg).getMessage());
-                details.setType(((LastError) msg).getCode());
-                details.setCode(((LastError) msg).getCode());
+                details.setMessage(lastError.getMessage());
+                details.setType(lastError.getCode());
+                details.setCode(lastError.getCode());
                 error.setError(details);
                 send(StreamEvent.ERROR, error);
                 finish();
@@ -180,42 +180,41 @@ public class MessageExecutor implements Runnable {
             send(StreamEvent.THREAD_CREATED, msg);
             return;
         }
-        if(msg instanceof Run) {
-            RunStatus status = RunStatus.fromValue(((Run) msg).getStatus());
+        if(msg instanceof Run run) {
+            RunStatus status = RunStatus.fromValue(run.getStatus());
             if(RunStatus.QUEUED == status) {
                 send(StreamEvent.THREAD_RUN_CREATED, msg);
             }
             send(status.getRunStreamEvent(), msg);
             return;
         }
-        if(msg instanceof ResumeMessage) {
-            send(StreamEvent.THREAD_RUN_STEP_COMPLETED, ((ResumeMessage) msg).getRunStep());
-            send(StreamEvent.THREAD_RUN_QUEUED, ((ResumeMessage) msg).getRun());
+        if(msg instanceof ResumeMessage resumeMessage) {
+            send(StreamEvent.THREAD_RUN_STEP_COMPLETED, resumeMessage.getRunStep());
+            send(StreamEvent.THREAD_RUN_QUEUED, resumeMessage.getRun());
             return;
         }
-        if(msg instanceof RunStep) {
-            RunStatus status = RunStatus.fromValue(((RunStep) msg).getStatus());
-            if(status == RunStatus.IN_PROGRESS && !created.contains(((RunStep) msg).getId())) {
+        if(msg instanceof RunStep runStep) {
+            RunStatus status = RunStatus.fromValue(runStep.getStatus());
+            if(status == RunStatus.IN_PROGRESS && !created.contains(runStep.getId())) {
                 send(StreamEvent.THREAD_RUN_STEP_CREATED, msg);
                 created.add(((RunStep) msg).getId());
             }
-            if(created.contains(((RunStep) msg).getId())) {
+            if(created.contains(runStep.getId())) {
                 send(status.getRunStepStreamEvent(), msg);
             }
             return;
         }
-        if(msg instanceof Message) {
-            if(((Message) msg).getStatus().equals("incomplete")) {
+        if(msg instanceof Message message) {
+            if(message.getStatus().equals("incomplete")) {
                 if(created.contains(((Message) msg).getId())) {
                     send(StreamEvent.THREAD_MESSAGE_INCOMPLETE, msg);
                 }
-            } else if(((Message) msg).getStatus().equals("completed")){
+            } else if(message.getStatus().equals("completed")){
                 if(created.contains(((Message) msg).getId())) {
                     send(StreamEvent.THREAD_MESSAGE_COMPLETED, msg);
                 }
             } else {
-                if(!created.contains(((Message) msg).getId())) {
-                    Message message = (Message) msg;
+                if(!created.contains(message.getId())) {
                     if(message.getContent() == null || message.getContent().stream().allMatch(MessageContent::empty)) {
                         send(StreamEvent.THREAD_MESSAGE_CREATED, msg);
                     }
@@ -226,8 +225,7 @@ public class MessageExecutor implements Runnable {
             return;
         }
         // llm调用的消息
-        if(msg instanceof ChatCompletionChunk) {
-            ChatCompletionChunk chunk = (ChatCompletionChunk) msg;
+        if(msg instanceof ChatCompletionChunk chunk) {
             if(CollectionUtils.isNotEmpty(chunk.getChoices())) {
                 AssistantMessage assistantMessage = chunk.getChoices().get(0).getMessage();
                 if(assistantMessage != null) {
@@ -268,8 +266,7 @@ public class MessageExecutor implements Runnable {
             return;
         }
         //以下是Tool为isFinal会发送的多模态消息
-        if(msg instanceof ImageFile) {
-            ImageFile imageFile = (ImageFile) msg;
+        if(msg instanceof ImageFile imageFile) {
             sendImageFile(imageFile);
             MessageContent messageContent = new MessageContent();
             messageContent.setType("image_file");
@@ -280,8 +277,7 @@ public class MessageExecutor implements Runnable {
             context.finishToolCallOutput();
             return;
         }
-        if(msg instanceof ImageUrl) {
-            ImageUrl imageUrl = (ImageUrl) msg;
+        if(msg instanceof ImageUrl imageUrl) {
             sendImageUrl(imageUrl);
             MessageContent messageContent = new MessageContent();
             messageContent.setType("image_url");

@@ -4,7 +4,6 @@ import com.ke.assistant.configuration.AssistantProperties;
 import com.ke.assistant.configuration.S3Properties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -50,7 +49,7 @@ public class S3Service {
                     .credentialsProvider(credentialsProvider);
 
                 // 如果配置了自定义endpoint（比如MinIO）
-                if (s3Properties.getEndpoint() != null && !s3Properties.getEndpoint().trim().isEmpty()) {
+                if(s3Properties.getEndpoint() != null && !s3Properties.getEndpoint().isBlank()) {
                     builder.endpointOverride(URI.create(s3Properties.getEndpoint()))
                            .forcePathStyle(s3Properties.isPathStyleAccess());
                 }
@@ -186,7 +185,7 @@ public class S3Service {
      */
     private String generateFileUrl(String fileName) {
         // 如果配置了公共基础URL（如CDN），使用它
-        if (s3Properties.getUrl().getPublicBaseUrl() != null && !s3Properties.getUrl().getPublicBaseUrl().trim().isEmpty()) {
+        if(s3Properties.getUrl().getPublicBaseUrl() != null && !s3Properties.getUrl().getPublicBaseUrl().isBlank()) {
             String baseUrl = s3Properties.getUrl().getPublicBaseUrl();
             baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
             if(s3Properties.isPathStyleAccess()) {
@@ -194,8 +193,8 @@ public class S3Service {
             }
             return String.format("%s/%s", baseUrl, fileName);
         }
-        
-        if (s3Properties.getEndpoint() != null && !s3Properties.getEndpoint().trim().isEmpty()) {
+
+        if(s3Properties.getEndpoint() != null && !s3Properties.getEndpoint().isBlank()) {
             // 自定义endpoint的情况（如MinIO）
             String baseUrl = s3Properties.getEndpoint().endsWith("/") ? s3Properties.getEndpoint().substring(0, s3Properties.getEndpoint().length() - 1) : s3Properties.getEndpoint();
             if (s3Properties.isPathStyleAccess()) {
@@ -219,7 +218,7 @@ public class S3Service {
      * @return 图片的公共访问URL
      */
     public String uploadChart(byte[] imageData, String format) {
-        String actualFormat = (format != null && !format.trim().isEmpty()) ? format : s3Properties.getUpload().getDefaultChartFormat();
+        String actualFormat = (format != null && !format.isBlank()) ? format : s3Properties.getUpload().getDefaultChartFormat();
         String contentType = "image/" + actualFormat.toLowerCase();
         String fileExtension = "." + actualFormat.toLowerCase();
         return uploadFile(imageData, contentType, fileExtension);

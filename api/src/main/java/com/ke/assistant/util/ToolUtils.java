@@ -20,8 +20,7 @@ public class ToolUtils {
     }
 
     public static void checkTool(Tool tool) {
-        if(tool instanceof Tool.Function) {
-            Tool.Function functionTool = (Tool.Function) tool;
+        if(tool instanceof Tool.Function functionTool) {
             Assert.notNull(functionTool.getFunction(), "function is null");
             Assert.hasText(functionTool.getFunction().getName(), "function name is null");
             Assert.notNull(functionTool.getFunction().getParameters(), "function parameter can not be null");
@@ -35,8 +34,7 @@ public class ToolUtils {
         return toolDefinitions.stream().map(toolDefinition -> {
             if(toolDefinition.getRealTool() != null) {
                 return toolDefinition.getRealTool();
-            } else if(toolDefinition instanceof FunctionTool) {
-                FunctionTool functionTool = (FunctionTool) toolDefinition;
+            } else if(toolDefinition instanceof FunctionTool functionTool) {
                 Tool.Function function = new Tool.Function();
                 Tool.FunctionDefinition definition = new Tool.FunctionDefinition();
                 definition.setName(functionTool.getName());
@@ -60,8 +58,7 @@ public class ToolUtils {
                     if(tool.definition() != null) {
                         return tool.definition();
                     }
-                    if(tool instanceof Tool.Function) {
-                        Tool.Function function = (Tool.Function) tool;
+                    if(tool instanceof Tool.Function function) {
                         FunctionTool functionTool = new FunctionTool();
                         functionTool.setName(function.getFunction().getName());
                         functionTool.setDescription(function.getFunction().getDescription());

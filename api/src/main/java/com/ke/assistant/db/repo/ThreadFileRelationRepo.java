@@ -2,12 +2,12 @@ package com.ke.assistant.db.repo;
 
 import com.ke.assistant.db.generated.tables.pojos.ThreadFileRelationDb;
 import com.ke.assistant.db.generated.tables.records.ThreadFileRelationRecord;
-import com.ke.assistant.db.context.RepoContext;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.ke.assistant.db.generated.Tables.THREAD_FILE_RELATION;
 
@@ -46,7 +46,7 @@ public class ThreadFileRelationRepo implements BaseRepo {
         if (isNoStoreMode()) {
             return getContextStore().threadFiles.values().stream()
                     .filter(tf -> fileId.equals(tf.getFileId()))
-                    .collect(java.util.stream.Collectors.toList());
+                    .collect(Collectors.toList());
         }
         return dsl.selectFrom(THREAD_FILE_RELATION)
                 .where(THREAD_FILE_RELATION.FILE_ID.eq(fileId))

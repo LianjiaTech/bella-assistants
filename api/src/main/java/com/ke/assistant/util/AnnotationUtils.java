@@ -60,7 +60,7 @@ public class AnnotationUtils {
             return null;
         }
         switch (annotation.getType()) {
-            case "file_citation":
+        case "file_citation" -> {
                 com.theokanning.openai.response.content.FileCitation fileCitation = new  com.theokanning.openai.response.content.FileCitation();
                 if(annotation.getFileCitation() != null) {
                     fileCitation.setFileId(annotation.getFileCitation().getFileId());
@@ -75,7 +75,8 @@ public class AnnotationUtils {
                     fileCitation.setFileTag(metadata.get("fileTag"));
                 }
                 return fileCitation;
-            case "url_citation":
+        }
+        case "url_citation" -> {
                 com.theokanning.openai.response.content.URLCitation urlCitation = new com.theokanning.openai.response.content.URLCitation();
                 if(annotation.getUrlCitation() != null) {
                     urlCitation.setUrl(annotation.getUrlCitation().getUrl());
@@ -84,13 +85,15 @@ public class AnnotationUtils {
                 urlCitation.setStartIndex(annotation.getStartIndex());
                 urlCitation.setEndIndex(annotation.getEndIndex());
                 return urlCitation;
-            case "file_path":
+        }
+        case "file_path" -> {
                 com.theokanning.openai.response.content.FilePath filePath = new com.theokanning.openai.response.content.FilePath();
                 if(annotation.getFilePath() != null) {
                     filePath.setFileId(annotation.getFilePath().getFileId());
                 }
                 return filePath;
-            case "container_file_citation":
+        }
+        case "container_file_citation" -> {
                 com.theokanning.openai.response.content.ContainerFileCitation containerFileCitation = new com.theokanning.openai.response.content.ContainerFileCitation();
                 if(annotation.getContainerFileCitation() != null) {
                     containerFileCitation.setFileId(annotation.getContainerFileCitation().getFileId());
@@ -99,8 +102,10 @@ public class AnnotationUtils {
                 containerFileCitation.setStartIndex(annotation.getStartIndex());
                 containerFileCitation.setEndIndex(annotation.getEndIndex());
                 return containerFileCitation;
-            default:
+        }
+        default -> {
                 return null;
+        }
         }
     }
 
@@ -118,8 +123,7 @@ public class AnnotationUtils {
 
         Annotation annotation = new Annotation();
 
-        if(responseAnnotation instanceof com.theokanning.openai.response.content.FileCitation) {
-            com.theokanning.openai.response.content.FileCitation fileCitation = (com.theokanning.openai.response.content.FileCitation) responseAnnotation;
+        if(responseAnnotation instanceof com.theokanning.openai.response.content.FileCitation fileCitation) {
             annotation.setType("file_citation");
 
             FileCitation fc = new FileCitation();
@@ -141,8 +145,7 @@ public class AnnotationUtils {
             }
             annotation.setMetadata(metadata);
 
-        } else if(responseAnnotation instanceof com.theokanning.openai.response.content.URLCitation) {
-            com.theokanning.openai.response.content.URLCitation urlCitation = (com.theokanning.openai.response.content.URLCitation) responseAnnotation;
+        } else if(responseAnnotation instanceof com.theokanning.openai.response.content.URLCitation urlCitation) {
             annotation.setType("url_citation");
 
             URLCitation uc = new URLCitation();
@@ -153,16 +156,14 @@ public class AnnotationUtils {
             annotation.setStartIndex(urlCitation.getStartIndex());
             annotation.setEndIndex(urlCitation.getEndIndex());
 
-        } else if(responseAnnotation instanceof com.theokanning.openai.response.content.FilePath) {
-            com.theokanning.openai.response.content.FilePath filePath = (com.theokanning.openai.response.content.FilePath) responseAnnotation;
+        } else if(responseAnnotation instanceof com.theokanning.openai.response.content.FilePath filePath) {
             annotation.setType("file_path");
 
             com.theokanning.openai.assistants.message.content.FilePath fp = new com.theokanning.openai.assistants.message.content.FilePath();
             fp.setFileId(filePath.getFileId());
             annotation.setFilePath(fp);
 
-        } else if(responseAnnotation instanceof com.theokanning.openai.response.content.ContainerFileCitation) {
-            com.theokanning.openai.response.content.ContainerFileCitation containerFileCitation = (com.theokanning.openai.response.content.ContainerFileCitation) responseAnnotation;
+        } else if(responseAnnotation instanceof com.theokanning.openai.response.content.ContainerFileCitation containerFileCitation) {
             annotation.setType("container_file_citation");
 
             com.theokanning.openai.assistants.message.content.ContainerFileCitation cfc = new com.theokanning.openai.assistants.message.content.ContainerFileCitation();

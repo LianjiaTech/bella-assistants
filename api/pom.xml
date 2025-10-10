@@ -22,9 +22,9 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <java.version>1.8</java.version>
+        <java.version>17</java.version>
         <bella-openapi.version>1.2.1</bella-openapi.version>
-        <bella-openai.version>0.23.78</bella-openai.version>
+        <bella-openai.version>0.23.79</bella-openai.version>
         <jooq.version>3.14.15</jooq.version>
         <mysql.version>8.0.33</mysql.version>
         <!-- Database connection config for JOOQ code generation -->
@@ -160,6 +160,12 @@
             <version>1.8.0</version>
         </dependency>
 
+        <!-- mcp -->
+        <dependency>
+            <groupId>io.modelcontextprotocol.sdk</groupId>
+            <artifactId>mcp</artifactId>
+        </dependency>
+
         <!-- Test Dependencies -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -222,7 +228,16 @@
             <dependency>
                 <groupId>org.projectlombok</groupId>
                 <artifactId>lombok</artifactId>
-                <version>1.18.24</version>
+                <version>1.18.30</version>
+            </dependency>
+
+            <!-- mcp -->
+            <dependency>
+                <groupId>io.modelcontextprotocol.sdk</groupId>
+                <artifactId>mcp-bom</artifactId>
+                <version>0.12.1</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>

@@ -102,6 +102,7 @@ public class ContextTruncator {
     /**
      * 上下文不足时，可以缩短工具的输出
      */
+    @SuppressWarnings("unchecked")
     private void shortenContext(Collection<ChatMessage> chatMessages, int protectedTokens, int maxTokens, int maxTimes) {
         if(maxTimes == 0) {
             return;
@@ -116,8 +117,7 @@ public class ContextTruncator {
         for(ChatMessage chatMessage : chatMessages) {
             // 如果有多条消息，只保留最后一条（前面的消息是isFinal类型的工具产生）
             if(chatMessage.getRole().equals("assistant")) {
-                if(chatMessage instanceof AssistantMultipleMessage) {
-                    AssistantMultipleMessage message = (AssistantMultipleMessage) chatMessage;
+                if(chatMessage instanceof AssistantMultipleMessage message) {
                     if(message.getContent() instanceof Collection) {
                         List<MultiMediaContent> contents = Lists.newArrayList((Collection<MultiMediaContent>) message.getContent());
                         message.setContent(contents.get(contents.size() - 1).getText());
@@ -146,8 +146,6 @@ public class ContextTruncator {
 
     /**
      * 确保消息一定是 user-assistant 或者 user-assistant-tool-assistant 成对出现
-     * @param selectedMessages
-     * @return
      */
     @SuppressWarnings("unchecked")
     private List<ChatMessage> buildMessages(Stack<ChatMessage> selectedMessages) {
@@ -249,13 +247,13 @@ public class ContextTruncator {
     }
 
 
-    private Set<String> extractToolCallIds(ChatMessage assistantMessage) {
+    private Set<String> extractToolCallIds(ChatMessage message) {
         List<ChatToolCall> toolCalls = new ArrayList<>();
-        if(assistantMessage instanceof AssistantMessage) {
-            toolCalls = ((AssistantMessage) assistantMessage).getToolCalls();
+        if(message instanceof AssistantMessage assistantMessage) {
+            toolCalls = assistantMessage.getToolCalls();
         }
-        if(assistantMessage instanceof AssistantMultipleMessage) {
-            toolCalls = ((AssistantMultipleMessage) assistantMessage).getToolCalls();
+        if(message instanceof AssistantMultipleMessage assistantMultipleMessage) {
+            toolCalls = assistantMultipleMessage.getToolCalls();
         }
         if(toolCalls != null) {
             return toolCalls.stream().map(ChatToolCall::getId).collect(Collectors.toSet());

@@ -2,9 +2,10 @@ package com.ke.assistant.util;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import com.google.common.collect.Lists;
 import com.ke.assistant.core.run.RunStatus;
-import com.ke.assistant.service.AudioStorageService;
 import com.ke.bella.openapi.common.exception.BizParamCheckException;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.assistants.assistant.Tool;
@@ -56,6 +57,8 @@ import com.theokanning.openai.response.tool.FileSearchToolCall;
 import com.theokanning.openai.response.tool.FunctionToolCall;
 import com.theokanning.openai.response.tool.ImageGenerationToolCall;
 import com.theokanning.openai.response.tool.LocalShellToolCall;
+import com.theokanning.openai.response.tool.MCPListTools;
+import com.theokanning.openai.response.tool.MCPToolCall;
 import com.theokanning.openai.response.tool.ToolCall;
 import com.theokanning.openai.response.tool.WebSearchToolCall;
 import com.theokanning.openai.response.tool.output.ComputerToolCallOutput;
@@ -72,6 +75,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class ResponseUtils {
@@ -262,21 +266,18 @@ public class ResponseUtils {
         messages.add(message());
         for(ConversationItem conversationItem : conversationItems) {
             Message last = messages.get(messages.size() - 1);
-            if(conversationItem instanceof InputMessage) {
-                processInputMessage((InputMessage) conversationItem, last, messages, imageProcessor, audioUploader);
-            } else if(conversationItem instanceof OutputMessage) {
-                OutputMessage outputMessage = (OutputMessage) conversationItem;
+            if(conversationItem instanceof InputMessage inputMessage) {
+                processInputMessage(inputMessage, last, messages, imageProcessor, audioUploader);
+            } else if(conversationItem instanceof OutputMessage outputMessage) {
                 processOutputMessage(outputMessage, last, messages);
-            }  else if(conversationItem instanceof Reasoning) {
-                processReasoning((Reasoning) conversationItem, last, messages);
-            } else if(conversationItem instanceof ToolCall) {
-                processToolCall((ToolCall) conversationItem, last, messages, runStepMap, fetcher);
-            } else if(conversationItem instanceof FunctionToolCallOutput) {
-                FunctionToolCallOutput output = (FunctionToolCallOutput) conversationItem;
+            }  else if(conversationItem instanceof Reasoning reasoning) {
+                processReasoning(reasoning, last, messages);
+            } else if(conversationItem instanceof ToolCall toolCall) {
+                processToolCall(toolCall, last, messages, runStepMap, fetcher);
+            } else if(conversationItem instanceof FunctionToolCallOutput output) {
                 ToolMessage toolMessage = toolResult(output.getCallId(), output.getOutput());
                 setToolResult(toolMessage, last, messages, output.getType());
-            }  else if(conversationItem instanceof CustomToolCallOutput) {
-                CustomToolCallOutput output = (CustomToolCallOutput) conversationItem;
+            }  else if(conversationItem instanceof CustomToolCallOutput output) {
                 ToolMessage toolMessage = toolResult(output.getCallId(), output.getOutput());
                 setToolResult(toolMessage, last, messages, output.getType());
             }  else if(conversationItem instanceof ComputerToolCallOutput) {
@@ -303,11 +304,9 @@ public class ResponseUtils {
             message.getContent().add(textContent(inputMessage.getContent().getStringValue()));
         } else {
             for(InputContent inputContent : inputMessage.getContent().getArrayValue()) {
-                if(inputContent instanceof InputText) {
-                    InputText inputText = (InputText) inputContent;
+                if(inputContent instanceof InputText inputText) {
                     message.getContent().add(textContent(inputText.getText()));
-                } else if(inputContent instanceof InputImage) {
-                    InputImage inputImage = (InputImage) inputContent;
+                } else if(inputContent instanceof InputImage inputImage) {
                     MessageContent messageContent = new MessageContent();
                     if(inputImage.getImageUrl() != null) {
                         // Process image URL - convert base64 to S3 URL if needed
@@ -320,11 +319,9 @@ public class ResponseUtils {
                         messageContent.setImageFile(new ImageFile(inputImage.getFileId(), inputImage.getDetail()));
                         message.getContent().add(messageContent);
                     }
-                } else if(inputContent instanceof InputFile) {
-                    InputFile inputFile = (InputFile) inputContent;
+                } else if(inputContent instanceof InputFile inputFile) {
                     message.getAttachments().add(new Attachment(inputFile.getFileId(), Lists.newArrayList(new Tool.Retrieval(true, true), new Tool.ReadFiles(true, true))));
-                } else if(inputContent instanceof InputAudio) {
-                    InputAudio inputAudio = (InputAudio) inputContent;
+                } else if(inputContent instanceof InputAudio inputAudio) {
                     InputAudio.AudioData inAudio = inputAudio.getInputAudio();
                     if (inAudio == null || inAudio.getData() == null || inAudio.getFormat() == null) {
                         throw new BizParamCheckException("invalid audio input: missing data or format");
@@ -353,11 +350,9 @@ public class ResponseUtils {
             message.getContent().add(textContent(outputMessage.getContent().getStringValue()));
         } else {
             for(OutputContent outputContent : outputMessage.getContent().getArrayValue()) {
-                if(outputContent instanceof OutputText) {
-                    OutputText outputText = (OutputText) outputContent;
+                if(outputContent instanceof OutputText outputText) {
                     message.getContent().add(textContent(outputText.getText(), outputText.getAnnotations()));
-                } else if(outputContent instanceof Refusal) {
-                    Refusal refusal = (Refusal) outputContent;
+                } else if(outputContent instanceof Refusal refusal) {
                     message.getContent().add(textContent(refusal.getRefusal()));
                 }
             }
@@ -377,12 +372,10 @@ public class ResponseUtils {
     }
 
     private static void processToolCall(ToolCall toolCallItem, Message last, List<Message> messages, Map<String, RunStep> runStepMap, RunStepFetcher fetcher) {
-        if(toolCallItem instanceof FunctionToolCall) {
-            FunctionToolCall call = (FunctionToolCall) toolCallItem;
+        if(toolCallItem instanceof FunctionToolCall call) {
             ChatToolCall toolCall = chatToolCall(call.getCallId(), JacksonUtils.deserialize(call.getArguments()));
             setToolCall(toolCall, last, messages, toolCallItem.getType());
-        }  else if(toolCallItem instanceof LocalShellToolCall) {
-            LocalShellToolCall localShellToolCall = (LocalShellToolCall) toolCallItem;
+        }  else if(toolCallItem instanceof LocalShellToolCall localShellToolCall) {
             // tool call
             ChatToolCall toolCall = chatToolCall(localShellToolCall.getCallId(),
                     JacksonUtils.deserialize(JacksonUtils.serialize(localShellToolCall.getAction())));
@@ -391,8 +384,7 @@ public class ResponseUtils {
             String output = localShellToolCall.getStatus() == ItemStatus.INCOMPLETE ? "Failed to run the local shell." : "Finish to run the local shell.";
             ToolMessage toolResult = toolResult(localShellToolCall.getCallId(), output);
             setToolResult(toolResult, last, messages, toolCallItem.getType());
-        } else if(toolCallItem instanceof CustomToolCall) {
-            CustomToolCall customToolCall = (CustomToolCall) toolCallItem;
+        } else if(toolCallItem instanceof CustomToolCall customToolCall) {
             Map<String, String> inputMap = new HashMap<>();
             inputMap.put("input_data", customToolCall.getInput());
             ChatToolCall toolCall = chatToolCall(customToolCall.getCallId(), JacksonUtils.deserialize(JacksonUtils.serialize(inputMap)));
@@ -481,7 +473,7 @@ public class ResponseUtils {
 
     private static Pair<ChatToolCall, ToolMessage> extractToolInfo(RunStep runStep, String toolCallId) {
         StepDetails stepDetails = runStep.getStepDetails();
-        Map<String, com.theokanning.openai.assistants.run.ToolCall> stepToolCalls = stepDetails.getToolCalls().stream().collect(Collectors.toMap(com.theokanning.openai.assistants.run.ToolCall::getId, t -> t));
+        Map<String, com.theokanning.openai.assistants.run.ToolCall> stepToolCalls = stepDetails.getToolCalls().stream().collect(Collectors.toMap(com.theokanning.openai.assistants.run.ToolCall::getId, Function.identity()));
         com.theokanning.openai.assistants.run.ToolCall toolCall = stepToolCalls.get(toolCallId);
         Assert.notNull(toolCall, "invalid tool call id");
         ChatToolCall chatToolCall = MessageUtils.convertToChatToolCall(toolCall);
@@ -667,6 +659,10 @@ public class ResponseUtils {
             conversationItems.add(createWebSearchToolCall(toolCall, itemId));
         } else if ("image_generation_call".equals(itemType)) {
             conversationItems.add(createImageGenerationToolCall(itemId));
+        } else if ("mcp_list_tools".equalsIgnoreCase(itemType)) {
+            conversationItems.add(createMcpListTools(toolCall, itemId));
+        } else if ("mcp_call".equalsIgnoreCase(itemType)) {
+            conversationItems.add(createMcpToolCall(toolCall, itemId));
         }
     }
 
@@ -750,6 +746,66 @@ public class ResponseUtils {
         return imageGenCall;
     }
 
+    private static MCPListTools createMcpListTools(ChatToolCall toolCall, String itemId) {
+        MCPListTools mcpListTools = new MCPListTools();
+        mcpListTools.setId(itemId);
+        mcpListTools.setServerLabel(toolCall.getFunction() != null ? toolCall.getFunction().getName() : "");
+
+        // Extract tools list from arguments
+        JsonNode arguments = toolCall.getFunction() != null ? toolCall.getFunction().getArguments() : null;
+
+        if (arguments != null) {
+            if(arguments instanceof ArrayNode arrayNode) {
+                // Parse array of tools
+                List<MCPListTools.MCPToolInfo> tools = new ArrayList<>();
+                for (JsonNode node : arrayNode) {
+                    MCPListTools.MCPToolInfo toolInfo = JacksonUtils.deserialize(
+                        node.toString(),
+                        MCPListTools.MCPToolInfo.class
+                    );
+                    if (toolInfo != null) {
+                        tools.add(toolInfo);
+                    }
+                }
+                mcpListTools.setTools(tools);
+            } else if(arguments instanceof TextNode) {
+                // Text node indicates error
+                mcpListTools.setError(arguments.asText());
+            }
+        }
+
+        return mcpListTools;
+    }
+
+
+    private static MCPToolCall createMcpToolCall(ChatToolCall toolCall, String itemId) {
+        MCPToolCall mcpToolCall = new MCPToolCall();
+        mcpToolCall.setId(itemId);
+
+        // Extract tool name and server label from function name
+        // Format is typically: serverLabel_toolName
+        String functionName = toolCall.getFunction() != null ? toolCall.getFunction().getName() : "";
+        int separatorIndex = functionName.indexOf('_');
+        if (separatorIndex > 0) {
+            mcpToolCall.setServerLabel(functionName.substring(0, separatorIndex));
+            mcpToolCall.setName(functionName.substring(separatorIndex + 1));
+        } else {
+            mcpToolCall.setServerLabel(functionName);
+            mcpToolCall.setName(functionName);
+        }
+
+        // Set arguments as JSON string
+        JsonNode arguments = toolCall.getFunction() != null ? toolCall.getFunction().getArguments() : null;
+        if (arguments != null) {
+            mcpToolCall.setArguments(arguments.toString());
+        } else {
+            mcpToolCall.setArguments("{}");
+        }
+
+        return mcpToolCall;
+    }
+
+    @SuppressWarnings("unchecked")
     private static void processToolResultContent(MessageContent content, Message message,
                                                 List<ConversationItem> conversationItems) {
         if (content.getToolResult() == null) return;
@@ -780,16 +836,15 @@ public class ResponseUtils {
             customOutput.setCallId(toolCallId);
             customOutput.setOutput(output);
             conversationItems.add(customOutput);
-        } else if ("file_search_call".equals(itemType) || "web_search_call".equals(itemType) || "image_generation_call".equals(itemType)) {
+        } else if ("file_search_call".equals(itemType) || "web_search_call".equals(itemType) || "image_generation_call".equals(itemType)
+        || "mcp_list_tools".equals(itemType) || "mcp_call".equals(itemType)) {
             ConversationItem previousItem = findPreviousToolCall(conversationItems, itemId);
             Map<String, Object> map = JacksonUtils.toMap(output);
-            if(previousItem instanceof FileSearchToolCall) {
-                FileSearchToolCall toolCall = (FileSearchToolCall) previousItem;
+            if(map == null) return;
+            if(previousItem instanceof FileSearchToolCall toolCall) {
                 List<FileSearchToolCall.SearchResult> searchResults;
                 if(map.containsKey("message")) {
-                    searchResults = JacksonUtils.deserialize((String) map.get("message"),
-                            new TypeReference<List<FileSearchToolCall.SearchResult>>() {
-                            });
+                    searchResults = JacksonUtils.deserialize((String) map.get("message"), new TypeReference<>() {});
                 } else {
                     FileSearchToolCall.SearchResult searchResult = new FileSearchToolCall.SearchResult();
                     searchResult.setText((String) map.getOrDefault("error", "no_message"));
@@ -802,10 +857,15 @@ public class ResponseUtils {
                     searchResults.add(result);
                 }
                 toolCall.setResults(searchResults);
-            } else if(previousItem instanceof ImageGenerationToolCall) {
+            } else {
                 String data = (String) map.getOrDefault("message", map.getOrDefault("error", "no_message"));
-                ImageGenerationToolCall toolCall = (ImageGenerationToolCall) previousItem;
-                toolCall.setResult(data);
+                if(previousItem instanceof ImageGenerationToolCall toolCall) {
+                    toolCall.setResult(data);
+                } else if(previousItem instanceof MCPListTools toolCall) {
+                    toolCall.setTools(JacksonUtils.deserialize(data, new TypeReference<>() {}));
+                } else if(previousItem instanceof MCPToolCall toolCall) {
+                    toolCall.setOutput(data);
+                }
             }
         }
     }
@@ -817,9 +877,9 @@ public class ResponseUtils {
             InputMessage inputMessage = new InputMessage();
             inputMessage.setRole(getMessageRole(role));
 
-            if (inputContents.size() == 1 && inputContents.get(0) instanceof InputText) {
+            if (inputContents.size() == 1 && inputContents.get(0) instanceof InputText inputText) {
                 // Single text content - use string form
-                inputMessage.setContent(InputContentValue.of(((InputText) inputContents.get(0)).getText()));
+                inputMessage.setContent(InputContentValue.of(inputText.getText()));
             } else {
                 // Multiple contents - use array form
                 inputMessage.setContent(InputContentValue.of(inputContents));
@@ -833,9 +893,9 @@ public class ResponseUtils {
             outputMessage.setRole(MessageRole.ASSISTANT);
             outputMessage.setStatus(ItemStatus.COMPLETED);
 
-            if (outputContents.size() == 1 && outputContents.get(0) instanceof OutputText && CollectionUtils.isEmpty(((OutputText) outputContents.get(0)).getAnnotations())) {
+            if (outputContents.size() == 1 && outputContents.get(0) instanceof OutputText outputText && CollectionUtils.isEmpty(outputText.getAnnotations())) {
                 // Single text content - use string form
-                outputMessage.setContent(OutputContentValue.of(((OutputText) outputContents.get(0)).getText()));
+                outputMessage.setContent(OutputContentValue.of(outputText.getText()));
             } else {
                 // Multiple contents - use array form
                 outputMessage.setContent(OutputContentValue.of(outputContents));
@@ -868,18 +928,7 @@ public class ResponseUtils {
             return null;
         }
         for (ConversationItem item : items) {
-            if (item instanceof FileSearchToolCall) {
-                FileSearchToolCall call = (FileSearchToolCall) item;
-                if (itemId.equals(call.getId())) {
-                    return call;
-                }
-            } else if (item instanceof WebSearchToolCall) {
-                WebSearchToolCall call = (WebSearchToolCall) item;
-                if (itemId.equals(call.getId())) {
-                    return call;
-                }
-            } else if (item instanceof ImageGenerationToolCall) {
-                ImageGenerationToolCall call = (ImageGenerationToolCall) item;
+            if (item instanceof ToolCall call) {
                 if (itemId.equals(call.getId())) {
                     return call;
                 }
@@ -923,6 +972,9 @@ public class ResponseUtils {
         }
         if(tool instanceof Tool.ImgGenerate) {
             return "image_generation_call";
+        }
+        if(tool instanceof Tool.MCP) {
+            return "mcp_list_tools";
         }
         return "unknown";
     }

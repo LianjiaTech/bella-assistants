@@ -38,7 +38,7 @@ public class ImageStorageService {
             return imageUrl;
         }
 
-        if (imageUrl == null || imageUrl.trim().isEmpty()) {
+        if(imageUrl == null || imageUrl.isBlank()) {
             throw new BizParamCheckException("Image URL cannot be null or empty");
         }
 

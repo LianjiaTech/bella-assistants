@@ -59,8 +59,7 @@ public class ChatService {
                         String code = "llm_error";
                         String message = throwable.getMessage();
                         boolean retry = true;
-                        if(throwable instanceof OpenAiHttpException) {
-                            OpenAiHttpException httpException = (OpenAiHttpException) throwable;
+                        if(throwable instanceof OpenAiHttpException httpException) {
                             code = httpException.type;
                             message = httpException.getMessage();
                             retry = httpException.statusCode == 499 ||

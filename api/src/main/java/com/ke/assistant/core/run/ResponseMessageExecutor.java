@@ -128,32 +128,31 @@ public class ResponseMessageExecutor implements Runnable {
     }
 
     private void process(Object msg) {
-        if(msg instanceof Run) {
-            handleResponseMessage((Run) msg);
+        if(msg instanceof Run run) {
+            handleResponseMessage(run);
         }
 
-        if(msg instanceof String) {
-            handleStringMessage((String) msg);
+        if(msg instanceof String s) {
+            handleStringMessage(s);
             return;
         }
 
-        if(msg instanceof LastError) {
-            handleError((LastError) msg);
+        if(msg instanceof LastError lastError) {
+            handleError(lastError);
             return;
         }
 
-        if(msg instanceof ChatCompletionChunk) {
-            handleChatCompletionChunk((ChatCompletionChunk) msg);
+        if(msg instanceof ChatCompletionChunk chunk) {
+            handleChatCompletionChunk(chunk);
             return;
         }
 
-        if(msg instanceof ToolStreamEvent) {
-            handleToolStreamEvent((ToolStreamEvent) msg);
+        if(msg instanceof ToolStreamEvent toolStreamEvent) {
+            handleToolStreamEvent(toolStreamEvent);
             return;
         }
 
-        if(msg instanceof ImageUrl) {
-            ImageUrl imageUrl = (ImageUrl) msg;
+        if(msg instanceof ImageUrl imageUrl) {
             MessageContent messageContent = new MessageContent();
             messageContent.setType("image_url");
             messageContent.setImageUrl(imageUrl);
@@ -237,16 +236,14 @@ public class ResponseMessageExecutor implements Runnable {
             StringBuilder content = new StringBuilder();
 
             for (ResponseItem item : outputItems) {
-                if(item instanceof Reasoning) {
-                    Reasoning reasoningItem = (Reasoning) item;
+                if(item instanceof Reasoning reasoningItem) {
                     reasoning = reasoningItem.getSummary().get(0).getText();
                     reasoningSignature = reasoningItem.getSummary().get(0).getReasoningSignature();
                     redactedReasoningContent = reasoningItem.getSummary().get(0).getRedactedReasoningContent();
                 }
-                if(item instanceof OutputMessage) {
-                    OutputMessage message = (OutputMessage) item;
+                if(item instanceof OutputMessage message) {
                     OutputText outputText = (OutputText) message.getContent().getArrayValue().get(0);
-                    if(content.length() > 0) {
+                    if(!content.isEmpty()) {
                         content.append("\n");
                     }
                     content.append(outputText.getText());
@@ -267,7 +264,7 @@ public class ResponseMessageExecutor implements Runnable {
                 messageContent.setText(new Text(content.toString(), context.getAnnotations()));
                 runStateManager.finishMessageCreation(context, messageContent, reasoning, usage, meatData);
             } else {
-                if(content.length() > 0) {
+                if(!content.isEmpty()) {
                     meatData.put(MetaConstants.TEXT, content.toString());
                 }
                 if(reasoning != null) {
@@ -371,21 +368,38 @@ public class ResponseMessageExecutor implements Runnable {
     }
 
     private void handleToolStreamEvent(ToolStreamEvent toolStreamEvent) {
+        ToolCall toolCall = toolStreamEvent.getResult();
         if(toolStreamEvent.getExecutionStage() == ToolStreamEvent.ExecutionStage.prepare) {
             currentItemId = generateItemId(context.getCurrentOutputToolCallId());
             outputIndex++;
-        }
-        BaseStreamEvent event = toolStreamEvent.getEvent();
-        event.setSequenceNumber(sequenceNumber++);
-        event.setItemId(currentItemId);
-        event.setOutputIndex(outputIndex - 1);
-        sendEvent(event);
-        if(toolStreamEvent.getExecutionStage() == ToolStreamEvent.ExecutionStage.completed) {
-            ToolCall toolCall = toolStreamEvent.getResult();
             if(toolCall != null) {
                 toolCall.setId(currentItemId);
-                outputItems.add(toolCall);
             }
+            OutputItemAddedEvent outputItemAddedEvent = new OutputItemAddedEvent();
+            outputItemAddedEvent.setItemId(currentItemId);
+            outputItemAddedEvent.setOutputIndex(outputIndex - 1);
+            outputItemAddedEvent.setSequenceNumber(sequenceNumber++);
+            outputItemAddedEvent.setItem(toolCall);
+            sendEvent(outputItemAddedEvent);
+        }
+        BaseStreamEvent event = toolStreamEvent.getEvent();
+        if(event != null) {
+            event.setSequenceNumber(sequenceNumber++);
+            event.setItemId(currentItemId);
+            event.setOutputIndex(outputIndex - 1);
+            sendEvent(event);
+        }
+        if(toolStreamEvent.getExecutionStage() == ToolStreamEvent.ExecutionStage.completed) {
+            if(toolCall != null) {
+                toolCall.setId(currentItemId);
+            }
+            OutputItemDoneEvent outputItemDoneEvent = new OutputItemDoneEvent();
+            outputItemDoneEvent.setItemId(currentItemId);
+            outputItemDoneEvent.setOutputIndex(outputIndex - 1);
+            outputItemDoneEvent.setSequenceNumber(sequenceNumber++);
+            outputItemDoneEvent.setItem(toolCall);
+            sendEvent(outputItemDoneEvent);
+            outputItems.add(toolCall);
             context.finishToolCallOutput();
         }
     }

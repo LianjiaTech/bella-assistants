@@ -6,16 +6,16 @@ import com.ke.assistant.core.tools.ToolOutputChannel;
 import com.ke.assistant.core.tools.ToolStreamEvent;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.response.ItemStatus;
-import com.theokanning.openai.response.stream.OutputItemAddedEvent;
-import com.theokanning.openai.response.stream.OutputItemDoneEvent;
 import com.theokanning.openai.response.tool.LocalShellToolCall;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
+
+import static java.util.Collections.singletonList;
 
 /**
  * Local Shell tool definition handler Server does not execute the shell; it only emits the tool call event compatible with Response API stream.
@@ -31,14 +31,13 @@ public class LocalShellHandler implements ToolDefinitionHandler {
         // Send: output item added
         channel.output(context.getToolId(), ToolStreamEvent.builder().toolCallId(context.getToolId())
                 .executionStage(ToolStreamEvent.ExecutionStage.prepare)
-                .event(OutputItemAddedEvent.builder().item(startCall).build())
+                .result(startCall)
                 .build());
 
         // Send: output item done and complete the tool call
         LocalShellToolCall finalCall = buildLocalShellCall(context, arguments, ItemStatus.COMPLETED);
         channel.output(context.getToolId(), ToolStreamEvent.builder().toolCallId(context.getToolId())
                 .executionStage(ToolStreamEvent.ExecutionStage.completed)
-                .event(OutputItemDoneEvent.builder().item(finalCall).build())
                 .result(finalCall)
                 .build());
     }
@@ -51,12 +50,12 @@ public class LocalShellHandler implements ToolDefinitionHandler {
         Object cmdObj = arguments.get("command");
         if(cmdObj instanceof Collection) {
             Collection<Object> cmdList = (Collection<Object>) cmdObj;
-            action.setCommand(cmdList.stream().map(String::valueOf).collect(java.util.stream.Collectors.toList()));
+            action.setCommand(cmdList.stream().map(String::valueOf).collect(Collectors.toList()));
         } else if(cmdObj instanceof String) {
-            action.setCommand(java.util.Collections.singletonList((String) cmdObj));
+            action.setCommand(singletonList((String) cmdObj));
         } else if(cmdObj != null) {
             // Fallback: serialize unknown structure as single element
-            action.setCommand(java.util.Collections.singletonList(JacksonUtils.serialize(cmdObj)));
+            action.setCommand(singletonList(JacksonUtils.serialize(cmdObj)));
         }
 
         // working_directory
@@ -173,7 +172,7 @@ public class LocalShellHandler implements ToolDefinitionHandler {
         properties.put("working_directory", wdParam);
 
         parameters.put("properties", properties);
-        parameters.put("required", Collections.singletonList("command"));
+        parameters.put("required", singletonList("command"));
 
         return parameters;
     }

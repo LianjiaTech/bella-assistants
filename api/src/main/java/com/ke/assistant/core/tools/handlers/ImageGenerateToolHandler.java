@@ -63,13 +63,14 @@ public class ImageGenerateToolHandler extends BellaToolHandler {
         ImageGenerationToolCall toolCall = new ImageGenerationToolCall();
         boolean noStore = RepoContext.isActive();
         toolCall.setDataType(noStore ? "b64_json" : "url");
+        if(channel != null) {
+            channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+                    .executionStage(ToolStreamEvent.ExecutionStage.prepare)
+                    .result(toolCall)
+                    .event(ImageGenerationInProgressEvent.builder().build())
+                    .build());
+        }
         try {
-            if(channel != null) {
-                channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
-                        .executionStage(ToolStreamEvent.ExecutionStage.prepare)
-                        .event(ImageGenerationInProgressEvent.builder().build())
-                        .build());
-            }
             // 检查S3服务是否配置
             if(!s3Service.isConfigured() && !noStore) {
                 return new ToolResult("S3存储服务未配置，无法生成图片。");

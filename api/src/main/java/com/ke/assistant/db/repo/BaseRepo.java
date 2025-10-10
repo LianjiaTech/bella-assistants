@@ -1,11 +1,9 @@
 package com.ke.assistant.db.repo;
 
 import com.ke.assistant.db.context.RepoContext;
-import lombok.var;
 import org.apache.commons.lang3.StringUtils;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
-import org.jooq.Field;
 import org.jooq.Record;
 import org.jooq.Table;
 import org.jooq.TableField;
@@ -39,8 +37,7 @@ public interface BaseRepo {
      * 填充创建时间信息
      */
     default void fillCreateTime(Object object) {
-        if(object instanceof Timed) {
-            Timed timed = (Timed) object;
+        if(object instanceof Timed timed) {
             LocalDateTime now = LocalDateTime.now();
             timed.setCreatedAt(now);
             timed.setUpdatedAt(now);
@@ -51,8 +48,7 @@ public interface BaseRepo {
      * 填充更新时间信息
      */
     default void fillUpdateTime(Object object) {
-        if(object instanceof Timed) {
-            Timed timed = (Timed) object;
+        if(object instanceof Timed timed) {
             timed.setUpdatedAt(LocalDateTime.now());
         }
     }

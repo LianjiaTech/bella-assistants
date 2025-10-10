@@ -34,21 +34,25 @@ public class CustomToolHandler implements ToolDefinitionHandler {
     @Override
     public void sendEvent(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
         String input = arguments.get("input_data").toString();
+        CustomToolCall startCall = new CustomToolCall();
+        startCall.setCallId(context.getToolId());
+        startCall.setName(customTool.getName());
         channel.output(context.getToolId(), ToolStreamEvent.builder()
                 .executionStage(ToolStreamEvent.ExecutionStage.prepare)
                 .toolCallId(context.getToolId())
+                .result(startCall)
                 .event(CustomToolCallInputDeltaEvent.builder()
                         .delta(input)
                         .build())
                 .build());
-        CustomToolCall toolCall = new CustomToolCall();
-        toolCall.setCallId(context.getToolId());
-        toolCall.setName(customTool.getName());
-        toolCall.setInput(input);
+        CustomToolCall finalCall = new CustomToolCall();
+        finalCall.setCallId(context.getToolId());
+        finalCall.setName(customTool.getName());
+        finalCall.setInput(input);
         channel.output(context.getToolId(), ToolStreamEvent.builder()
                 .executionStage(ToolStreamEvent.ExecutionStage.completed)
                 .toolCallId(context.getToolId())
-                .result(toolCall)
+                .result(finalCall)
                 .event(CustomToolCallInputDoneEvent.builder()
                         .input(input)
                         .build())

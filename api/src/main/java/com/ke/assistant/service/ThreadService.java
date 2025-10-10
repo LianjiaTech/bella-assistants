@@ -118,7 +118,7 @@ public class ThreadService {
      */
     public List<Thread> getThreadsByOwner(String owner) {
         List<ThreadDb> threads = threadRepo.findByOwner(owner);
-        return threads.stream().map(this::convertToInfo).collect(java.util.stream.Collectors.toList());
+        return threads.stream().map(this::convertToInfo).collect(Collectors.toList());
     }
 
 
@@ -127,7 +127,7 @@ public class ThreadService {
      */
     public List<Thread> getThreadsByCursor(String owner, String after, String before, int limit, String order) {
         List<ThreadDb> threads = threadRepo.findByOwnerWithCursor(owner, after, before, limit, order);
-        return threads.stream().map(this::convertToInfo).collect(java.util.stream.Collectors.toList());
+        return threads.stream().map(this::convertToInfo).collect(Collectors.toList());
     }
 
     /**

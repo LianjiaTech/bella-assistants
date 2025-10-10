@@ -26,7 +26,6 @@ import com.theokanning.openai.response.Response;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.util.Assert;
 
 import java.time.LocalDateTime;
@@ -112,7 +111,7 @@ public class ExecutionContext {
     private final List<Annotation> annotations;
     // 当前轮次的执行结果
     private final List<ChatMessage> chatMessages;                     // 当前聊天构建的消息
-    private final List<ChatTool> chatTools;                          // 当前聊天构建的Tools
+    private final CopyOnWriteArrayList<ChatTool> chatTools;           // 当前聊天构建的Tools
     // 工具并行，存在并发写入
     private final CopyOnWriteArrayList<ToolCall> currentToolResults;  // 当前工具调用的结果
     // 当前runStep的信息
@@ -156,7 +155,7 @@ public class ExecutionContext {
         this.currentToolResults = new CopyOnWriteArrayList<>();
         this.currentMetaData = new HashMap<>();
         this.currentAnnotations = new CopyOnWriteArrayList<>();
-        this.chatTools = new ArrayList<>();
+        this.chatTools = new CopyOnWriteArrayList<>();
         this.currentToolTasks = new ConcurrentHashMap<>();
         this.historyToolSteps = new ArrayList<>();
         this.end = new AtomicBoolean(false);
@@ -623,7 +622,8 @@ public class ExecutionContext {
     }
 
     public boolean isSupportReasoningContent() {
-        return getModelFeatures().isReason_content() && StringUtils.isNotBlank(getRun().getReasoningEffort()) && !reasoningShutDown;
+        String reasoningEffort = getRun().getReasoningEffort();
+        return getModelFeatures().isReason_content() && reasoningEffort != null && !reasoningEffort.isBlank() && !reasoningShutDown;
     }
 
     public void addAnnotations(List<Annotation> annotations) {

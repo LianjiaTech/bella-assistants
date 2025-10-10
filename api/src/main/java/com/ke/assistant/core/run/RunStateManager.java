@@ -30,7 +30,6 @@ import com.theokanning.openai.assistants.run_step.RunStep;
 import com.theokanning.openai.assistants.run_step.StepDetails;
 import com.theokanning.openai.common.LastError;
 import com.theokanning.openai.completion.chat.ChatToolCall;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +42,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -320,7 +320,7 @@ public class RunStateManager {
             throw new RuntimeException("Invalid status transition, current status is " + currentStatus);
         }
         StepDetails stepDetails = JacksonUtils.deserialize(runStepDb.getStepDetails(), StepDetails.class);
-        Map<String, ToolCall> outputMap = submitToolOutputs.getToolCalls().stream().collect(Collectors.toMap(ToolCall::getId, toolCall -> toolCall));
+        Map<String, ToolCall> outputMap = submitToolOutputs.getToolCalls().stream().collect(Collectors.toMap(ToolCall::getId, Function.identity()));
         for(ToolCall toolCall : stepDetails.getToolCalls()) {
             if(toolCall.getId() == null) {
                 throw new BizParamCheckException("tool call Id is null");
@@ -328,7 +328,7 @@ public class RunStateManager {
             if(outputMap.containsKey(toolCall.getId())) {
                  if(toolCall.getFunction() != null) {
                     String output = outputMap.get(toolCall.getId()).getFunction().getOutput();
-                    toolCall.getFunction().setOutput(StringUtils.isBlank(output) ? "未获取到结果" : output);
+                     toolCall.getFunction().setOutput((output == null || output.isBlank()) ? "未获取到结果" : output);
                 }
             } else {
                 throw new BizParamCheckException("tool call id is not exist");

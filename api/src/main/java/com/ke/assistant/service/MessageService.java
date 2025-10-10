@@ -12,17 +12,14 @@ import com.theokanning.openai.assistants.message.IncompleteDetails;
 import com.theokanning.openai.assistants.message.Message;
 import com.theokanning.openai.assistants.message.MessageContent;
 import com.theokanning.openai.assistants.message.MessageRequest;
-import com.theokanning.openai.assistants.thread.Attachment;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -176,10 +173,7 @@ public class MessageService {
             if ("command".equals(message.getMessageType())) {
                 // 解析内容获取命令类型
                 try {
-                    List<Map<String, Object>> contentList = JacksonUtils.deserialize(
-                        message.getContent(),
-                        new TypeReference<List<Map<String, Object>>>() {}
-                    );
+                    List<Map<String, Object>> contentList = JacksonUtils.deserialize(message.getContent(), new TypeReference<>() {});
                     if (!contentList.isEmpty()) {
                         String commandType = (String) contentList.get(0).get("type");
                         // 如果是clear命令，只返回该命令之后的消息
@@ -250,7 +244,7 @@ public class MessageService {
             throw new IllegalArgumentException("Message not found: " + id);
         }
 
-        List<MessageContent> contents = JacksonUtils.deserialize(existing.getContent(), new TypeReference<List<MessageContent>>() {});
+        List<MessageContent> contents = JacksonUtils.deserialize(existing.getContent(), new TypeReference<>() {});
 
         if(contents == null) {
             contents = new ArrayList<>();
@@ -269,7 +263,7 @@ public class MessageService {
 
         existing.setContent(JacksonUtils.serialize(contents));
 
-        if(StringUtils.isNotBlank(reasoning)) {
+        if(reasoning != null && !reasoning.isBlank()) {
             existing.setReasoningContent(reasoning);
         }
 
@@ -280,7 +274,7 @@ public class MessageService {
             if(existing.getMetadata() != null) {
                 existing.setMetadata(JacksonUtils.serialize(metaData));
             } else {
-                Map<String, String> matas = JacksonUtils.deserialize(existing.getMetadata(), new TypeReference<Map<String, String>>() {});
+                Map<String, String> matas = JacksonUtils.deserialize(existing.getMetadata(), new TypeReference<>() {});
                 matas.putAll(metaData);
                 existing.setMetadata(JacksonUtils.serialize(matas));
             }
@@ -312,9 +306,7 @@ public class MessageService {
             if(existing.getMetadata() != null) {
                 matas = new HashMap<>();
             } else {
-                matas = JacksonUtils.deserialize(existing.getMetadata(), new TypeReference<Map<String, String>>() {
-                });
-
+                matas = JacksonUtils.deserialize(existing.getMetadata(), new TypeReference<>() {});
             }
             matas.put(MetaConstants.INCOMPLETE_REASON, details.getReason());
             existing.setMetadata(JacksonUtils.serialize(matas));

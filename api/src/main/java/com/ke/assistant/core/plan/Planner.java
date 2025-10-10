@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -253,8 +254,7 @@ public class Planner {
             // 如果最后一条assistant message为tool call，且开启了推理输出
             // 对于某些模型必须添加思考过程，通过historyToolStep构建时，一定是当前run轮次的工具调用，会自动添加，不需要再次判断
             // 非tool call则不添加，节省tokens
-            if(lastAssistantChatMessage instanceof AssistantMultipleMessage) {
-                AssistantMultipleMessage chatMsg = (AssistantMultipleMessage) lastAssistantChatMessage;
+            if(lastAssistantChatMessage instanceof AssistantMultipleMessage chatMsg) {
                 if(chatMsg.getToolCalls() != null && !chatMsg.getToolCalls().isEmpty()) {
                     chatMsg.setReasoningContent(lastAssistantMessage.getReasoningContent());
                     chatMsg.setReasoningContentSignature(lastAssistantMessage.getMetadata().get(MetaConstants.REASONING_SIG));
@@ -290,18 +290,23 @@ public class Planner {
         }
         for(Tool tool : context.getTools()) {
             ChatTool chatTool;
-            if(tool instanceof Tool.Function) {
+            if(tool instanceof Tool.Function function) {
                 chatTool = new ChatTool();
-                Tool.Function function = (Tool.Function) tool;
                 chatTool.setFunction(function.getFunction());
-            } else if(tool instanceof Tool.Custom) {
+            } else if(tool instanceof Tool.Custom custom) {
                 chatTool = new ChatTool();
-                Tool.Custom custom = (Tool.Custom) tool;
                 Tool.FunctionDefinition definition = new Tool.FunctionDefinition();
                 definition.setName(CustomToolHandler.getToolName(custom.getDefinition()));
                 definition.setDescription(CustomToolHandler.getDescription(custom.getDefinition()));
                 definition.setParameters(CustomToolHandler.getParameters(custom.getDefinition()));
                 definition.setStrict(true);
+                chatTool.setFunction(definition);
+            } else if(tool instanceof Tool.MCP mcp) {
+                chatTool = new ChatTool();
+                Tool.FunctionDefinition definition = new Tool.FunctionDefinition();
+                definition.setName(mcp.getDefinition().getServerLabel());
+                definition.setDescription(mcp.getDefinition().getServerDescription());
+                definition.setParameters(new HashMap<>());
                 chatTool.setFunction(definition);
             } else {
                 chatTool = toolFetcher.fetchChatTool(tool.getType());

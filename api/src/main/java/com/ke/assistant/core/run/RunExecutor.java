@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -186,34 +187,28 @@ public class RunExecutor {
                 
                 // 2. 执行决策
                 switch (decision.getAction()) {
-                case COMPLETE:
+                case COMPLETE -> {
                     // 第一轮就完成的消息，即未执行，产生的空消息不生效，保持为hidden
                     context.setNoExecute(context.getCurrentStep() == 1);
                     stateManager.toCompleted(context);
-                    break;
-                case CANCELED:
+                }
+                case CANCELED -> {
                     // run取消时，本轮产生的assistant消息不生效
                     context.setNoExecute(true);
                     stateManager.toCanceled(context);
-                    break;
-                case ERROR:
-                    stateManager.toFailed(context);
-                    break;
-                case WAIT_FOR_INPUT:
-                    stateManager.toRequiresAction(context);
-                    break;
-                case EXPIRED:
-                    stateManager.toExpired(context);
-                    break;
+                }
+                case ERROR -> stateManager.toFailed(context);
+                case WAIT_FOR_INPUT -> stateManager.toRequiresAction(context);
+                case EXPIRED -> stateManager.toExpired(context);
                 // 以上全部代表结束
-                case LLM_CALL:
+                case LLM_CALL -> {
                     chatService.chat(context);
                     context.runnerAwait();
-                    break;
-                case WAIT_FOR_TOOL:
+                }
+                case WAIT_FOR_TOOL -> {
                     context.signalToolCall();
                     context.runnerAwait();
-                    break;
+                }
                 }
 
 
@@ -327,7 +322,11 @@ public class RunExecutor {
             }
 
             if(fileIds != null) {
-                context.setFileInfos(fileProvider.provide(fileIds).stream().collect(Collectors.toMap(FileInfo::getId, info -> info)));
+                context.setFileInfos(
+                        fileProvider.provide(fileIds)
+                                .stream()
+                                .collect(Collectors.toMap(FileInfo::getId, Function.identity()))
+                );
             }
 
             return context;

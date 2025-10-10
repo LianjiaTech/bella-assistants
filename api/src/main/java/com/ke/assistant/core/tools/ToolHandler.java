@@ -1,12 +1,14 @@
 package com.ke.assistant.core.tools;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.Map;
 
 /**
  * 工具处理器接口
  * 定义内部工具执行的统一接口
  */
-public interface ToolHandler {
+public interface ToolHandler extends Closeable {
     
     /**
      * 执行工具调用
@@ -53,6 +55,12 @@ public interface ToolHandler {
      */
     default boolean isDefinitionHandler(){
         return false;
+    }
+
+
+    @Override
+    default void close() {
+
     }
 
 }

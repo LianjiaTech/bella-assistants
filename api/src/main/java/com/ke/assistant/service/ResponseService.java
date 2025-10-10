@@ -151,7 +151,17 @@ public class ResponseService {
         }
 
         Map<String, Tool> toolMap = run.getTools() == null ? new HashMap<>() :
-                run.getTools().stream().collect(Collectors.toMap(Tool::getType, Function.identity(), (existing, replacement) -> existing));
+                run.getTools().stream().collect(Collectors.toMap(tool -> {
+                            if(tool instanceof Tool.MCP mcp) {
+                                return mcp.getDefinition().getServerLabel();
+                            }
+                            if(tool instanceof Tool.Custom custom) {
+                                return custom.getDefinition().getName();
+                            }
+                            return tool.getType();
+                        },
+                        Function.identity(),
+                        (existing, replacement) -> existing));
 
         // Build basic response from run
         Response response = ResponseUtils.buildResponseFromRun(run, responseId);
@@ -397,13 +407,25 @@ public class ResponseService {
             Map<String, String> itemIds = new HashMap<>();
             runStep.getStepDetails().getToolCalls().forEach(
                     toolCall -> {
-                        Tool tool =  toolMap.getOrDefault(toolCall.getType(), toolMap.get(toolCall.getFunction() == null ?
-                                "custom_tool" : toolCall.getFunction().getName()));
+                        String itemId = runStep.getThreadId().concat("_").concat(runStep.getId()).concat("_").concat(toolCall.getId() == null ? "" : toolCall.getId());
+                        Tool tool =  toolMap.getOrDefault(toolCall.getType(), toolMap.get(toolCall.getFunction() == null ? "" : toolCall.getFunction().getName()));
                         if(tool != null && !tool.hidden()) {
-                            String itemId = runStep.getThreadId().concat("_").concat(runStep.getId()).concat("_").concat(toolCall.getId());
                             toolCallItemTypes.put(toolCall.getId() + "_type", ResponseUtils.converterToToolCallItemType(tool));
                             toolResultItemTypes.put(toolCall.getId() + "_type", ResponseUtils.converterToToolOutputItemType(tool));
                             itemIds.put(toolCall.getId() + "_id", itemId);
+                        } else if(tool == null) {
+                            if(toolCall.getFunction() != null) {
+                                String name = toolCall.getFunction().getName();
+                                String[] strs = name.split("_", 2);
+                                if(strs.length == 2) {
+                                    tool = toolMap.get(strs[0]);
+                                    if(tool instanceof Tool.MCP) {
+                                        toolCallItemTypes.put(toolCall.getId() + "_type", "mcp_call");
+                                        toolResultItemTypes.put(toolCall.getId() + "_type", "mcp_call");
+                                        itemIds.put(toolCall.getId() + "_id", itemId);
+                                    }
+                                }
+                            }
                         }
                     }
             );

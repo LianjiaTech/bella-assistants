@@ -57,18 +57,18 @@ public class MemoryService {
         }).collect(Collectors.toList());
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings("rawtypes")
     private Object parseAndTransformContent(String content) {
         if (content == null || content.trim().isEmpty()) {
             return Collections.emptyList();
         }
         try {
-            List<Map<String, Object>> contentList = JacksonUtils.deserialize(content, new TypeReference<List<Map<String, Object>>>() {});
+            List<Map<String, Object>> contentList = JacksonUtils.deserialize(content, new TypeReference<>() {
+            });
             for (Map<String, Object> contentItem : contentList) {
                 if ("text".equals(contentItem.get("type"))) {
                     Object textObj = contentItem.get("text");
-                    if (textObj instanceof Map) {
-                        Map<String, Object> textMap = (Map<String, Object>) textObj;
+                    if (textObj instanceof Map textMap) {
                         contentItem.put("text", textMap.get("value"));
                     }
                 }

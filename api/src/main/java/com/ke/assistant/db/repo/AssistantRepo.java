@@ -4,7 +4,6 @@ import com.ke.assistant.db.IdGenerator;
 import com.ke.assistant.db.generated.tables.pojos.AssistantDb;
 import com.ke.assistant.db.generated.tables.records.AssistantRecord;
 import lombok.RequiredArgsConstructor;
-import lombok.var;
 import org.apache.commons.lang3.StringUtils;
 import org.jooq.DSLContext;
 import org.springframework.stereotype.Repository;

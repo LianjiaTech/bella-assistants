@@ -21,10 +21,8 @@ public class ControllerAdvice extends RequestBodyAdviceAdapter {
     @Override
     public Object afterBodyRead(Object body, HttpInputMessage inputMessage, MethodParameter parameter, Type targetType,
             Class<? extends HttpMessageConverter<?>> converterType) {
-        if(body instanceof IUssrRequest) {
-            if(((IUssrRequest) body).getUser() != null) {
-                BellaContext.setOperator(Operator.builder().sourceId(((IUssrRequest) body).getUser()).build());
-            }
+        if(body instanceof IUssrRequest ussrRequest) {
+            BellaContext.setOperator(Operator.builder().sourceId(ussrRequest.getUser()).build());
         }
         return body;
     }

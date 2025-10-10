@@ -54,14 +54,16 @@ public class RetrievalToolHandler extends BellaToolHandler {
         String query = Optional.ofNullable(arguments.get("query")).map(Object::toString).orElse(null);
         ItemStatus status = ItemStatus.INCOMPLETE;
         List<FileSearchToolCall.SearchResult> results = new ArrayList<>();
+        FileSearchToolCall toolCall = new FileSearchToolCall();
+        toolCall.setQueries(Lists.newArrayList(query));
+        if(channel != null) {
+            channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
+                    .executionStage(ToolStreamEvent.ExecutionStage.prepare)
+                    .result(toolCall)
+                    .event(FileSearchInProgressEvent.builder().build())
+                    .build());
+        }
         try {
-            if(channel != null) {
-                channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())
-                        .executionStage(ToolStreamEvent.ExecutionStage.prepare)
-                        .event(FileSearchInProgressEvent.builder().build())
-                        .build());
-            }
-
             if(query == null || query.trim().isEmpty()) {
                 throw new IllegalArgumentException("query is null");
             }
@@ -97,8 +99,6 @@ public class RetrievalToolHandler extends BellaToolHandler {
             status = ItemStatus.COMPLETED;
             return new ToolResult(ToolResult.ToolResultType.text, value, annotations);
         } finally {
-            FileSearchToolCall toolCall = new FileSearchToolCall();
-            toolCall.setQueries(Lists.newArrayList(query));
             toolCall.setStatus(status);
             toolCall.setResults(results);
             if(channel != null) {
