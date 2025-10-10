@@ -265,6 +265,11 @@ public class Planner {
                 }
             }
         }
+
+        if(context.getCurrentToolResults() != null && !context.getCurrentToolResults().isEmpty()) {
+            MessageUtils.convertToolCallMessages(context.getCurrentToolResults(), null, context.getCurrentMetaData(), context.isSupportReasonInput()).forEach(context::addChatMessage);
+            context.clearCurrentRunStepCache();
+        }
     }
 
     private void buildToolMessage(ExecutionContext context, RunStep runStep) {
@@ -281,7 +286,7 @@ public class Planner {
     /**
      * 构建工具列表
      */
-    private void buildChatTools(ExecutionContext context) {
+    public void buildChatTools(ExecutionContext context) {
         if(!context.getChatTools().isEmpty()) {
             return;
         }

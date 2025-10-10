@@ -10,22 +10,32 @@ import com.ke.assistant.core.plan.Planner;
 import com.ke.assistant.core.plan.PlannerDecision;
 import com.ke.assistant.core.tools.ToolExecutor;
 import com.ke.assistant.core.tools.ToolFetcher;
+import com.ke.assistant.core.tools.handlers.mcp.McpExecuteToolHandler;
+import com.ke.assistant.core.tools.handlers.mcp.McpToolListHandler;
 import com.ke.assistant.db.IdGenerator;
 import com.ke.assistant.service.MessageService;
 import com.ke.assistant.service.RunService;
 import com.ke.assistant.service.ThreadService;
+import com.ke.assistant.util.ResponseUtils;
 import com.ke.bella.openapi.BellaContext;
 import com.ke.bella.openapi.client.OpenapiClient;
 import com.ke.bella.openapi.metadata.Model;
 import com.ke.bella.openapi.protocol.completion.CompletionModelFeatures;
 import com.ke.bella.openapi.protocol.completion.CompletionModelProperties;
+import com.ke.bella.openapi.utils.JacksonUtils;
+import com.theokanning.openai.Usage;
 import com.theokanning.openai.assistants.message.Message;
+import com.theokanning.openai.assistants.message.MessageContent;
+import com.theokanning.openai.assistants.message.content.Approval;
 import com.theokanning.openai.assistants.run.Run;
 import com.theokanning.openai.assistants.run.ToolFiles;
 import com.theokanning.openai.assistants.run_step.RunStep;
 import com.theokanning.openai.assistants.run_step.StepDetails;
 import com.theokanning.openai.assistants.thread.Thread;
+import com.theokanning.openai.completion.chat.ChatFunctionCall;
+import com.theokanning.openai.completion.chat.ChatToolCall;
 import com.theokanning.openai.response.Response;
+import com.theokanning.openai.response.tool.MCPListTools;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -144,6 +154,9 @@ public class RunExecutor {
                 return;
             }
 
+            // 处理工具执行申请
+            processApprovalTools(context, stateManager, toolExecutor, planner);
+
             // 主执行循环
             executeLoop(context);
         } catch (Exception e) {
@@ -170,21 +183,21 @@ public class RunExecutor {
         String runId = context.getRunId();
 
         PlannerDecision decision = PlannerDecision.init();
-        
+
         while (decision != null && decision.needExecution()) {
             try {
                 context.incrementStep();
                 logger.debug("Executing step {} for run: {}", context.getCurrentStep(), runId);
-                
+
                 // 1. 规划下一步
                 decision = planner.nextStep(context);
-                if (decision == null) {
+                if(decision == null) {
                     logger.error("Failed to plan next step for run: {}", runId);
                     context.setError("server_error", "Planning failed");
                     stateManager.toFailed(context);
                     break;
                 }
-                
+
                 // 2. 执行决策
                 switch (decision.getAction()) {
                 case COMPLETE -> {
@@ -210,7 +223,6 @@ public class RunExecutor {
                     context.runnerAwait();
                 }
                 }
-
 
             } catch (Exception e) {
                 logger.error("Error in execution loop for run: {}, step: {}", runId, context.getCurrentStep(), e);
@@ -329,12 +341,64 @@ public class RunExecutor {
                 );
             }
 
+            for(Message additionalMessage : context.getAdditionalMessages()) {
+                if(additionalMessage.getRole().equals("approval")) {
+                    for(MessageContent content : additionalMessage.getContent()) {
+                        if(content.getApproval() != null) {
+                            context.addApproved(content.getApproval());
+                        }
+                    }
+                }
+            }
+
             return context;
             
         } catch (Exception e) {
             logger.error("Failed to build execution context for run: {}", runId, e);
             throw e;
         }
+    }
+
+    private void processApprovalTools(ExecutionContext context, RunStateManager stateManager, ToolExecutor toolExecutor, Planner planner) {
+        if(!context.getApprovals().isEmpty()) {
+            planner.buildChatTools(context);
+            for(Approval approval : context.getApprovals()) {
+                context.addApprovedServer(approval.getServerLabel());
+                if(processMcpHandler(approval, toolExecutor)) {
+                    continue;
+                }
+                McpToolListHandler listHandler = toolExecutor.getMcpToolListHandler(approval.getServerLabel());
+                if(listHandler == null) {
+                    continue;
+                }
+                List<MCPListTools.MCPToolInfo> infos = listHandler.fetchMcpToolInfo();
+                listHandler.registerTool(infos);
+                processMcpHandler(approval, toolExecutor);
+                ChatToolCall call = new ChatToolCall();
+                call.setType("function");
+                String toolCallId = ResponseUtils.extractIds(approval.getApprovalRequestId(), "mcp_approve_response").getRight();
+                call.setId(toolCallId);
+                ChatFunctionCall functionCall = new ChatFunctionCall();
+                functionCall.setName(approval.getServerLabel() + "_" + approval.getName());
+                functionCall.setArguments(JacksonUtils.toJsonNode(approval.getArguments()));
+                call.setFunction(functionCall);
+                call.setIndex(approval.getIndex());
+                context.addToolCallTask(call);
+            }
+            context.clearApproved();
+            stateManager.startToolCalls(context, new Usage(), new HashMap<>());
+            context.runnerAwait();
+        }
+    }
+
+    private boolean processMcpHandler(Approval approval, ToolExecutor toolExecutor) {
+        McpExecuteToolHandler toolHandler = toolExecutor.getMcpToolHandler(approval.getServerLabel(), approval.getName());
+        if(toolHandler != null) {
+            toolHandler.setApproved(approval.getApprove());
+            toolHandler.setApprovalRequestId(approval.getApprovalRequestId());
+            return true;
+        }
+        return false;
     }
 
 

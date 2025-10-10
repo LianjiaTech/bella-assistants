@@ -55,13 +55,11 @@ public class McpToolListHandler implements ToolHandler {
             }
 
             // Fetch tools from server
-            List<McpSchema.Tool> tools = mcpClient.listTools();
-
-            List<MCPListTools.MCPToolInfo> infos = toMcpToolInfo(tools);
+            List<MCPListTools.MCPToolInfo> infos = fetchMcpToolInfo();
 
             call.setTools(infos);
 
-            registerTool(mcpToolDefinition.getServerLabel(), infos);
+            registerTool(infos);
 
             if(channel != null) {
                 // Completed event
@@ -103,9 +101,12 @@ public class McpToolListHandler implements ToolHandler {
     }
 
 
-    private void registerTool(String serverLabel, List<MCPListTools.MCPToolInfo> infos) {
+    public void registerTool(List<MCPListTools.MCPToolInfo> infos) {
         infos.forEach(info -> {
-            McpToolHandler handler = new McpToolHandler(serverLabel, mcpClient, info);
+            McpToolHandler handler = new McpExecuteToolHandler(mcpToolDefinition.getServerLabel(), mcpClient, info, null, true);
+            if(!executionContext.isApprovedServer(mcpToolDefinition.getServerLabel()) && mcpToolDefinition.needApproval(info.getName())) {
+                handler = new McpApprovalToolHandler(handler, executionContext);
+            }
             Tool.Function function = handler.getFunction();
             toolExecutor.register(function, handler);
             ChatTool chatTool = new ChatTool();
@@ -113,6 +114,14 @@ public class McpToolListHandler implements ToolHandler {
             executionContext.addChatTool(chatTool);
         });
     }
+
+    public List<MCPListTools.MCPToolInfo> fetchMcpToolInfo() {
+        // Fetch tools from server
+        List<McpSchema.Tool> tools = mcpClient.listTools();
+
+        return toMcpToolInfo(tools);
+    }
+
 
 
     @Override

@@ -40,9 +40,11 @@ import org.springframework.util.Assert;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -113,7 +115,7 @@ public class ResponseService {
         ResponseIdMappingDb db = checkAndStore(responseId, threadId, runId, request.getPreviousResponseId(), request.getUser());
         threadId = db.getThreadId(); // fork后threadId可能变化
 
-        String instructions = systemPrompt.length() > 0 ? systemPrompt.toString() : null;
+        String instructions = !systemPrompt.isEmpty() ? systemPrompt.toString() : null;
         RunCreateRequest runCreateRequest = ResponseUtils.convertToRunRequest(request, instructions, tools,
                 responseId, threadId, previousThreadId, previousRunId);
 
@@ -326,6 +328,7 @@ public class ResponseService {
         }
         Message preMessage = null;
         boolean needAdded = false;
+        Set<String> approveIds = new HashSet<>();
         for (RunStep runStep : runSteps) {
             RunStatus runStatus = RunStatus.fromValue(runStep.getStatus());
             if(runStep.getType().equals("tool_calls")) {
@@ -333,11 +336,14 @@ public class ResponseService {
                     //查找需要提交工具结果的tool_call
                     List<com.theokanning.openai.assistants.run.ToolCall> toolCalls = runStep.getStepDetails().getToolCalls().stream()
                             .filter(toolCall -> toolCall.getFunction() != null && toolCall.getFunction().getOutput() == null)
-                            .collect(Collectors.toList());
+                            .toList();
                     if(!toolCalls.isEmpty()) {
                         MessageDb toolCallDb = MessageUtils.convertToolCallMessageFromStepDetails(null, runStep.getStepDetails());
                         preMessage = MessageUtils.convertToInfo(toolCallDb);
                         needAdded = true;
+                        if(runStep.getStepDetails().getApprovalIds() != null) {
+                            approveIds.addAll(runStep.getStepDetails().getApprovalIds());
+                        }
                         break;
                     }
                 }
@@ -349,7 +355,10 @@ public class ResponseService {
                 }
             }
         }
-        MessageUtils.checkPre(preMessage, inputMessages.get(0));
+        MessageUtils.checkPre(preMessage, inputMessages.get(0), approveIds);
+        if(!approveIds.isEmpty()) {
+            throw new BizParamCheckException("approves required with id: " +  JacksonUtils.serialize(approveIds));
+        }
         if(needAdded) {
             inputMessages.add(0, preMessage);
         }
@@ -420,9 +429,14 @@ public class ResponseService {
                                 if(strs.length == 2) {
                                     tool = toolMap.get(strs[0]);
                                     if(tool instanceof Tool.MCP) {
-                                        toolCallItemTypes.put(toolCall.getId() + "_type", "mcp_call");
-                                        toolResultItemTypes.put(toolCall.getId() + "_type", "mcp_call");
-                                        itemIds.put(toolCall.getId() + "_id", itemId);
+                                        if(strs[1].endsWith("_approval")) {
+                                            toolCallItemTypes.put(toolCall.getId() + "_type", "mcp_call_approval");
+                                            toolResultItemTypes.put(toolCall.getId() + "_type", "mcp_call_approval");
+                                            itemIds.put(toolCall.getId() + "_id", itemId);
+                                        } else {
+                                            toolCallItemTypes.put(toolCall.getId() + "_type", "mcp_call");
+                                            itemIds.put(toolCall.getId() + "_id", itemId);
+                                        }
                                     }
                                 }
                             }

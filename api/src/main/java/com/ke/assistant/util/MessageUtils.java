@@ -578,6 +578,10 @@ public class MessageUtils {
     }
 
     public static void checkPre(Message pre, Message cur) {
+        checkPre(pre, cur, new HashSet<>());
+    }
+
+    public static void checkPre(Message pre, Message cur, Set<String> approvalIds) {
         if(pre == null) {
             return;
         }
@@ -591,7 +595,14 @@ public class MessageUtils {
             throw new BizParamCheckException("user message can not follow a user message");
         }
         if(cur.getRole().equals("assistant")) {
-            if(pre.getRole().equals("tool") || pre.getRole().equals("user")) {
+            for(MessageContent content : cur.getContent()) {
+                if(content.getToolCall() != null) {
+                    if(cur.getMetadata().containsKey("approve_request")) {
+                        approvalIds.add(cur.getMetadata().get("item_id"));
+                    }
+                }
+            }
+            if(pre.getRole().equals("tool") || pre.getRole().equals("user") || pre.getRole().equals("approval")) {
                 return;
             }
             throw new BizParamCheckException("assistant message must follow a tool or user message");
@@ -604,10 +615,21 @@ public class MessageUtils {
             Set<String> toolCallIds = pre.getContent().stream().map(MessageContent::getToolCall)
                     .filter(Objects::nonNull)
                     .map(ChatToolCall::getId).collect(Collectors.toSet());
+            toolCallIds.removeAll(approvalIds);
             if(toolCallIds.containsAll(toolResultIds) && toolResultIds.containsAll(toolCallIds)) {
                 return;
             }
             throw new BizParamCheckException("1. The tool_call result must be provided for each tool_call_id\n2. All the tool_call_id must be contains in tool_calls.");
+        }
+        if(cur.getRole().equals("approval")) {
+            for(MessageContent content : cur.getContent()) {
+                if(content.getApproval() != null) {
+                    if(!approvalIds.remove(content.getApproval().getApprovalRequestId())) {
+                        throw new BizParamCheckException("invalid approval request id: " + content.getApproval().getApprovalRequestId());
+                    }
+                }
+            }
+            return;
         }
         throw new BizParamCheckException("message role must be system or developer or user or assistant or tool");
     }

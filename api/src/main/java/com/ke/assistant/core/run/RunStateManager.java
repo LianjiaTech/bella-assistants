@@ -442,6 +442,9 @@ public class RunStateManager {
         if(!context.getCurrentAnnotations().isEmpty()) {
             stepDetails.setAnnotations(context.getCurrentAnnotations());
         }
+        if(!context.getCurrentApprovalIds().isEmpty()) {
+            stepDetails.setApprovalIds(context.getCurrentApprovalIds());
+        }
         String stepDetailsJson = JacksonUtils.serialize(stepDetails);
         runStepRepo.updateStepDetails(context.getThreadId(), stepId, stepDetailsJson);
         if(errorMessage != null) {
@@ -476,6 +479,7 @@ public class RunStateManager {
         boolean success = updateRunStep(runStepId, newStatus, lastError, context, null, null, true);
         if(success && newStatus.isTerminal()) {
             context.archiveCurrentAnnotations();
+            context.clearApprovalIds();
         }
         return success;
     }
@@ -527,6 +531,12 @@ public class RunStateManager {
 
         if(usage != null) {
             db.setUsage(JacksonUtils.serialize(usage));
+        }
+
+        if(!context.getCurrentApprovalIds().isEmpty()) {
+            StepDetails stepDetails = JacksonUtils.deserialize(db.getStepDetails(), StepDetails.class);
+            stepDetails.setApprovalIds(context.getCurrentApprovalIds());
+            db.setStepDetails(JacksonUtils.serialize(stepDetails));
         }
 
         boolean success = runStepRepo.update(db);

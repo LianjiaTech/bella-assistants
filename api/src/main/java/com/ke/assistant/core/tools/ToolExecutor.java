@@ -6,8 +6,10 @@ import com.ke.assistant.core.run.ExecutionContext;
 import com.ke.assistant.core.run.RunStateManager;
 import com.ke.assistant.core.tools.handlers.definition.CustomToolHandler;
 import com.ke.assistant.core.tools.handlers.mcp.McpClientFactory;
+import com.ke.assistant.core.tools.handlers.mcp.McpExecuteToolHandler;
 import com.ke.assistant.core.tools.handlers.mcp.McpToolListHandler;
 import com.ke.assistant.util.MessageUtils;
+import com.ke.assistant.util.MetaConstants;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.assistants.assistant.Tool;
 import com.theokanning.openai.assistants.run.RequiredAction;
@@ -207,6 +209,9 @@ public class ToolExecutor implements Runnable {
             if(result.getAnnotations() != null) {
                 context.addAnnotations(result.getAnnotations());
             }
+            if(result.getMeta().containsKey(MetaConstants.APPROVAL_ID)) {
+                context.addCurrentApprovalId(result.getMeta().get(MetaConstants.APPROVAL_ID));
+            }
             runStateManager.finishToolCall(context, toolCall, null);
         } catch (Exception e) {
             log.warn(e.getMessage(), e);
@@ -230,5 +235,15 @@ public class ToolExecutor implements Runnable {
 
     public boolean canExecute(String toolName) {
         return toolHandlers.containsKey(toolName);
+    }
+
+    public McpToolListHandler getMcpToolListHandler(String serverLabel) {
+        ToolHandler handler = toolHandlers.get(serverLabel);
+        return handler instanceof McpToolListHandler mcpToolListHandler ? mcpToolListHandler : null;
+    }
+
+    public McpExecuteToolHandler getMcpToolHandler(String serverLabel, String name) {
+        ToolHandler handler = toolHandlers.get(serverLabel + "_" + name);
+        return handler instanceof McpExecuteToolHandler toolHandler ? toolHandler : null;
     }
 }

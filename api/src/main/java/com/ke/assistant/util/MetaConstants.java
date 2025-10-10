@@ -6,7 +6,7 @@ public class MetaConstants {
     public static final String REASONING_SIG = "reasoning_content_signature";
     public static final String REDACTED_REASONING = "redacted_reasoning_content";
     public static final String INCOMPLETE_REASON = "incomplete_reason";
-    public static final String ANNOTATIONS = "annotations";
+    public static final String APPROVAL_ID = "approval_id";
     // response api
     public static final String RESPONSE_ID = "response_id";
     public static final String PREVIOUS_RES_ID = "previous_res_id";

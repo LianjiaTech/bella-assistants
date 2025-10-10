@@ -11,6 +11,7 @@ import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.assistants.assistant.Tool;
 import com.theokanning.openai.assistants.message.Message;
 import com.theokanning.openai.assistants.message.MessageContent;
+import com.theokanning.openai.assistants.message.content.Approval;
 import com.theokanning.openai.assistants.message.content.AudioData;
 import com.theokanning.openai.assistants.message.content.ImageFile;
 import com.theokanning.openai.assistants.message.content.Text;
@@ -57,6 +58,8 @@ import com.theokanning.openai.response.tool.FileSearchToolCall;
 import com.theokanning.openai.response.tool.FunctionToolCall;
 import com.theokanning.openai.response.tool.ImageGenerationToolCall;
 import com.theokanning.openai.response.tool.LocalShellToolCall;
+import com.theokanning.openai.response.tool.MCPApprovalRequest;
+import com.theokanning.openai.response.tool.MCPApprovalResponse;
 import com.theokanning.openai.response.tool.MCPListTools;
 import com.theokanning.openai.response.tool.MCPToolCall;
 import com.theokanning.openai.response.tool.ToolCall;
@@ -72,9 +75,11 @@ import org.springframework.util.Assert;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -251,8 +256,14 @@ public class ResponseUtils {
                 messages = convertConversationItemsToMessages(request.getInput().getObjectListValue(), fetcher, imageProcessor, audioUploader);
             }
         }
+        Set<String> approves = new HashSet<>();
         for(int i = 1; i < messages.size(); i++) {
-            MessageUtils.checkPre(messages.get(i-1), messages.get(i));
+            Message cur = messages.get(i);
+            Message prev = messages.get(i - 1);
+            MessageUtils.checkPre(prev, cur, approves);
+        }
+        if(!approves.isEmpty()) {
+            throw new BizParamCheckException("approves required with id: " +  JacksonUtils.serialize(approves));
         }
         return messages;
     }
@@ -280,7 +291,9 @@ public class ResponseUtils {
             }  else if(conversationItem instanceof CustomToolCallOutput output) {
                 ToolMessage toolMessage = toolResult(output.getCallId(), output.getOutput());
                 setToolResult(toolMessage, last, messages, output.getType());
-            }  else if(conversationItem instanceof ComputerToolCallOutput) {
+            }  else if(conversationItem instanceof MCPApprovalResponse approvalResponse) {
+                setApprove(approvalResponse, last, messages, runStepMap, fetcher);
+            } else if(conversationItem instanceof ComputerToolCallOutput) {
                 //todo: 处理computer use
                 throw new BizParamCheckException("can not supported ComputerUseToolCallOutput");
             } else if(conversationItem instanceof ItemReference) {
@@ -392,6 +405,13 @@ public class ResponseUtils {
         }  else if(toolCallItem instanceof ComputerToolCall) {
             //todo: 处理computer use
             throw new BizParamCheckException("can not supported ComputerUseToolCall");
+        } else if(toolCallItem instanceof MCPApprovalRequest) {
+            Pair<ChatToolCall, ToolMessage> pair = getToolInfo(toolCallItem, runStepMap, fetcher);
+            ChatToolCall toolCall = pair.getLeft();
+            Assert.notNull(toolCall, "invalid mcp_approval_request id");
+            Message tooCallMessage = setToolCall(toolCall, last, messages, toolCallItem.getType());
+            tooCallMessage.getMetadata().put("item_id", toolCallItem.getId());
+            tooCallMessage.getMetadata().put("approve_request", "true");
         } else {
             Pair<ChatToolCall, ToolMessage> pair = getToolInfo(toolCallItem, runStepMap, fetcher);
             ChatToolCall toolCall = pair.getLeft();
@@ -449,14 +469,48 @@ public class ResponseUtils {
         return toolResultMessage;
     }
 
+    private static void setApprove(MCPApprovalResponse approvalResponse, Message last, List<Message> messages, Map<String, RunStep> runStepCache, RunStepFetcher fetcher) {
+        Assert.hasText(approvalResponse.getApprovalRequestId(), "approval request id must not be empty");
+        Assert.notNull(approvalResponse.getApprove(), "approval request approve must not be null");
+        ChatToolCall call = getToolInfo(approvalResponse.getApprovalRequestId(), "mcp_approval_request", runStepCache, fetcher).getLeft();
+        Message approveMessage = setRoleOrNewMessage(last, "approval", messages);
+        MessageContent approveContent = new MessageContent();
+        approveContent.setType("approval");
+        Approval approval = new Approval();
+        approval.setApprovalRequestId(approvalResponse.getApprovalRequestId());
+        approval.setApprove(approvalResponse.getApprove());
+        approval.setIndex(call.getIndex());
+        approval.setArguments(JacksonUtils.serialize(call.getFunction().getArguments()));
+        String name = call.getFunction().getName();
+        String[] strs = name.split("_", 2);
+        if (strs.length == 2) {
+            approval.setServerLabel(strs[0]);
+            if(strs[1].length() > 9) {
+                approval.setName(strs[1].substring(0, strs[1].length() - 9));
+            } else {
+                throw new IllegalStateException("invalid mcp approval tool name");
+            }
+        } else {
+            throw new IllegalStateException("invalid mcp approval tool name");
+        }
+        approveContent.setApproval(approval);
+        Map<String, String> meta = new HashMap<>();
+        approveMessage.setMetadata(meta);
+        approveMessage.getContent().add(approveContent);
+    }
+
     private static Pair<ChatToolCall, ToolMessage> getToolInfo(ToolCall toolCall, Map<String, RunStep> runStepCache, RunStepFetcher fetcher) {
-        Triple<String, String, String> triple = extractIds(toolCall.getId(), toolCall.getType());
+        return getToolInfo(toolCall.getId(), toolCall.getType(), runStepCache, fetcher);
+    }
+
+    private static Pair<ChatToolCall, ToolMessage> getToolInfo(String id, String type, Map<String, RunStep> runStepCache, RunStepFetcher fetcher) {
+        Triple<String, String, String> triple = extractIds(id, type);
         RunStep runStep = runStepCache.computeIfAbsent(triple.getMiddle(), key -> fetcher.fetch(triple.getLeft(), triple.getMiddle()));
-        Assert.notNull(runStep, "invalid id with tool call: " + toolCall.getType());
+        Assert.notNull(runStep, "invalid id with tool call: " + type);
         return extractToolInfo(runStep, triple.getRight());
     }
 
-    private static Triple<String, String, String> extractIds(String itemId, String type) {
+    public static Triple<String, String, String> extractIds(String itemId, String type) {
         Assert.hasText(itemId, "Id is required with tool call: " + type);
         String[] ids = itemId.split("_");
         if(ids.length <= 4) {
@@ -663,6 +717,8 @@ public class ResponseUtils {
             conversationItems.add(createMcpListTools(toolCall, itemId));
         } else if ("mcp_call".equalsIgnoreCase(itemType)) {
             conversationItems.add(createMcpToolCall(toolCall, itemId));
+        } else if ("mcp_call_approval".equals(itemType)) {
+            conversationItems.add(createMcpApprovalRequest(toolCall, itemId));
         }
     }
 
@@ -785,10 +841,10 @@ public class ResponseUtils {
         // Extract tool name and server label from function name
         // Format is typically: serverLabel_toolName
         String functionName = toolCall.getFunction() != null ? toolCall.getFunction().getName() : "";
-        int separatorIndex = functionName.indexOf('_');
-        if (separatorIndex > 0) {
-            mcpToolCall.setServerLabel(functionName.substring(0, separatorIndex));
-            mcpToolCall.setName(functionName.substring(separatorIndex + 1));
+        String[] strs = functionName.split("_", 2);
+        if (strs.length == 2) {
+            mcpToolCall.setServerLabel(strs[0]);
+            mcpToolCall.setName(strs[1]);
         } else {
             mcpToolCall.setServerLabel(functionName);
             mcpToolCall.setName(functionName);
@@ -803,6 +859,33 @@ public class ResponseUtils {
         }
 
         return mcpToolCall;
+    }
+
+    private static MCPApprovalRequest createMcpApprovalRequest(ChatToolCall toolCall, String itemId) {
+        MCPApprovalRequest approvalRequest = new MCPApprovalRequest();
+        approvalRequest.setId(itemId);
+
+        String functionName = toolCall.getFunction() != null ? toolCall.getFunction().getName() : "";
+        String[] strs = functionName.split("_", 2);
+        if (strs.length == 2) {
+            approvalRequest.setServerLabel(strs[0]);
+            if(strs[1].length() > 9) {
+                approvalRequest.setName(strs[1].substring(0, strs[1].length() - 9));
+            }
+        } else {
+            approvalRequest.setServerLabel(functionName);
+            approvalRequest.setName(functionName);
+        }
+
+        // Set arguments as JSON string
+        JsonNode arguments = toolCall.getFunction() != null ? toolCall.getFunction().getArguments() : null;
+        if (arguments != null) {
+            approvalRequest.setArguments(arguments.toString());
+        } else {
+            approvalRequest.setArguments("{}");
+        }
+
+        return approvalRequest;
     }
 
     @SuppressWarnings("unchecked")
