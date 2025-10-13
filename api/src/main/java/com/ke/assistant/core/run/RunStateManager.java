@@ -30,6 +30,7 @@ import com.theokanning.openai.assistants.run_step.RunStep;
 import com.theokanning.openai.assistants.run_step.StepDetails;
 import com.theokanning.openai.common.LastError;
 import com.theokanning.openai.completion.chat.ChatToolCall;
+import org.apache.commons.collections4.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -413,7 +414,7 @@ public class RunStateManager {
      * 完成内部工具调用
      */
     @Transactional
-    public void finishToolCall(ExecutionContext context, ToolCall toolCall, String errorMessage) {
+    public void finishToolCall(ExecutionContext context, ToolCall toolCall, String errorMessage, List<ToolCall> requiredToolCalls) {
         if(context.getCurrentToolCallStepId() == null) {
             logger.warn("no current tool call step");
             return;
@@ -421,6 +422,9 @@ public class RunStateManager {
         String stepId = context.getCurrentToolCallStepId();
         context.finishToolCall(toolCall);
         List<ToolCall> results = Lists.newArrayList(context.getCurrentToolResults());
+        if(CollectionUtils.isNotEmpty(requiredToolCalls)) {
+            results.addAll(requiredToolCalls);
+        }
         // 构建step_details
         StepDetails stepDetails = StepDetails.builder()
                 .type("tool_calls")

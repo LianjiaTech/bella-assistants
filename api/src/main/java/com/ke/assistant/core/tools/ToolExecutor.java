@@ -27,6 +27,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 工具执行器
@@ -94,6 +96,9 @@ public class ToolExecutor implements Runnable {
             }
             List<CompletableFuture<Void>> futures = new ArrayList<>();
             List<ToolCall> requiredTools = new ArrayList<>();
+            // 使用 CountDownLatch 确保 requiredTools 构建完成后再处理结果
+            CountDownLatch requiredToolsReady = new CountDownLatch(1);
+
             for (ChatToolCall task : tasks) {
                 ToolCall toolCall = MessageUtils.convertToolCall(task);
                 if(toolCall.getFunction() == null || toolCall.getFunction().getName() == null) {
@@ -136,13 +141,23 @@ public class ToolExecutor implements Runnable {
                                 if(handler.isDefinitionHandler()) {
                                     return;
                                 }
-                                processResult(output, toolCall, context);
+                                // 等待 requiredTools 构建完成
+                                try {
+                                    requiredToolsReady.await(100, TimeUnit.MILLISECONDS);
+                                } catch (InterruptedException e) {
+                                    Thread.currentThread().interrupt();
+                                    log.warn("Interrupted while waiting for required tools to be ready", e);
+                                }
+                                processResult(output, toolCall, context, requiredTools);
                             });
                     futures.add(future);
                 } else {
                     requiredTools.add(toolCall);
                 }
             }
+
+            // 通知所有异步任务：requiredTools 已构建完成
+            requiredToolsReady.countDown();
 
             CompletableFuture<Void> allFutures = CompletableFuture.allOf(
                     futures.toArray(new CompletableFuture[0])
@@ -180,13 +195,13 @@ public class ToolExecutor implements Runnable {
 
 
     @SuppressWarnings("unchecked")
-    private void processResult(ToolResult result, ToolCall toolCall, ExecutionContext context) {
+    private void processResult(ToolResult result, ToolCall toolCall, ExecutionContext context, List<ToolCall> requiredTools) {
         if(result == null || result.isNull()) {
             if(toolCall.getFunction() != null) {
                 toolCall.getFunction().setOutput("tool call output is null");
             }
             log.warn("{} output is null", toolCall.getType());
-            runStateManager.finishToolCall(context, toolCall, "tool call output is null");
+            runStateManager.finishToolCall(context, toolCall, "tool call output is null", requiredTools);
             return;
         }
         log.info("tool end: {}, arguments:{}", toolCall.getType(), JacksonUtils.serialize(result));
@@ -195,7 +210,7 @@ public class ToolExecutor implements Runnable {
                 toolCall.getFunction().setOutput(result.getError());
             }
             log.warn(result.getError());
-            runStateManager.finishToolCall(context, toolCall, result.getError());
+            runStateManager.finishToolCall(context, toolCall, result.getError(), requiredTools);
             return;
         }
         try {
@@ -212,13 +227,13 @@ public class ToolExecutor implements Runnable {
             if(result.getMeta().containsKey(MetaConstants.APPROVAL_ID)) {
                 context.addCurrentApprovalId(result.getMeta().get(MetaConstants.APPROVAL_ID));
             }
-            runStateManager.finishToolCall(context, toolCall, null);
+            runStateManager.finishToolCall(context, toolCall, null, requiredTools);
         } catch (Exception e) {
             log.warn(e.getMessage(), e);
             if(toolCall.getFunction() != null) {
                 toolCall.getFunction().setOutput(e.getMessage());
             }
-            runStateManager.finishToolCall(context, toolCall, e.getMessage());
+            runStateManager.finishToolCall(context, toolCall, e.getMessage(), requiredTools);
         }
     }
 
