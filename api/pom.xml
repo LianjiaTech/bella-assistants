@@ -24,7 +24,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java.version>17</java.version>
         <bella-openapi.version>1.2.1</bella-openapi.version>
-        <bella-openai.version>0.23.80</bella-openai.version>
+        <bella-openai.version>0.23.81</bella-openai.version>
         <jooq.version>3.14.15</jooq.version>
         <mysql.version>8.0.33</mysql.version>
         <!-- Database connection config for JOOQ code generation -->
