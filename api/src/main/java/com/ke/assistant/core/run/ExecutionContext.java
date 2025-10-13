@@ -33,11 +33,9 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -121,7 +119,6 @@ public class ExecutionContext {
     private final Map<String, String> currentMetaData;
     private final CopyOnWriteArrayList<Annotation> currentAnnotations; //当前runStep的annotations
     private final CopyOnWriteArrayList<String> currentApprovalIds;
-    private final Set<String> approvedServerLabel;
     // {index, ChatToolCall}
     private final ConcurrentHashMap<Integer, ChatToolCall> currentToolTasks;  // 当前待执行的工具
     private final List<Approval> approvals;
@@ -162,7 +159,6 @@ public class ExecutionContext {
         this.currentMetaData = new HashMap<>();
         this.currentAnnotations = new CopyOnWriteArrayList<>();
         this.currentApprovalIds = new CopyOnWriteArrayList<>();
-        this.approvedServerLabel = new HashSet<>();
         this.chatTools = new CopyOnWriteArrayList<>();
         this.currentToolTasks = new ConcurrentHashMap<>();
         this.approvals = new ArrayList<>();
@@ -650,14 +646,6 @@ public class ExecutionContext {
 
     public void clearApprovalIds() {
         this.currentApprovalIds.clear();
-    }
-
-    public boolean isApprovedServer(String serverLabel) {
-        return this.approvedServerLabel.contains(serverLabel);
-    }
-
-    public void addApprovedServer(String serverLabel) {
-        this.approvedServerLabel.add(serverLabel);
     }
 
     public void addApproved(Approval approval) {

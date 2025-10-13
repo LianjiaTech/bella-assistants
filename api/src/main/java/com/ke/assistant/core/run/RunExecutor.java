@@ -10,7 +10,6 @@ import com.ke.assistant.core.plan.Planner;
 import com.ke.assistant.core.plan.PlannerDecision;
 import com.ke.assistant.core.tools.ToolExecutor;
 import com.ke.assistant.core.tools.ToolFetcher;
-import com.ke.assistant.core.tools.handlers.mcp.McpExecuteToolHandler;
 import com.ke.assistant.core.tools.handlers.mcp.McpToolListHandler;
 import com.ke.assistant.db.IdGenerator;
 import com.ke.assistant.service.MessageService;
@@ -362,43 +361,35 @@ public class RunExecutor {
     private void processApprovalTools(ExecutionContext context, RunStateManager stateManager, ToolExecutor toolExecutor, Planner planner) {
         if(!context.getApprovals().isEmpty()) {
             planner.buildChatTools(context);
-            for(Approval approval : context.getApprovals()) {
-                context.addApprovedServer(approval.getServerLabel());
-                if(processMcpHandler(approval, toolExecutor)) {
-                    continue;
-                }
-                McpToolListHandler listHandler = toolExecutor.getMcpToolListHandler(approval.getServerLabel());
+            Map<String, List<Approval>> map = context.getApprovals().stream().collect(Collectors.groupingBy(Approval::getServerLabel));
+            for(String serverLabel : map.keySet()) {
+                List<Approval> approvals = map.get(serverLabel);
+                McpToolListHandler listHandler = toolExecutor.getMcpToolListHandler(serverLabel);
                 if(listHandler == null) {
-                    continue;
+                    throw new IllegalStateException("no tool list handler found for server label: " + serverLabel);
                 }
-                List<MCPListTools.MCPToolInfo> infos = listHandler.fetchMcpToolInfo();
-                listHandler.registerTool(infos);
-                processMcpHandler(approval, toolExecutor);
-                ChatToolCall call = new ChatToolCall();
-                call.setType("function");
-                String toolCallId = ResponseUtils.extractIds(approval.getApprovalRequestId(), "mcp_approve_response").getRight();
-                call.setId(toolCallId);
-                ChatFunctionCall functionCall = new ChatFunctionCall();
-                functionCall.setName(approval.getServerLabel() + "_" + approval.getName());
-                functionCall.setArguments(JacksonUtils.toJsonNode(approval.getArguments()));
-                call.setFunction(functionCall);
-                call.setIndex(approval.getIndex());
-                context.addToolCallTask(call);
+                Map<String, MCPListTools.MCPToolInfo> infos = listHandler.fetchMcpToolInfo().stream()
+                        .collect(Collectors.toMap(MCPListTools.MCPToolInfo::getName, Function.identity()));
+                for(Approval approval : approvals) {
+                    MCPListTools.MCPToolInfo info = infos.remove(approval.getName());
+                    listHandler.registerTool(info, approval);
+                    ChatToolCall call = new ChatToolCall();
+                    call.setType("function");
+                    String toolCallId = ResponseUtils.extractIds(approval.getApprovalRequestId(), "mcp_approve_response").getRight();
+                    call.setId(toolCallId);
+                    ChatFunctionCall functionCall = new ChatFunctionCall();
+                    functionCall.setName(approval.getServerLabel() + "_" + approval.getName());
+                    functionCall.setArguments(JacksonUtils.toJsonNode(approval.getArguments()));
+                    call.setFunction(functionCall);
+                    call.setIndex(approval.getIndex());
+                    context.addToolCallTask(call);
+                }
+                listHandler.registerTools(infos.values().stream().toList());
             }
             context.clearApproved();
             stateManager.startToolCalls(context, new Usage(), new HashMap<>());
             context.runnerAwait();
         }
-    }
-
-    private boolean processMcpHandler(Approval approval, ToolExecutor toolExecutor) {
-        McpExecuteToolHandler toolHandler = toolExecutor.getMcpToolHandler(approval.getServerLabel(), approval.getName());
-        if(toolHandler != null) {
-            toolHandler.setApproved(approval.getApprove());
-            toolHandler.setApprovalRequestId(approval.getApprovalRequestId());
-            return true;
-        }
-        return false;
     }
 
 

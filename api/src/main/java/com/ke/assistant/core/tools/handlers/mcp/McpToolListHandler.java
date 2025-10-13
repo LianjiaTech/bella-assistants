@@ -10,6 +10,7 @@ import com.ke.assistant.core.tools.ToolStreamEvent;
 import com.ke.assistant.core.tools.handlers.mcp.McpClientFactory.McpClientWrapper;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.assistants.assistant.Tool;
+import com.theokanning.openai.assistants.message.content.Approval;
 import com.theokanning.openai.completion.chat.ChatTool;
 import com.theokanning.openai.response.stream.McpListToolsCompletedEvent;
 import com.theokanning.openai.response.stream.McpListToolsFailedEvent;
@@ -59,7 +60,7 @@ public class McpToolListHandler implements ToolHandler {
 
             call.setTools(infos);
 
-            registerTool(infos);
+            registerTools(infos);
 
             if(channel != null) {
                 // Completed event
@@ -101,18 +102,21 @@ public class McpToolListHandler implements ToolHandler {
     }
 
 
-    public void registerTool(List<MCPListTools.MCPToolInfo> infos) {
-        infos.forEach(info -> {
-            McpToolHandler handler = new McpExecuteToolHandler(mcpToolDefinition.getServerLabel(), mcpClient, info, null, true);
-            if(!executionContext.isApprovedServer(mcpToolDefinition.getServerLabel()) && mcpToolDefinition.needApproval(info.getName())) {
-                handler = new McpApprovalToolHandler(handler, executionContext);
-            }
-            Tool.Function function = handler.getFunction();
-            toolExecutor.register(function, handler);
-            ChatTool chatTool = new ChatTool();
-            chatTool.setFunction(function.getFunction());
-            executionContext.addChatTool(chatTool);
-        });
+    public void registerTools(List<MCPListTools.MCPToolInfo> infos) {
+        infos.forEach(info -> registerTool(info, null));
+    }
+
+    public void registerTool(MCPListTools.MCPToolInfo info, Approval approval) {
+        McpToolHandler handler = new McpExecuteToolHandler(mcpToolDefinition.getServerLabel(), mcpClient, info,
+                approval == null ? null : approval.getApprovalRequestId(), approval == null || approval.getApprove());
+        if(approval == null && mcpToolDefinition.needApproval(info.getName())) {
+            handler = new McpApprovalToolHandler(handler, executionContext);
+        }
+        Tool.Function function = handler.getFunction();
+        toolExecutor.register(function, handler);
+        ChatTool chatTool = new ChatTool();
+        chatTool.setFunction(function.getFunction());
+        executionContext.addChatTool(chatTool);
     }
 
     public List<MCPListTools.MCPToolInfo> fetchMcpToolInfo() {
