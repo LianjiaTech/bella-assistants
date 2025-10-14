@@ -1,5 +1,6 @@
 package com.ke.assistant.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.ke.assistant.db.generated.tables.pojos.RunDb;
 import com.ke.assistant.db.repo.RunRepo;
 import com.ke.assistant.util.MetaConstants;
@@ -24,7 +25,7 @@ public class ConversationService {
        if(run == null || StringUtils.isBlank(run.getMetadata())) {
            return false;
        }
-       Map<String, String> meta = JacksonUtils.toMap(run.getMetadata());
+       Map<String, String> meta = JacksonUtils.deserialize(run.getMetadata(), new TypeReference<>() {});
        return meta.containsKey(MetaConstants.RESPONSE_ID);
     }
 }

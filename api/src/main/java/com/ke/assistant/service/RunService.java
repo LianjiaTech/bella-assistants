@@ -1,5 +1,6 @@
 package com.ke.assistant.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.Lists;
 import com.ke.assistant.db.generated.tables.pojos.RunDb;
 import com.ke.assistant.db.generated.tables.pojos.RunStepDb;
@@ -394,7 +395,7 @@ public class RunService {
 
         // 转换metadata从JSON字符串到Map
         if(StringUtils.isNotBlank(runDb.getMetadata())) {
-            info.setMetadata(JacksonUtils.toMap(runDb.getMetadata()));
+            info.setMetadata(JacksonUtils.deserialize(runDb.getMetadata(), new TypeReference<>() {}));
         }
 
         // 反序列化复杂字段

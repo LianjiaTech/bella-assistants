@@ -1,5 +1,6 @@
 package com.ke.assistant.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.ke.assistant.db.generated.tables.pojos.AssistantDb;
 import com.ke.assistant.db.generated.tables.pojos.AssistantFileRelationDb;
 import com.ke.assistant.db.generated.tables.pojos.AssistantToolDb;
@@ -227,7 +228,7 @@ public class AssistantService {
 
         // 转换metadata从JSON字符串到Map
         if(StringUtils.isNotBlank(assistantDb.getMetadata())) {
-            info.setMetadata(JacksonUtils.toMap(assistantDb.getMetadata()));
+            info.setMetadata(JacksonUtils.deserialize(assistantDb.getMetadata(), new TypeReference<>() {}));
         }
 
         // 设置关联数据

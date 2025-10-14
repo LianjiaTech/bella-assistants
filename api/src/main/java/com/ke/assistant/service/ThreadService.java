@@ -1,5 +1,6 @@
 package com.ke.assistant.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.Lists;
 import com.ke.assistant.core.run.RunStatus;
 import com.ke.assistant.db.generated.tables.pojos.MessageDb;
@@ -414,7 +415,6 @@ public class ThreadService {
     /**
      * 将ThreadDb转换为ThreadInfo
      */
-    @SuppressWarnings("unchecked")
     private Thread convertToInfo(ThreadDb threadDb) {
         if(threadDb == null) {
             return null;
@@ -428,7 +428,7 @@ public class ThreadService {
 
         // 转换metadata从JSON字符串到Map
         if(StringUtils.isNotBlank(threadDb.getMetadata())) {
-            info.setMetadata(JacksonUtils.toMap(threadDb.getMetadata()));
+            info.setMetadata(JacksonUtils.deserialize(threadDb.getMetadata(), new TypeReference<>() {}));
         }
 
         // 转换environment从JSON字符串到Map

@@ -55,7 +55,6 @@ public class MessageUtils {
      * 获取消息的源ID
      * 如果消息有copy_message_id元数据，返回copy_message_id；否则返回消息本身的ID
      */
-    @SuppressWarnings("unchecked")
     public static String getSourceId(MessageDb message) {
         if (message == null) {
             return null;
@@ -112,7 +111,6 @@ public class MessageUtils {
      * 复制消息到指定Thread
      * 处理ID重新生成、线程ID设置、copy_message_id元数据标记
      */
-    @SuppressWarnings("unchecked")
     public static MessageDb copyMessageToThread(MessageDb sourceMessage, String targetThreadId) {
         if (sourceMessage == null || targetThreadId == null) {
             return null;
@@ -721,7 +719,7 @@ public class MessageUtils {
         // 转换metadata从JSON字符串到Map
         String metadata = messageDb.getMetadata();
         if(metadata != null && !metadata.isBlank()) {
-            info.setMetadata(JacksonUtils.toMap(metadata));
+            info.setMetadata(JacksonUtils.deserialize(metadata, new TypeReference<>() {}));
         }
 
         // content字段处理 - 数据库存储的是Content对象数组的JSON

@@ -1,5 +1,6 @@
 package com.ke.assistant.util;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.ke.assistant.db.generated.tables.pojos.RunStepDb;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.Usage;
@@ -39,7 +40,7 @@ public class RunUtils {
         }
 
         if(StringUtils.isNotBlank(runDb.getMetadata())) {
-            info.setMetadata(JacksonUtils.toMap(runDb.getMetadata()));
+            info.setMetadata(JacksonUtils.deserialize(runDb.getMetadata(), new TypeReference<>() {}));
         } else {
             info.setMetadata(new HashMap<>());
         }
