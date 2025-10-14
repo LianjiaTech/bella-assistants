@@ -323,6 +323,9 @@ public class RunStateManager {
         StepDetails stepDetails = JacksonUtils.deserialize(runStepDb.getStepDetails(), StepDetails.class);
         Map<String, ToolCall> outputMap = submitToolOutputs.getToolCalls().stream().collect(Collectors.toMap(ToolCall::getId, Function.identity()));
         for(ToolCall toolCall : stepDetails.getToolCalls()) {
+            if(toolCall.getFunction().getOutput() != null) {
+                continue;
+            }
             if(toolCall.getId() == null) {
                 throw new BizParamCheckException("tool call Id is null");
             }
@@ -332,7 +335,7 @@ public class RunStateManager {
                      toolCall.getFunction().setOutput((output == null || output.isBlank()) ? "未获取到结果" : output);
                 }
             } else {
-                throw new BizParamCheckException("tool call id is not exist");
+                throw new BizParamCheckException("tool call id is not provided, with id: " + toolCall.getId());
             }
         }
         runStepDb.setStepDetails(JacksonUtils.serialize(stepDetails));

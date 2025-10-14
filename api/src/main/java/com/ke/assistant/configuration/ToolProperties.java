@@ -29,6 +29,7 @@ public class ToolProperties {
     
     @Data
     public static class WebSearchTavilyToolProperties {
+        private boolean withBella;
         private String url;
         private String apiKey;
         private String searchDepth = "advanced";
@@ -46,6 +47,7 @@ public class ToolProperties {
     
     @Data
     public static class WebCrawlerToolProperties {
+        private boolean withBella;
         private String url;
         private String apiKey;
         private int timeout = 30; // 30秒
