@@ -106,6 +106,7 @@ bella:
         model: ${RAG_TOOL_MODEL:gpt-4o}
         is-final: false
       web-search-tavily:
+        bella-model: ${BELLA_WEB_SEARCH_MODEL:}
         url: https://api.tavily.com/search
         api-key: ${WEB_SEARCH_TAVILY_APIKEY:}
         search-depth: advanced
@@ -117,7 +118,8 @@ bella:
         format: jpg
         is-final: true
       web-crawler:
-        url: ${WEB_CRAWLER_URL:}
+        bella-model: ${BELLA_CRAWLER_MODEL:}
+        url: ${WEB_CRAWLER_URL:https://api.tavily.com/extract}
         api-key: ${WEB_CRAWLER_APIKEY:}
         timeout: 30 #单位秒
       weather-search:

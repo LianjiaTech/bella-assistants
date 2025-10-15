@@ -1,7 +1,6 @@
 package com.ke.assistant.core.tools;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.util.Map;
 
 /**

@@ -1,6 +1,6 @@
 package com.ke.assistant.core.tools.handlers;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.google.common.collect.Lists;
 import com.ke.assistant.configuration.AssistantProperties;
 import com.ke.assistant.configuration.ToolProperties;
@@ -8,11 +8,17 @@ import com.ke.assistant.core.tools.ToolContext;
 import com.ke.assistant.core.tools.ToolHandler;
 import com.ke.assistant.core.tools.ToolOutputChannel;
 import com.ke.assistant.core.tools.ToolResult;
+import com.ke.bella.openapi.BellaContext;
+import com.ke.bella.openapi.server.OpenAiServiceFactory;
 import com.ke.bella.openapi.utils.HttpUtils;
 import com.ke.bella.openapi.utils.JacksonUtils;
+import com.theokanning.openai.web.WebExtractRequest;
+import com.theokanning.openai.web.WebExtractResponse;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import okhttp3.Request;
 import okhttp3.RequestBody;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -26,6 +32,7 @@ import java.util.Optional;
 /**
  * 网页爬虫工具处理器
  */
+@Slf4j
 @Component
 public class WebCrawlerToolHandler implements ToolHandler {
     
@@ -33,6 +40,9 @@ public class WebCrawlerToolHandler implements ToolHandler {
     private AssistantProperties assistantProperties;
     
     private ToolProperties.WebCrawlerToolProperties webCrawlerProperties;
+
+    @Autowired
+    private OpenAiServiceFactory openAiServiceFactory;
     
     @PostConstruct
     public void init() {
@@ -42,54 +52,70 @@ public class WebCrawlerToolHandler implements ToolHandler {
     @SuppressWarnings("unchecked")
     @Override
     public ToolResult execute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
+        try {
+            // 解析参数
+            List<String> urls = (List<String>) Optional.ofNullable(arguments.get("web_crawler_urls")).orElse(new ArrayList<>());
 
-        // 解析参数
-        List<String> urls = (List<String>) Optional.ofNullable(arguments.get("web_crawler_urls")).orElse(new ArrayList<>());
+            if(urls.isEmpty()) {
+                throw new IllegalArgumentException("urls is null or not array");
+            }
 
-        if(urls.isEmpty()) {
-            throw new IllegalArgumentException("urls is null or not array");
+            List<WebCrawlerResult> webCrawlerUrlContent = new ArrayList<>();
+            // 循环处理每个URL
+            WebExtractRequest crawlerRequest = buildCrawlerRequest(urls);
+
+            WebExtractResponse response;
+
+            if(StringUtils.isNotBlank(crawlerRequest.getModel())) {
+                BellaContext.replace(context.getBellaContext());
+                response = openAiServiceFactory.create().webExtract(crawlerRequest);
+            } else {
+                Request request = new Request.Builder()
+                        .url(webCrawlerProperties.getUrl())
+                        .addHeader("Authorization", "Bearer " + webCrawlerProperties.getApiKey())
+                        .post(RequestBody.create(JacksonUtils.serialize(crawlerRequest), okhttp3.MediaType.parse("application/json")))
+                        .build();
+                // 发送请求
+                response = HttpUtils.httpRequest(request, WebExtractResponse.class, 30, webCrawlerProperties.getTimeout());
+            }
+
+            // 处理响应
+            WebCrawlerResult urlResult = new WebCrawlerResult();
+
+            if(response.getResults() != null && !response.getResults().isEmpty()) {
+                webCrawlerUrlContent = response.getResults().stream().map(result -> {
+                    WebCrawlerResult webCrawlerResult = new WebCrawlerResult();
+                    webCrawlerResult.setUrl(result.getUrl());
+                    webCrawlerResult.setContent(result.getRawContent());
+                    return webCrawlerResult;
+                }).toList();
+            } else if(response.getFailedResults() != null) {
+                urlResult.setFailedResult(response.getFailedResults());
+                webCrawlerUrlContent.add(urlResult);
+            }
+
+            // 构建输出内容
+            String output = JacksonUtils.serialize(webCrawlerUrlContent);
+
+            // 直接返回爬取结果
+            return new ToolResult(ToolResult.ToolResultType.text, output);
+        } catch (Exception e) {
+            log.warn(e.getMessage(), e);
+            return new ToolResult(e.getMessage());
+        } finally {
+            BellaContext.clearAll();
         }
-
-        List<WebCrawlerResult> webCrawlerUrlContent = new ArrayList<>();
-        // 循环处理每个URL
-        WebCrawlerRequest crawlerRequest = buildCrawlerRequest(urls);
-
-        Request request = new Request.Builder()
-                .url(webCrawlerProperties.getUrl())
-                .addHeader("Authorization", "Bearer " + webCrawlerProperties.getApiKey())
-                .post(RequestBody.create(JacksonUtils.serialize(crawlerRequest), okhttp3.MediaType.parse("application/json")))
-                .build();
-
-        // 发送请求
-        WebCrawlerResponse response = HttpUtils.httpRequest(request, WebCrawlerResponse.class, 30, webCrawlerProperties.getTimeout());
-
-        // 处理响应
-        WebCrawlerResult urlResult = new WebCrawlerResult();
-        urlResult.setUrl(urls);
-
-        if(response.getResults() != null && !response.getResults().isEmpty()) {
-            urlResult.setContent(response.getResults());
-            webCrawlerUrlContent.add(urlResult);
-        } else if(response.getFailedResults() != null) {
-            urlResult.setContent(response.getFailedResults());
-            webCrawlerUrlContent.add(urlResult);
-        }
-
-        // 构建输出内容
-        String output = JacksonUtils.serialize(webCrawlerUrlContent);
-
-        // 直接返回爬取结果
-        return new ToolResult(ToolResult.ToolResultType.text, output);
     }
     
     /**
      * 构建爬虫请求
      */
-    private WebCrawlerRequest buildCrawlerRequest(List<String> url) {
-        WebCrawlerRequest request = new WebCrawlerRequest();
+    private WebExtractRequest buildCrawlerRequest(List<String> url) {
+        WebExtractRequest request = new WebExtractRequest();
         request.setUrls(url);
         request.setIncludeImages(false);
-        request.setExtractDepth("advanced");
+        request.setExtractDepth(WebExtractRequest.ExtractDepth.ADVANCED);
+        request.setModel(webCrawlerProperties.getBellaModel());
         return request;
     }
     
@@ -127,29 +153,13 @@ public class WebCrawlerToolHandler implements ToolHandler {
     public boolean isFinal() {
         return false;
     }
-    
-    // 请求实体类
-    @Data
-    public static class WebCrawlerRequest {
-        private List<String> urls;
-        @JsonProperty("include_images")
-        private boolean includeImages;
-        @JsonProperty("extract_depth")
-        private String extractDepth;
-    }
-    
-    // 响应实体类
-    @Data
-    public static class WebCrawlerResponse {
-        private List<Object> results;
-        @JsonProperty("failed_results")
-        private List<Object> failedResults;
-    }
 
 
     @Data
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class WebCrawlerResult {
-        private List<String> url;
-        private List<Object> content;
+        private String url;
+        private String content;
+        private List<WebExtractResponse.FailedResult> failedResult;
     }
 }
