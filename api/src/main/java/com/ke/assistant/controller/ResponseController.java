@@ -48,11 +48,11 @@ public class ResponseController {
         request.setUser(BellaContext.getOwnerCode());
 
         boolean nonStore = Boolean.FALSE.equals(request.getStore());
-        if (nonStore) {
-            RepoContext.activate();
-        }
 
         try {
+            if (nonStore) {
+                RepoContext.activate();
+            }
             // Create response and prepare for execution
             ResponseCreateResult result = responseService.createResponse(request);
 
