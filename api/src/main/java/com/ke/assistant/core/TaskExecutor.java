@@ -54,18 +54,15 @@ public class TaskExecutor {
         RepoContext.State repoContextSnapshot = RepoContext.capture();
 
         return () -> {
-            // 在执行线程中恢复 RepoContext
-            if (repoContextSnapshot != null) {
-                RepoContext.attach(repoContextSnapshot);
-            }
-
             try {
+                // 在执行线程中恢复 RepoContext
+                if (repoContextSnapshot != null) {
+                    RepoContext.attach(repoContextSnapshot);
+                }
                 r.run();
             } finally {
                 // 确保在执行线程结束时清理 RepoContext
-                if (repoContextSnapshot != null) {
-                    RepoContext.detach();
-                }
+                RepoContext.detach();
             }
         };
     }
@@ -78,18 +75,15 @@ public class TaskExecutor {
         RepoContext.State repoContextSnapshot = RepoContext.capture();
 
         return () -> {
-            // 在执行线程中恢复 RepoContext
-            if (repoContextSnapshot != null) {
-                RepoContext.attach(repoContextSnapshot);
-            }
-
             try {
+                // 在执行线程中恢复 RepoContext
+                if (repoContextSnapshot != null) {
+                    RepoContext.attach(repoContextSnapshot);
+                }
                 return supplier.get();
             } finally {
                 // 确保在执行线程结束时清理 RepoContext
-                if (repoContextSnapshot != null) {
-                    RepoContext.detach();
-                }
+                RepoContext.detach();
             }
         };
     }

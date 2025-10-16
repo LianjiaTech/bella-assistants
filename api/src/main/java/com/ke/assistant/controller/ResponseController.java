@@ -77,9 +77,7 @@ public class ResponseController {
             return Boolean.TRUE.equals(request.getStream()) ? emitter :
                     Boolean.TRUE.equals(request.getBackground()) ? result.getResponse() : context.blockingGetResult(600);
         } finally {
-            if (nonStore) {
-                RepoContext.detach();
-            }
+            RepoContext.detach();
         }
     }
 
