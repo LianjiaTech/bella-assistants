@@ -102,8 +102,8 @@ public class RagToolHandler extends BellaToolHandler {
         
         // 构建检索参数
         RetrievalParam retrievalParam = new RetrievalParam();
-        retrievalParam.setScore(ragProperties.getScore());
-        retrievalParam.setTopK(ragProperties.getTopK());
+        retrievalParam.setScore(tool.getDefaultMetadata().getScore());
+        retrievalParam.setTopK(tool.getDefaultMetadata().getTopK());
         retrievalParam.setFileIds(context.getFiles());
         retrievalParam.setMetadataFilter(tool.getDefaultMetadata().getMetadataFilter());
         retrievalParam.setRetrievalMode(tool.getDefaultMetadata().getRetrieveMode());
