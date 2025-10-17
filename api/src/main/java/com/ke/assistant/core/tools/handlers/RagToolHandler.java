@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.Lists;
 import com.ke.assistant.configuration.AssistantProperties;
 import com.ke.assistant.configuration.ToolProperties;
+import com.ke.assistant.core.log.RunLog;
+import com.ke.assistant.core.log.RunLogger;
 import com.ke.assistant.core.tools.BellaToolHandler;
 import com.ke.assistant.core.tools.SseConverter;
 import com.ke.assistant.core.tools.ToolCallListener;
@@ -36,6 +38,9 @@ public class RagToolHandler extends BellaToolHandler {
     
     @Autowired
     private AssistantProperties assistantProperties;
+
+    @Autowired
+    private RunLogger runLogger;
     
     private ToolProperties.RagToolProperties ragProperties;
     
@@ -56,6 +61,8 @@ public class RagToolHandler extends BellaToolHandler {
         
         // 构建请求体
         RagRequest requestBody = buildRequestBody(query, context);
+
+        runLogger.log("rag_request", context.getBellaContext(), JacksonUtils.toMap(requestBody));
 
         // 构建请求
         Request request = new Request.Builder()

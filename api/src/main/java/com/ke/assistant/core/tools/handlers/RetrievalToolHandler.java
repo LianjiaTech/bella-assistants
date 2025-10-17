@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.Lists;
 import com.ke.assistant.configuration.AssistantProperties;
 import com.ke.assistant.configuration.ToolProperties;
+import com.ke.assistant.core.log.RunLogger;
 import com.ke.assistant.core.tools.BellaToolHandler;
 import com.ke.assistant.core.tools.ToolContext;
 import com.ke.assistant.core.tools.ToolOutputChannel;
@@ -41,7 +42,10 @@ public class RetrievalToolHandler extends BellaToolHandler {
     
     @Autowired
     private AssistantProperties assistantProperties;
-    
+
+    @Autowired
+    private RunLogger runLogger;
+
     private ToolProperties.RetrievalToolProperties retrievalProperties;
     
     @PostConstruct
@@ -69,6 +73,8 @@ public class RetrievalToolHandler extends BellaToolHandler {
             }
 
             RetrievalRequest requestBody = buildRequestBody(query, context);
+
+            runLogger.log("retrieval_request", context.getBellaContext(), JacksonUtils.toMap(requestBody));
 
             Request request = new Request.Builder()
                     .url(retrievalProperties.getUrl())

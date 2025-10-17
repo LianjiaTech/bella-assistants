@@ -1,8 +1,10 @@
 package com.ke.assistant.core.log;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.ke.assistant.core.file.FileInfo;
 import com.ke.assistant.core.run.ExecutionContext;
 import com.ke.bella.openapi.BellaContext;
+import com.ke.bella.openapi.apikey.ApikeyInfo;
 import com.theokanning.openai.assistants.assistant.Tool;
 import com.theokanning.openai.assistants.run.ToolFiles;
 import com.theokanning.openai.common.LastError;
@@ -10,11 +12,15 @@ import lombok.Data;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Data
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class RunLog {
+    private String event;
     private String bellaTraceId;
     private String requestId;
     private String akSha;
@@ -35,31 +41,28 @@ public class RunLog {
     private List<Tool> tools;
     private ToolFiles toolFiles;
     private Map<String, FileInfo> fileInfos;
+    private Map<String, Object> additionalInfo;
     private boolean isMock;
 
-    public RunLog(ExecutionContext context) {
+    public RunLog(String event, ExecutionContext context) {
+        this.event = event;
         // 从ExecutionContext获取BellaContext快照
         Map<String, Object> bellaContextSnapshot = context.getBellaContext();
         
         // 从BellaContext快照中获取headers
         @SuppressWarnings("unchecked")
-        Map<String, String> headers = (Map<String, String>) bellaContextSnapshot.get("headers");
-        if (headers != null) {
-            this.bellaTraceId = headers.get(BellaContext.BELLA_TRACE_HEADER);
-            this.requestId = headers.get(BellaContext.BELLA_REQUEST_ID_HEADER);
-            this.isMock = headers.containsKey(BellaContext.BELLA_REQUEST_MOCK_HEADER);
-        }
+        Map<String, String> headers = (Map<String, String>) Optional.ofNullable(bellaContextSnapshot.get("headers")).orElse(new HashMap<>());
+        this.bellaTraceId = headers.get(BellaContext.BELLA_TRACE_HEADER);
+        this.requestId = headers.get(BellaContext.BELLA_REQUEST_ID_HEADER);
+        this.isMock = headers.containsKey(BellaContext.BELLA_REQUEST_MOCK_HEADER);
         
         // 从BellaContext快照中获取ApiKey信息
-        com.ke.bella.openapi.apikey.ApikeyInfo apikeyInfo = 
-            (com.ke.bella.openapi.apikey.ApikeyInfo) bellaContextSnapshot.get("ak");
-        if (apikeyInfo != null) {
-            this.akCode = apikeyInfo.getCode();
-            this.parentAkCode = apikeyInfo.getParentCode();
-            this.accountCode = apikeyInfo.getOwnerCode();
-            this.accountType = apikeyInfo.getOwnerType();
-            this.akSha = apikeyInfo.getAkSha();
-        }
+        ApikeyInfo apikeyInfo = (ApikeyInfo) Optional.ofNullable(bellaContextSnapshot.get("ak")).orElse(new ApikeyInfo());
+        this.akCode = apikeyInfo.getCode();
+        this.parentAkCode = apikeyInfo.getParentCode();
+        this.accountCode = apikeyInfo.getOwnerCode();
+        this.accountType = apikeyInfo.getOwnerType();
+        this.akSha = apikeyInfo.getAkSha();
         
         // 从ExecutionContext获取run相关信息
         if (context.getRun() != null) {
@@ -82,5 +85,26 @@ public class RunLog {
         this.totalSteps = context.getCurrentStep();
         this.assistantMessageId = context.getAssistantMessageId();
         this.error = context.getLastError();
+    }
+
+    @SuppressWarnings("unchecked")
+    public RunLog(String event, Map<String, Object> bellaContextSnapshot, Map<String, Object> additionalInfo) {
+        this.event = event;
+        this.additionalInfo = additionalInfo;
+        // 从ExecutionContext获取BellaContext快照
+
+        // 从BellaContext快照中获取headers
+        Map<String, String> headers = (Map<String, String>) Optional.ofNullable(bellaContextSnapshot.get("headers")).orElse(new HashMap<>());
+        this.bellaTraceId = headers.get(BellaContext.BELLA_TRACE_HEADER);
+        this.requestId = headers.get(BellaContext.BELLA_REQUEST_ID_HEADER);
+        this.isMock = headers.containsKey(BellaContext.BELLA_REQUEST_MOCK_HEADER);
+
+        // 从BellaContext快照中获取ApiKey信息
+        ApikeyInfo apikeyInfo = (ApikeyInfo) Optional.ofNullable(bellaContextSnapshot.get("ak")).orElse(new ApikeyInfo());
+        this.akCode = apikeyInfo.getCode();
+        this.parentAkCode = apikeyInfo.getParentCode();
+        this.accountCode = apikeyInfo.getOwnerCode();
+        this.accountType = apikeyInfo.getOwnerType();
+        this.akSha = apikeyInfo.getAkSha();
     }
 }

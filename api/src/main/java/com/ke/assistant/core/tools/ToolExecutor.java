@@ -186,7 +186,7 @@ public class ToolExecutor implements Runnable {
     private ToolContext buildToolContext(ExecutionContext context, Tool tool, String toolId) {
         ToolContext toolContext = new ToolContext();
         toolContext.setTool(tool);
-        toolContext.setFiles(context.getToolFiles().getTools().get(tool.getType()));
+        toolContext.setFiles(context.getFileIds(tool.getType()));
         toolContext.setToolId(toolId);
         toolContext.setUser(context.getUser());
         toolContext.setBellaContext(context.getBellaContext());

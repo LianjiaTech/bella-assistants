@@ -656,4 +656,14 @@ public class ExecutionContext {
         this.approvals.clear();
     }
 
+    public List<String> getFileIds(String type) {
+        List<String> fileIds = new ArrayList<>();
+        if(this.toolFiles.getTools().containsKey(type)) {
+            fileIds.addAll(this.toolFiles.getTools().get(type));
+        }
+        if(this.toolFiles.getTools().containsKey("_all")) {
+            fileIds.addAll(this.toolFiles.getTools().get("_all"));
+        }
+        return fileIds;
+    }
 }

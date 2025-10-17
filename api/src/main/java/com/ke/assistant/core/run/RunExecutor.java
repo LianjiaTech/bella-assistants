@@ -171,7 +171,7 @@ public class RunExecutor {
             // 通知所有辅助线程退出
             context.end();
             BellaContext.clearAll();
-            runLogger.log(context);
+            runLogger.log("end", context);
         }
     }
     
