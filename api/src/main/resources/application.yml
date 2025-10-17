@@ -1,7 +1,8 @@
 server:
   port: 8087
   tomcat:
-    max-threads: 200
+    threads:
+      max: 200
   max-http-header-size: 10240
 
 spring:
