@@ -50,7 +50,7 @@ public class AssistantController {
         // transfer请求到数据库对象
         AssistantDb assistant = new AssistantDb();
         BeanUtils.copyProperties(request, assistant);
-        assistant.setOwner(BellaContext.getOwnerCode());
+        assistant.setOwner(BellaContext.getApikey().getOwnerCode());
         assistant.setUser(BellaContext.getOwnerCode());
 
         // 将metadata Map转换为JSON字符串

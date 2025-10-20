@@ -56,7 +56,7 @@ public class ThreadController {
         BeanUtils.copyProperties(request, thread);
 
         thread.setUser(BellaContext.getOwnerCode());
-        thread.setOwner(BellaContext.getOwnerCode());
+        thread.setOwner(BellaContext.getApikey().getOwnerCode());
 
         // 将metadata Map转换为JSON字符串
         if(request.getMetadata() != null) {
