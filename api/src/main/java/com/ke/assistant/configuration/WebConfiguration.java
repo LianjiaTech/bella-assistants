@@ -1,8 +1,7 @@
 package com.ke.assistant.configuration;
 
-import com.ke.assistant.controller.GlobalExceptionHandler;
-import com.ke.bella.openapi.server.intercept.AuthorizationInterceptor;
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
 import org.springframework.web.servlet.HandlerExceptionResolver;
@@ -10,7 +9,10 @@ import org.springframework.web.servlet.config.annotation.ContentNegotiationConfi
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import java.util.List;
+import com.ke.assistant.controller.GlobalExceptionHandler;
+import com.ke.bella.openapi.server.intercept.AuthorizationInterceptor;
+
+import lombok.RequiredArgsConstructor;
 
 /**
  * Web 配置类

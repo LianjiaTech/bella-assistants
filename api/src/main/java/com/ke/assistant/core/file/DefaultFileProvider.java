@@ -1,11 +1,12 @@
 package com.ke.assistant.core.file;
 
-import com.ke.bella.openapi.server.OpenAiServiceFactory;
-import com.theokanning.openai.file.File;
-import lombok.extern.slf4j.Slf4j;
-
 import java.util.ArrayList;
 import java.util.List;
+
+import com.ke.bella.openapi.server.OpenAiServiceFactory;
+import com.theokanning.openai.file.File;
+
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class DefaultFileProvider implements FileProvider {

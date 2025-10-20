@@ -1,17 +1,17 @@
 package com.ke.assistant.util;
 
-import com.theokanning.openai.assistants.assistant.CodeInterpreterResources;
-import com.theokanning.openai.assistants.assistant.FileSearchResources;
-import com.theokanning.openai.assistants.assistant.FunctionResources;
-import com.theokanning.openai.assistants.assistant.ToolResources;
-import com.theokanning.openai.assistants.run.ToolFiles;
-import com.theokanning.openai.assistants.vector_store.VectorStore;
-import org.apache.commons.collections4.CollectionUtils;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import org.apache.commons.collections4.CollectionUtils;
+
+import com.theokanning.openai.assistants.assistant.CodeInterpreterResources;
+import com.theokanning.openai.assistants.assistant.FileSearchResources;
+import com.theokanning.openai.assistants.assistant.FunctionResources;
+import com.theokanning.openai.assistants.assistant.ToolResources;
+import com.theokanning.openai.assistants.vector_store.VectorStore;
 
 public class ToolResourceUtils {
 

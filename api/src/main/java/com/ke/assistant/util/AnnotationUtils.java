@@ -1,15 +1,15 @@
 package com.ke.assistant.util;
 
-import com.theokanning.openai.assistants.message.content.Annotation;
-import com.theokanning.openai.assistants.message.content.FileCitation;
-import com.theokanning.openai.assistants.message.content.FilePath;
-import com.theokanning.openai.assistants.message.content.URLCitation;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import com.theokanning.openai.assistants.message.content.Annotation;
+import com.theokanning.openai.assistants.message.content.FileCitation;
+import com.theokanning.openai.assistants.message.content.FilePath;
+import com.theokanning.openai.assistants.message.content.URLCitation;
 
 public class AnnotationUtils {
 

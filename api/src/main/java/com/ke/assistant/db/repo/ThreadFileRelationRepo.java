@@ -1,15 +1,17 @@
 package com.ke.assistant.db.repo;
 
-import com.ke.assistant.db.generated.tables.pojos.ThreadFileRelationDb;
-import com.ke.assistant.db.generated.tables.records.ThreadFileRelationRecord;
-import lombok.RequiredArgsConstructor;
-import org.jooq.DSLContext;
-import org.springframework.stereotype.Repository;
+import static com.ke.assistant.db.generated.Tables.THREAD_FILE_RELATION;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.ke.assistant.db.generated.Tables.THREAD_FILE_RELATION;
+import org.jooq.DSLContext;
+import org.springframework.stereotype.Repository;
+
+import com.ke.assistant.db.generated.tables.pojos.ThreadFileRelationDb;
+import com.ke.assistant.db.generated.tables.records.ThreadFileRelationRecord;
+
+import lombok.RequiredArgsConstructor;
 
 /**
  * Thread File Relation Repository 自增 ID，不需要生成

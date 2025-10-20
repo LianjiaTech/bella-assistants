@@ -1,14 +1,16 @@
 package com.ke.assistant.db.repo;
 
-import com.ke.assistant.db.generated.tables.pojos.AssistantFileRelationDb;
-import com.ke.assistant.db.generated.tables.records.AssistantFileRelationRecord;
-import lombok.RequiredArgsConstructor;
-import org.jooq.DSLContext;
-import org.springframework.stereotype.Repository;
+import static com.ke.assistant.db.generated.Tables.ASSISTANT_FILE_RELATION;
 
 import java.util.List;
 
-import static com.ke.assistant.db.generated.Tables.ASSISTANT_FILE_RELATION;
+import org.jooq.DSLContext;
+import org.springframework.stereotype.Repository;
+
+import com.ke.assistant.db.generated.tables.pojos.AssistantFileRelationDb;
+import com.ke.assistant.db.generated.tables.records.AssistantFileRelationRecord;
+
+import lombok.RequiredArgsConstructor;
 
 /**
  * Assistant File Relation Repository 自增 ID，不需要生成

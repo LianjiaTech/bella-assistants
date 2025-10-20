@@ -1,5 +1,20 @@
 package com.ke.assistant.util;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.lang3.tuple.Triple;
+import org.springframework.util.Assert;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -68,38 +83,8 @@ import com.theokanning.openai.response.tool.output.ComputerToolCallOutput;
 import com.theokanning.openai.response.tool.output.CustomToolCallOutput;
 import com.theokanning.openai.response.tool.output.FunctionToolCallOutput;
 import com.theokanning.openai.response.tool.output.LocalShellCallOutput;
-import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.lang3.tuple.Pair;
-import org.apache.commons.lang3.tuple.Triple;
-import org.springframework.util.Assert;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 public class ResponseUtils {
-
-    @FunctionalInterface
-    public interface RunStepFetcher {
-        RunStep fetch(String threadId, String stepId);
-    }
-
-
-    @FunctionalInterface
-    public interface ImageUrlProcessor {
-        String processImageUrl(String imageUrl);
-    }
-
-    @FunctionalInterface
-    public interface AudioUploader {
-        String upload(String base64Data, String format);
-    }
 
     public static RunCreateRequest convertToRunRequest(CreateResponseRequest request, String systemPrompt, List<Tool> tools,
             String responseId, String threadId, String previousThreadId, String previousRunId) {
@@ -239,7 +224,6 @@ public class ResponseUtils {
 
         return builder.build();
     }
-
 
     public static List<Message> checkAndConvertInputToMessages(CreateResponseRequest request,
                                                                RunStepFetcher fetcher,
@@ -833,7 +817,6 @@ public class ResponseUtils {
         return mcpListTools;
     }
 
-
     private static MCPToolCall createMcpToolCall(ChatToolCall toolCall, String itemId) {
         MCPToolCall mcpToolCall = new MCPToolCall();
         mcpToolCall.setId(itemId);
@@ -1073,5 +1056,20 @@ public class ResponseUtils {
             return "custom_tool_call_output";
         }
         return converterToToolCallItemType(tool);
+    }
+
+    @FunctionalInterface
+    public interface RunStepFetcher {
+        RunStep fetch(String threadId, String stepId);
+    }
+
+    @FunctionalInterface
+    public interface ImageUrlProcessor {
+        String processImageUrl(String imageUrl);
+    }
+
+    @FunctionalInterface
+    public interface AudioUploader {
+        String upload(String base64Data, String format);
     }
 }

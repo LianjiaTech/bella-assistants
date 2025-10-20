@@ -1,16 +1,18 @@
 package com.ke.assistant.db.repo;
 
-import com.ke.assistant.db.IdGenerator;
-import com.ke.assistant.db.generated.tables.pojos.AssistantDb;
-import com.ke.assistant.db.generated.tables.records.AssistantRecord;
-import lombok.RequiredArgsConstructor;
+import static com.ke.assistant.db.generated.Tables.ASSISTANT;
+
+import java.util.List;
+
 import org.apache.commons.lang3.StringUtils;
 import org.jooq.DSLContext;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
+import com.ke.assistant.db.IdGenerator;
+import com.ke.assistant.db.generated.tables.pojos.AssistantDb;
+import com.ke.assistant.db.generated.tables.records.AssistantRecord;
 
-import static com.ke.assistant.db.generated.Tables.ASSISTANT;
+import lombok.RequiredArgsConstructor;
 
 /**
  * Assistant Repository 基于 JOOQ 的数据访问层

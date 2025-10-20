@@ -1,16 +1,18 @@
 package com.ke.assistant.controller;
 
-import com.ke.assistant.dto.memory.MemoryRequest;
-import com.ke.assistant.dto.memory.MemoryResponse;
-import com.ke.assistant.service.MemoryService;
-import lombok.RequiredArgsConstructor;
+import javax.validation.Valid;
+
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import javax.validation.Valid;
+import com.ke.assistant.dto.memory.MemoryRequest;
+import com.ke.assistant.dto.memory.MemoryResponse;
+import com.ke.assistant.service.MemoryService;
+
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/v1/memory")

@@ -1,5 +1,9 @@
 package com.ke.assistant.core.tools.handlers.definition;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
 import com.ke.assistant.core.tools.ToolContext;
 import com.ke.assistant.core.tools.ToolDefinitionHandler;
 import com.ke.assistant.core.tools.ToolOutputChannel;
@@ -8,12 +12,9 @@ import com.theokanning.openai.response.stream.CustomToolCallInputDeltaEvent;
 import com.theokanning.openai.response.stream.CustomToolCallInputDoneEvent;
 import com.theokanning.openai.response.tool.CustomToolCall;
 import com.theokanning.openai.response.tool.definition.CustomTool;
+
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 
 @Slf4j
 @AllArgsConstructor
@@ -30,54 +31,6 @@ public class CustomToolHandler implements ToolDefinitionHandler {
     private final static String lark_tool_desc = "\n The input you input must strictly follow the Lark syntax, strictly comply with the tool parameter description definition, and not add any additional information.";
 
     private CustomTool customTool;
-
-    @Override
-    public void sendEvent(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
-        String input = arguments.get("input_data").toString();
-        CustomToolCall startCall = new CustomToolCall();
-        startCall.setCallId(context.getToolId());
-        startCall.setName(customTool.getName());
-        channel.output(context.getToolId(), ToolStreamEvent.builder()
-                .executionStage(ToolStreamEvent.ExecutionStage.prepare)
-                .toolCallId(context.getToolId())
-                .result(startCall)
-                .event(CustomToolCallInputDeltaEvent.builder()
-                        .delta(input)
-                        .build())
-                .build());
-        CustomToolCall finalCall = new CustomToolCall();
-        finalCall.setCallId(context.getToolId());
-        finalCall.setName(customTool.getName());
-        finalCall.setInput(input);
-        channel.output(context.getToolId(), ToolStreamEvent.builder()
-                .executionStage(ToolStreamEvent.ExecutionStage.completed)
-                .toolCallId(context.getToolId())
-                .result(finalCall)
-                .event(CustomToolCallInputDoneEvent.builder()
-                        .input(input)
-                        .build())
-                .build());
-    }
-
-    @Override
-    public String getToolName() {
-        return getToolName(customTool);
-    }
-
-    @Override
-    public String getDescription() {
-        return getDescription(customTool);
-    }
-
-    @Override
-    public Map<String, Object> getParameters() {
-        return getParameters(customTool);
-    }
-
-    @Override
-    public boolean isFinal() {
-        return false;
-    }
 
     public static String getToolName(CustomTool customTool) {
         return customTool.getName();
@@ -127,6 +80,54 @@ public class CustomToolHandler implements ToolDefinitionHandler {
         parameters.put("required", Collections.singletonList("input_data"));
 
         return parameters;
+    }
+
+    @Override
+    public void sendEvent(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
+        String input = arguments.get("input_data").toString();
+        CustomToolCall startCall = new CustomToolCall();
+        startCall.setCallId(context.getToolId());
+        startCall.setName(customTool.getName());
+        channel.output(context.getToolId(), ToolStreamEvent.builder()
+                .executionStage(ToolStreamEvent.ExecutionStage.prepare)
+                .toolCallId(context.getToolId())
+                .result(startCall)
+                .event(CustomToolCallInputDeltaEvent.builder()
+                        .delta(input)
+                        .build())
+                .build());
+        CustomToolCall finalCall = new CustomToolCall();
+        finalCall.setCallId(context.getToolId());
+        finalCall.setName(customTool.getName());
+        finalCall.setInput(input);
+        channel.output(context.getToolId(), ToolStreamEvent.builder()
+                .executionStage(ToolStreamEvent.ExecutionStage.completed)
+                .toolCallId(context.getToolId())
+                .result(finalCall)
+                .event(CustomToolCallInputDoneEvent.builder()
+                        .input(input)
+                        .build())
+                .build());
+    }
+
+    @Override
+    public String getToolName() {
+        return getToolName(customTool);
+    }
+
+    @Override
+    public String getDescription() {
+        return getDescription(customTool);
+    }
+
+    @Override
+    public Map<String, Object> getParameters() {
+        return getParameters(customTool);
+    }
+
+    @Override
+    public boolean isFinal() {
+        return false;
     }
 
 

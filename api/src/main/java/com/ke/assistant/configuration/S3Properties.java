@@ -48,23 +48,32 @@ public class S3Properties {
      */
     private UrlConfig url = new UrlConfig();
     
+    /**
+     * 检查S3服务是否已配置
+     */
+    public boolean isConfigured() {
+        return bucketName != null && !bucketName.trim().isEmpty() &&
+               accessKey != null && !accessKey.trim().isEmpty() &&
+               secretKey != null && !secretKey.trim().isEmpty();
+    }
+    
     @Data
     public static class UploadConfig {
         /**
          * 图片文件夹名称
          */
         private String imageFolder = "images";
-        
+
         /**
          * 图表文件夹名称
          */
         private String chartFolder = "charts";
-        
+
         /**
          * 文件名时间戳格式
          */
         private String timestampPattern = "yyyyMMdd/HHmm";
-        
+
         /**
          * 默认图表格式
          */
@@ -77,19 +86,10 @@ public class S3Properties {
          * 公共访问基础URL（如果使用CDN）
          */
         private String publicBaseUrl;
-        
+
         /**
          * 是否启用HTTPS
          */
         private boolean httpsEnabled = true;
-    }
-    
-    /**
-     * 检查S3服务是否已配置
-     */
-    public boolean isConfigured() {
-        return bucketName != null && !bucketName.trim().isEmpty() &&
-               accessKey != null && !accessKey.trim().isEmpty() &&
-               secretKey != null && !secretKey.trim().isEmpty();
     }
 }

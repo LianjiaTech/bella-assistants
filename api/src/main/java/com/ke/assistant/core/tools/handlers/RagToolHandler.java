@@ -1,10 +1,19 @@
 package com.ke.assistant.core.tools.handlers;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import javax.annotation.PostConstruct;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.Lists;
 import com.ke.assistant.configuration.AssistantProperties;
 import com.ke.assistant.configuration.ToolProperties;
-import com.ke.assistant.core.log.RunLog;
 import com.ke.assistant.core.log.RunLogger;
 import com.ke.assistant.core.tools.BellaToolHandler;
 import com.ke.assistant.core.tools.SseConverter;
@@ -15,19 +24,12 @@ import com.ke.assistant.core.tools.ToolResult;
 import com.ke.bella.openapi.utils.HttpUtils;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.assistants.assistant.Tool;
+
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.MediaType;
 import okhttp3.Request;
 import okhttp3.RequestBody;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-
-import javax.annotation.PostConstruct;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 /**
  * RAG检索增强生成工具处理器 - Bella RAG
@@ -130,81 +132,6 @@ public class RagToolHandler extends BellaToolHandler {
         return request;
     }
     
-    /**
-     * RAG SSE消息转换器，按照Python RAG工具的处理逻辑
-     */
-    private static class RagSseConverter implements SseConverter {
-        
-        @Override
-        public String convert(String eventType, String msg) {
-            try {
-                // 处理各种事件类型，按照Python代码的逻辑
-                switch (eventType) {
-                    case "error":
-                        // 错误事件，直接抛出异常
-                        throw new RuntimeException("RAG service error: " + msg);
-                        
-                    case "retrieval.completed":
-                        // 检索完成事件，不输出内容，只做数据处理
-                        // todo: 保存file_annotations_metadata，用于显示文档的引用
-                        return null;
-                        
-                    case "message.delta":
-                        // 消息增量事件，这是主要的内容输出
-                        return parseMessageDelta(msg);
-                        
-                    case "message.sensitives":
-                        // 敏感信息事件，不输出内容
-                        return null;
-                        
-                    case "done":
-                        // 完成事件，不输出内容
-                        return null;
-                        
-                    default:
-                        // 未知事件类型，不输出
-                        return null;
-                }
-            } catch (Exception e) {
-                log.warn("Failed to parse RAG SSE message, eventType: {}, msg: {}", eventType, msg, e);
-                throw new RuntimeException(e.getMessage());
-            }
-        }
-        
-        /**
-         * 解析message.delta事件，按照Python代码的逻辑
-         */
-        private String parseMessageDelta(String msg) {
-            try {
-                MessageDeltaEvent event = JacksonUtils.deserialize(msg, MessageDeltaEvent.class);
-                if (event.getDelta() == null) {
-                    return "";
-                }
-                
-                List<DeltaItem> deltas = event.getDelta();
-                if (deltas.isEmpty()) {
-                    return "";
-                }
-                
-                // 拼接内容：[d["text"]["value"] if "text" in d else d["value"] for d in deltas]
-                StringBuilder content = new StringBuilder();
-                for (DeltaItem delta : deltas) {
-                    if (delta.getText() != null && delta.getText().getValue() != null) {
-                        content.append(delta.getText().getValue());
-                    } else if (delta.getValue() != null) {
-                        content.append(delta.getValue());
-                    }
-                }
-                
-                return content.toString();
-                
-            } catch (Exception e) {
-                log.warn("Failed to parse message.delta: {}", msg, e);
-                return "";
-            }
-        }
-    }
-    
     @Override
     public String getToolName() {
         return "rag";
@@ -219,23 +146,98 @@ public class RagToolHandler extends BellaToolHandler {
     public Map<String, Object> getParameters() {
         Map<String, Object> parameters = new HashMap<>();
         parameters.put("type", "object");
-        
+
         Map<String, Object> properties = new HashMap<>();
-        
+
         Map<String, Object> queryParam = new HashMap<>();
         queryParam.put("type", "string");
         queryParam.put("description", "检索中输入的检索语句");
         properties.put("query", queryParam);
-        
+
         parameters.put("properties", properties);
         parameters.put("required", Lists.newArrayList("query"));
-        
+
         return parameters;
     }
     
     @Override
     public boolean isFinal() {
         return ragProperties.isFinal();
+    }
+    
+    /**
+     * RAG SSE消息转换器，按照Python RAG工具的处理逻辑
+     */
+    private static class RagSseConverter implements SseConverter {
+
+        @Override
+        public String convert(String eventType, String msg) {
+            try {
+                // 处理各种事件类型，按照Python代码的逻辑
+                switch (eventType) {
+                    case "error":
+                        // 错误事件，直接抛出异常
+                        throw new RuntimeException("RAG service error: " + msg);
+
+                    case "retrieval.completed":
+                        // 检索完成事件，不输出内容，只做数据处理
+                        // todo: 保存file_annotations_metadata，用于显示文档的引用
+                        return null;
+
+                    case "message.delta":
+                        // 消息增量事件，这是主要的内容输出
+                        return parseMessageDelta(msg);
+
+                    case "message.sensitives":
+                        // 敏感信息事件，不输出内容
+                        return null;
+
+                    case "done":
+                        // 完成事件，不输出内容
+                        return null;
+
+                    default:
+                        // 未知事件类型，不输出
+                        return null;
+                }
+            } catch (Exception e) {
+                log.warn("Failed to parse RAG SSE message, eventType: {}, msg: {}", eventType, msg, e);
+                throw new RuntimeException(e.getMessage());
+            }
+        }
+
+        /**
+         * 解析message.delta事件，按照Python代码的逻辑
+         */
+        private String parseMessageDelta(String msg) {
+            try {
+                MessageDeltaEvent event = JacksonUtils.deserialize(msg, MessageDeltaEvent.class);
+                if (event.getDelta() == null) {
+                    return "";
+                }
+
+                List<DeltaItem> deltas = event.getDelta();
+                if (deltas.isEmpty()) {
+                    return "";
+                }
+
+                // 拼接内容：[d["text"]["value"] if "text" in d else d["value"] for d in deltas]
+                StringBuilder content = new StringBuilder();
+                for (DeltaItem delta : deltas) {
+                    if (delta.getText() != null && delta.getText().getValue() != null) {
+                        content.append(delta.getText().getValue());
+                    } else if (delta.getValue() != null) {
+                        content.append(delta.getValue());
+                    }
+                }
+
+                return content.toString();
+
+            } catch (Exception e) {
+                log.warn("Failed to parse message.delta: {}", msg, e);
+                return "";
+            }
+        }
     }
     
     // 请求相关实体类

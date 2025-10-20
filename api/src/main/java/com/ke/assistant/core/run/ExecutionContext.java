@@ -1,5 +1,27 @@
 package com.ke.assistant.core.run;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Supplier;
+
+import org.springframework.util.Assert;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.ke.assistant.core.file.FileInfo;
@@ -24,30 +46,10 @@ import com.theokanning.openai.completion.chat.ChatMessage;
 import com.theokanning.openai.completion.chat.ChatTool;
 import com.theokanning.openai.completion.chat.ChatToolCall;
 import com.theokanning.openai.response.Response;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import org.springframework.util.Assert;
-
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Supplier;
 
 /**
  * Run执行上下文
@@ -78,36 +80,6 @@ public class ExecutionContext {
     private final AtomicBoolean end;
 
     private final Supplier<String> toolCallStepIdSupplier;
-
-    private Run run;
-    private List<Tool> tools;
-    private ToolFiles toolFiles;
-    private Map<String, FileInfo> fileInfos;
-    private RunStep currentRunStep;
-    private String currentToolCallStepId;
-    private Message assistantMessage;
-
-    // 超时时间
-    private LocalDateTime expiredAt;
-    // 最大执行步骤
-    private Integer maxSteps;
-
-    // 执行状态
-    private int currentStep;
-    private boolean completed;
-    private AtomicBoolean canceled;
-    private AtomicReference<RequiredAction> requiredAction;
-    private LastError lastError;
-    private LocalDateTime startTime;
-    private LocalDateTime lastUpdateTime;
-
-    // 历史轮次的已完成工具执行记录，用于消息上下文的构建
-    private List<RunStep> historyToolSteps;
-
-
-    // 添加的additionalMessages
-    private List<Message> additionalMessages;
-
     // 归档的全量Annotations
     private final List<Annotation> annotations;
     // 当前轮次的执行结果
@@ -122,6 +94,29 @@ public class ExecutionContext {
     // {index, ChatToolCall}
     private final ConcurrentHashMap<Integer, ChatToolCall> currentToolTasks;  // 当前待执行的工具
     private final List<Approval> approvals;
+    private Run run;
+    private List<Tool> tools;
+    private ToolFiles toolFiles;
+    private Map<String, FileInfo> fileInfos;
+    private RunStep currentRunStep;
+    private String currentToolCallStepId;
+    private Message assistantMessage;
+    // 超时时间
+    private LocalDateTime expiredAt;
+    // 最大执行步骤
+    private Integer maxSteps;
+    // 执行状态
+    private int currentStep;
+    private boolean completed;
+    private AtomicBoolean canceled;
+    private AtomicReference<RequiredAction> requiredAction;
+    private LastError lastError;
+    private LocalDateTime startTime;
+    private LocalDateTime lastUpdateTime;
+    // 历史轮次的已完成工具执行记录，用于消息上下文的构建
+    private List<RunStep> historyToolSteps;
+    // 添加的additionalMessages
+    private List<Message> additionalMessages;
     // 本次run的总消耗
     private Usage usage;
     // 是否未执行，决定本轮的assistant消息是否生效

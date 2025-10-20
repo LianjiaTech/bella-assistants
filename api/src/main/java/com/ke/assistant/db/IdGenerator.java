@@ -1,20 +1,22 @@
 package com.ke.assistant.db;
 
-import com.ke.assistant.db.generated.tables.records.IdSequenceRecord;
-import lombok.extern.slf4j.Slf4j;
+import static com.ke.assistant.db.generated.Tables.ID_SEQUENCE;
+
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
+
+import javax.annotation.PostConstruct;
+
 import org.jooq.DSLContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.annotation.PostConstruct;
+import com.ke.assistant.db.generated.tables.records.IdSequenceRecord;
 
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReentrantLock;
-
-import static com.ke.assistant.db.generated.Tables.ID_SEQUENCE;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * ID 生成器 生成逻辑：前缀_自增数字
@@ -30,15 +32,12 @@ public class IdGenerator {
     private static final String[] PREDEFINED_PREFIXES = {
         "asst", "msg", "thread", "run", "step", "resp"
     };
-    
-    @Autowired
-    private DSLContext db;
-    
     // 内存中的ID区间缓存 prefix -> IdRange
     private final ConcurrentHashMap<String, IdRange> idRangeCache = new ConcurrentHashMap<>();
-    
     // 每个前缀的锁，确保批量获取ID时的串行性
     private final ConcurrentHashMap<String, ReentrantLock> prefixLocks = new ConcurrentHashMap<>();
+    @Autowired
+    private DSLContext db;
 
     /**
      * 初始化ID序列表，预创建所有已知前缀的记录
@@ -99,27 +98,6 @@ public class IdGenerator {
     }
 
     /**
-     * ID区间缓存 - 使用AtomicLong提供更好的并发性能
-     */
-    private static class IdRange {
-        private final AtomicLong currentId;
-        private final long maxId;
-        
-        public IdRange(long startId, long maxId) {
-            this.currentId = new AtomicLong(startId);
-            this.maxId = maxId;
-        }
-        
-        public Long getNextId() {
-            long nextId = currentId.getAndIncrement();
-            if (nextId > maxId) {
-                return null; // 区间已用完
-            }
-            return nextId;
-        }
-    }
-
-    /**
      * 生成递增ID
      *
      * @param prefix 前缀 (如 "asst", "msg", "run" 等)
@@ -135,7 +113,7 @@ public class IdGenerator {
                 return prefix + "_" + nextId;
             }
         }
-        
+
         // 缓存中没有可用ID，需要批量获取新的ID区间
         ReentrantLock lock = prefixLocks.computeIfAbsent(prefix, k -> new ReentrantLock());
         lock.lock();
@@ -148,11 +126,11 @@ public class IdGenerator {
                     return prefix + "_" + nextId;
                 }
             }
-            
+
             // 批量获取新的ID区间
             IdRange newRange = batchAcquireIdRange(prefix);
             idRangeCache.put(prefix, newRange);
-            
+
             Long nextId = newRange.getNextId();
             return prefix + "_" + nextId;
         } finally {
@@ -169,7 +147,7 @@ public class IdGenerator {
                 .where(ID_SEQUENCE.PREFIX.eq(prefix))
                 .forUpdate() // 关键：数据库行锁
                 .fetchOne();
-                
+
         if (existing == null) {
             // 如果记录不存在，说明是新的前缀，动态创建
             log.warn("发现未预创建的前缀: {}, 动态创建记录", prefix);
@@ -179,17 +157,17 @@ public class IdGenerator {
                     .execute();
             return new IdRange(1L, BATCH_SIZE);
         }
-        
+
         // 更新现有序列，批量分配
         long startId = existing.getCurrentValue() + 1;
         long endId = startId + BATCH_SIZE - 1;
-        
+
         // 直接更新，因为已经通过forUpdate()锁定了记录，不需要乐观锁
         db.update(ID_SEQUENCE)
                 .set(ID_SEQUENCE.CURRENT_VALUE, endId)
                 .where(ID_SEQUENCE.PREFIX.eq(prefix))
                 .execute();
-        
+
         log.debug("批量获取ID区间: prefix={}, startId={}, endId={}", prefix, startId, endId);
         return new IdRange(startId, endId);
     }
@@ -240,6 +218,27 @@ public class IdGenerator {
     @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 30)
     public String generateResponseId() {
         return generateId("resp");
+    }
+
+    /**
+     * ID区间缓存 - 使用AtomicLong提供更好的并发性能
+     */
+    private static class IdRange {
+        private final AtomicLong currentId;
+        private final long maxId;
+
+        public IdRange(long startId, long maxId) {
+            this.currentId = new AtomicLong(startId);
+            this.maxId = maxId;
+        }
+
+        public Long getNextId() {
+            long nextId = currentId.getAndIncrement();
+            if (nextId > maxId) {
+                return null; // 区间已用完
+            }
+            return nextId;
+        }
     }
 
 

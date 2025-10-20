@@ -1,20 +1,21 @@
 package com.ke.assistant.db.repo;
 
-import com.ke.assistant.db.IdGenerator;
-import com.ke.assistant.db.context.RepoContext;
-import com.ke.assistant.db.generated.tables.pojos.MessageDb;
-import com.ke.assistant.db.generated.tables.records.MessageRecord;
-import lombok.RequiredArgsConstructor;
-import org.apache.commons.lang3.StringUtils;
-import org.jooq.DSLContext;
-import org.springframework.stereotype.Repository;
+import static com.ke.assistant.db.generated.Tables.MESSAGE;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.ke.assistant.db.generated.Tables.MESSAGE;
+import org.apache.commons.lang3.StringUtils;
+import org.jooq.DSLContext;
+import org.springframework.stereotype.Repository;
+
+import com.ke.assistant.db.IdGenerator;
+import com.ke.assistant.db.generated.tables.pojos.MessageDb;
+import com.ke.assistant.db.generated.tables.records.MessageRecord;
+
+import lombok.RequiredArgsConstructor;
 
 /**
  * Message Repository

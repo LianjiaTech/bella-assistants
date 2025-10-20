@@ -1,11 +1,13 @@
 package com.ke.assistant.core.tools;
 
-import com.ke.bella.openapi.protocol.BellaEventSourceListener;
-import okhttp3.Response;
-import okhttp3.sse.EventSource;
+import java.util.concurrent.CompletableFuture;
+
 import org.jetbrains.annotations.NotNull;
 
-import java.util.concurrent.CompletableFuture;
+import com.ke.bella.openapi.protocol.BellaEventSourceListener;
+
+import okhttp3.Response;
+import okhttp3.sse.EventSource;
 
 public class ToolCallListener extends BellaEventSourceListener {
 

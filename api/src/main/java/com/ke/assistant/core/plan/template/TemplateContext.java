@@ -1,12 +1,13 @@
 package com.ke.assistant.core.plan.template;
 
+import java.util.List;
+
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.ke.assistant.core.file.FileInfo;
+
 import lombok.Builder;
 import lombok.Data;
 import lombok.experimental.SuperBuilder;
-
-import java.util.List;
 
 /**
  * Template context for Jinja template rendering

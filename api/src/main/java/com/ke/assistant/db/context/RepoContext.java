@@ -1,13 +1,5 @@
 package com.ke.assistant.db.context;
 
-import com.ke.assistant.db.generated.tables.pojos.MessageDb;
-import com.ke.assistant.db.generated.tables.pojos.ResponseIdMappingDb;
-import com.ke.assistant.db.generated.tables.pojos.RunDb;
-import com.ke.assistant.db.generated.tables.pojos.RunStepDb;
-import com.ke.assistant.db.generated.tables.pojos.RunToolDb;
-import com.ke.assistant.db.generated.tables.pojos.ThreadDb;
-import com.ke.assistant.db.generated.tables.pojos.ThreadFileRelationDb;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
@@ -20,6 +12,14 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
+
+import com.ke.assistant.db.generated.tables.pojos.MessageDb;
+import com.ke.assistant.db.generated.tables.pojos.ResponseIdMappingDb;
+import com.ke.assistant.db.generated.tables.pojos.RunDb;
+import com.ke.assistant.db.generated.tables.pojos.RunStepDb;
+import com.ke.assistant.db.generated.tables.pojos.RunToolDb;
+import com.ke.assistant.db.generated.tables.pojos.ThreadDb;
+import com.ke.assistant.db.generated.tables.pojos.ThreadFileRelationDb;
 
 /**
  * Thread-local repository context for non-store mode.

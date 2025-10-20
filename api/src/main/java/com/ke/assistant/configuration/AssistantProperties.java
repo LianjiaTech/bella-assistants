@@ -1,7 +1,8 @@
 package com.ke.assistant.configuration;
 
-import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+
+import lombok.Data;
 
 @Data
 @ConfigurationProperties("bella.assistant")

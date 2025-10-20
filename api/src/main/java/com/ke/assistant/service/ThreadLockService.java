@@ -1,13 +1,14 @@
 package com.ke.assistant.service;
 
-import lombok.extern.slf4j.Slf4j;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
+
 import org.redisson.api.RReadWriteLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 线程级别的分布式读写锁服务
@@ -18,10 +19,9 @@ import java.util.function.Supplier;
 @Slf4j
 public class ThreadLockService {
 
+    private static final String THREAD_LOCK_KEY_PREFIX = "thread:message:lock:";
     @Autowired
     private RedissonClient redissonClient;
-
-    private static final String THREAD_LOCK_KEY_PREFIX = "thread:message:lock:";
 
     /**
      * 获取指定线程的读写锁

@@ -1,5 +1,15 @@
 package com.ke.assistant.core.run;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.google.common.collect.Lists;
@@ -47,16 +57,8 @@ import com.theokanning.openai.response.stream.ResponseInProgressEvent;
 import com.theokanning.openai.response.stream.ResponseIncompleteEvent;
 import com.theokanning.openai.response.tool.FunctionToolCall;
 import com.theokanning.openai.response.tool.ToolCall;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Response API Message Executor Converts chat completion streaming to Response API streaming events

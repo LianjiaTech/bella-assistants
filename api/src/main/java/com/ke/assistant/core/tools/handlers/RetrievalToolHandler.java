@@ -1,5 +1,17 @@
 package com.ke.assistant.core.tools.handlers;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+import javax.annotation.PostConstruct;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.Lists;
 import com.ke.assistant.configuration.AssistantProperties;
@@ -20,19 +32,10 @@ import com.theokanning.openai.response.stream.FileSearchCompletedEvent;
 import com.theokanning.openai.response.stream.FileSearchInProgressEvent;
 import com.theokanning.openai.response.stream.FileSearchSearchingEvent;
 import com.theokanning.openai.response.tool.FileSearchToolCall;
+
 import lombok.Data;
 import okhttp3.Request;
 import okhttp3.RequestBody;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-
-import javax.annotation.PostConstruct;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
  * 文档检索工具处理器

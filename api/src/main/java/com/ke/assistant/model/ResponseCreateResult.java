@@ -1,11 +1,12 @@
 package com.ke.assistant.model;
 
+import java.util.List;
+
 import com.theokanning.openai.assistants.message.Message;
 import com.theokanning.openai.response.Response;
+
 import lombok.Builder;
 import lombok.Data;
-
-import java.util.List;
 
 /**
  * Result of creating a response

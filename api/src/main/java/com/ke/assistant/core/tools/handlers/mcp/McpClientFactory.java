@@ -1,5 +1,10 @@
 package com.ke.assistant.core.tools.handlers.mcp;
 
+import java.io.Closeable;
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
@@ -9,11 +14,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-
-import java.io.Closeable;
-import java.time.Duration;
-import java.util.List;
-import java.util.Map;
 
 /**
  * Factory for creating MCP (Model Context Protocol) clients with HTTP transport.

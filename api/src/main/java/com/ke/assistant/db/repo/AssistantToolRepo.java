@@ -1,14 +1,16 @@
 package com.ke.assistant.db.repo;
 
-import com.ke.assistant.db.generated.tables.pojos.AssistantToolDb;
-import com.ke.assistant.db.generated.tables.records.AssistantToolRecord;
-import lombok.RequiredArgsConstructor;
-import org.jooq.DSLContext;
-import org.springframework.stereotype.Repository;
+import static com.ke.assistant.db.generated.Tables.ASSISTANT_TOOL;
 
 import java.util.List;
 
-import static com.ke.assistant.db.generated.Tables.ASSISTANT_TOOL;
+import org.jooq.DSLContext;
+import org.springframework.stereotype.Repository;
+
+import com.ke.assistant.db.generated.tables.pojos.AssistantToolDb;
+import com.ke.assistant.db.generated.tables.records.AssistantToolRecord;
+
+import lombok.RequiredArgsConstructor;
 
 /**
  * Assistant Tool Repository 自增 ID，不需要生成

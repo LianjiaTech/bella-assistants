@@ -1,9 +1,10 @@
 package com.ke.assistant.model;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data;
-
 import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import lombok.Data;
 
 /**
  * Request model for listing run steps by multiple run IDs

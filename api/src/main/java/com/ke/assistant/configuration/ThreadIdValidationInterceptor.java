@@ -1,18 +1,21 @@
 package com.ke.assistant.configuration;
 
-import com.ke.assistant.service.ConversationService;
-import com.ke.bella.openapi.common.exception.BizParamCheckException;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.HandlerMapping;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.util.Map;
+import com.ke.assistant.service.ConversationService;
+import com.ke.bella.openapi.common.exception.BizParamCheckException;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Interceptor to validate that Assistant API endpoints are not invoked

@@ -1,18 +1,20 @@
 package com.ke.assistant.db.repo;
 
-import com.ke.assistant.db.IdGenerator;
-import com.ke.assistant.db.generated.tables.pojos.ResponseIdMappingDb;
-import com.ke.assistant.db.generated.tables.records.ResponseIdMappingRecord;
-import lombok.RequiredArgsConstructor;
-import org.apache.commons.lang3.StringUtils;
-import org.jooq.DSLContext;
-import org.springframework.stereotype.Repository;
+import static com.ke.assistant.db.generated.Tables.RESPONSE_ID_MAPPING;
 
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
-import static com.ke.assistant.db.generated.Tables.RESPONSE_ID_MAPPING;
+import org.apache.commons.lang3.StringUtils;
+import org.jooq.DSLContext;
+import org.springframework.stereotype.Repository;
+
+import com.ke.assistant.db.IdGenerator;
+import com.ke.assistant.db.generated.tables.pojos.ResponseIdMappingDb;
+import com.ke.assistant.db.generated.tables.records.ResponseIdMappingRecord;
+
+import lombok.RequiredArgsConstructor;
 
 /**
  * Response ID Mapping Repository 需要生成 Response ID

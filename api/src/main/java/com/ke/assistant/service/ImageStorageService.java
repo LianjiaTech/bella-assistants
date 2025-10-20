@@ -1,16 +1,18 @@
 package com.ke.assistant.service;
 
-import com.ke.assistant.db.context.RepoContext;
-import com.ke.bella.openapi.common.exception.BizParamCheckException;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Base64;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.ke.assistant.db.context.RepoContext;
+import com.ke.bella.openapi.common.exception.BizParamCheckException;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Service for handling image storage and base64 conversion

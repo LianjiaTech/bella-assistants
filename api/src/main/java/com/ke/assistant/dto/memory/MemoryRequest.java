@@ -2,9 +2,8 @@ package com.ke.assistant.dto.memory;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.ke.assistant.enums.MemoryType;
-import lombok.Data;
 
-import javax.validation.Valid;
+import lombok.Data;
 
 @Data
 public class MemoryRequest {

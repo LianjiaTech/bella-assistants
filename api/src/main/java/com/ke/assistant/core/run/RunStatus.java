@@ -1,10 +1,11 @@
 package com.ke.assistant.core.run;
 
+import java.util.Arrays;
+
 import com.theokanning.openai.assistants.StreamEvent;
+
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-
-import java.util.Arrays;
 
 /**
  * Run执行状态枚举 基于OpenAI Assistant API标准定义

@@ -1,5 +1,9 @@
 package com.ke.assistant.core.tools.handlers.mcp;
 
+import java.util.Map;
+
+import javax.validation.constraints.NotNull;
+
 import com.ke.assistant.core.run.ExecutionContext;
 import com.ke.assistant.core.tools.ToolContext;
 import com.ke.assistant.core.tools.ToolDefinitionHandler;
@@ -9,10 +13,8 @@ import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.assistants.assistant.Tool;
 import com.theokanning.openai.response.tool.MCPApprovalRequest;
 import com.theokanning.openai.response.tool.MCPListTools;
-import lombok.AllArgsConstructor;
 
-import javax.validation.constraints.NotNull;
-import java.util.Map;
+import lombok.AllArgsConstructor;
 
 @AllArgsConstructor
 public class McpApprovalToolHandler implements ToolDefinitionHandler, McpToolHandler {

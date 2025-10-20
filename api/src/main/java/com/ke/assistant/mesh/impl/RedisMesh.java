@@ -1,20 +1,5 @@
 package com.ke.assistant.mesh.impl;
 
-import com.ke.assistant.configuration.AssistantProperties;
-import com.ke.assistant.mesh.Event;
-import com.ke.assistant.mesh.EventListener;
-import com.ke.assistant.mesh.ServiceMesh;
-import com.ke.bella.openapi.server.BellaServerContextHolder;
-import com.ke.bella.openapi.utils.JacksonUtils;
-import lombok.extern.slf4j.Slf4j;
-import org.redisson.api.RMapCache;
-import org.redisson.api.RSetCache;
-import org.redisson.api.RTopic;
-import org.redisson.api.RedissonClient;
-import org.springframework.util.Assert;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -23,27 +8,40 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
+
+import org.redisson.api.RMapCache;
+import org.redisson.api.RSetCache;
+import org.redisson.api.RTopic;
+import org.redisson.api.RedissonClient;
+import org.springframework.util.Assert;
+
+import com.ke.assistant.configuration.AssistantProperties;
+import com.ke.assistant.mesh.Event;
+import com.ke.assistant.mesh.EventListener;
+import com.ke.assistant.mesh.ServiceMesh;
+import com.ke.bella.openapi.server.BellaServerContextHolder;
+import com.ke.bella.openapi.utils.JacksonUtils;
+
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * Redis Mesh实现类
  */
 @Slf4j
 public class RedisMesh implements ServiceMesh {
 
-    private final RedissonClient redissonClient;
-
-    private final AssistantProperties assistantProperties;
-    
-    private String instanceId;
-    
     // Redis Key常量
     private static final String RUNNING_RUN_MAPPING = "assistant:running-runs";
     private static final String INSTANCE_REGISTRY = "assistant:instances";
     private static final String BROADCAST_TOPIC = "assistant:broadcast";
     private static final String PRIVATE_TOPIC_PREFIX = "assistant:private:";
-    
+    private final RedissonClient redissonClient;
+    private final AssistantProperties assistantProperties;
     // 事件监听器映射
     private final Map<String, EventListener> eventListeners = new ConcurrentHashMap<>();
-    
+    private String instanceId;
     // 心跳调度器
     private ScheduledExecutorService heartbeatScheduler;
     

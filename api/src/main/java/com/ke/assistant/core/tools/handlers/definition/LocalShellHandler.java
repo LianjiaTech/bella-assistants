@@ -1,5 +1,14 @@
 package com.ke.assistant.core.tools.handlers.definition;
 
+import static java.util.Collections.singletonList;
+
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Component;
+
 import com.ke.assistant.core.tools.ToolContext;
 import com.ke.assistant.core.tools.ToolDefinitionHandler;
 import com.ke.assistant.core.tools.ToolOutputChannel;
@@ -7,15 +16,8 @@ import com.ke.assistant.core.tools.ToolStreamEvent;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.response.ItemStatus;
 import com.theokanning.openai.response.tool.LocalShellToolCall;
+
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.stream.Collectors;
-
-import static java.util.Collections.singletonList;
 
 /**
  * Local Shell tool definition handler Server does not execute the shell; it only emits the tool call event compatible with Response API stream.

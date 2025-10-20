@@ -1,5 +1,14 @@
 package com.ke.assistant.core.tools.handlers;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+
+import javax.annotation.PostConstruct;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
 import com.google.common.collect.Lists;
 import com.ke.assistant.configuration.AssistantProperties;
 import com.ke.assistant.configuration.ToolProperties;
@@ -11,14 +20,8 @@ import com.ke.assistant.service.ChartService;
 import com.ke.assistant.service.S3Service;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.completion.chat.ImageUrl;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 折线图生成工具处理器

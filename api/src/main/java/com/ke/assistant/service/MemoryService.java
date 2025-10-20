@@ -1,5 +1,14 @@
 package com.ke.assistant.service;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.ke.assistant.db.generated.tables.pojos.MessageDb;
 import com.ke.assistant.db.repo.MessageRepo;
@@ -7,16 +16,9 @@ import com.ke.assistant.dto.memory.MemoryRequest;
 import com.ke.assistant.dto.memory.MemoryResponse;
 import com.ke.assistant.enums.MemoryType;
 import com.ke.bella.openapi.utils.JacksonUtils;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor

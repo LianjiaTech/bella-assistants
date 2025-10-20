@@ -1,15 +1,16 @@
 package com.ke.assistant.db.repo;
 
-import com.ke.assistant.db.generated.tables.pojos.RunToolDb;
-import com.ke.assistant.db.generated.tables.records.RunToolRecord;
-import lombok.RequiredArgsConstructor;
-import com.ke.assistant.db.context.RepoContext;
-import org.jooq.DSLContext;
-import org.springframework.stereotype.Repository;
+import static com.ke.assistant.db.generated.Tables.RUN_TOOL;
 
 import java.util.List;
 
-import static com.ke.assistant.db.generated.Tables.RUN_TOOL;
+import org.jooq.DSLContext;
+import org.springframework.stereotype.Repository;
+
+import com.ke.assistant.db.generated.tables.pojos.RunToolDb;
+import com.ke.assistant.db.generated.tables.records.RunToolRecord;
+
+import lombok.RequiredArgsConstructor;
 
 /**
  * Run Tool Repository 自增 ID，不需要生成

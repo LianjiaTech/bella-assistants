@@ -1,5 +1,15 @@
 package com.ke.assistant.core.plan;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
 import com.ke.assistant.core.memory.ContextTruncator;
 import com.ke.assistant.core.plan.template.TemplateContext;
 import com.ke.assistant.core.plan.template.TemplateContextBuilder;
@@ -21,15 +31,6 @@ import com.theokanning.openai.completion.chat.AssistantMultipleMessage;
 import com.theokanning.openai.completion.chat.ChatMessage;
 import com.theokanning.openai.completion.chat.ChatTool;
 import com.theokanning.openai.completion.chat.SystemMessage;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * 提供规划决策逻辑
@@ -37,20 +38,15 @@ import java.util.stream.Collectors;
 @Component
 public class Planner {
 
+    private static final Logger logger = LoggerFactory.getLogger(Planner.class);
     @Autowired
     private MessageService messageService;
-
     @Autowired
     private ToolFetcher toolFetcher;
-
     @Autowired
     private RunService runService;
-
     @Autowired
     private ContextTruncator truncator;
-
-    private static final Logger logger = LoggerFactory.getLogger(Planner.class);
-
 
     /**
      * 规划下一步动作

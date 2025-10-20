@@ -1,5 +1,16 @@
 package com.ke.assistant.core.tools.handlers;
 
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+
+import javax.annotation.PostConstruct;
+
+import org.apache.commons.lang3.tuple.Pair;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
 import com.google.common.collect.Lists;
 import com.ke.assistant.configuration.AssistantProperties;
 import com.ke.assistant.configuration.ToolProperties;
@@ -23,16 +34,8 @@ import com.theokanning.openai.response.stream.ImageGenerationInProgressEvent;
 import com.theokanning.openai.response.stream.ImageGenerationPartialImageEvent;
 import com.theokanning.openai.response.tool.ImageGenerationToolCall;
 import com.theokanning.openai.response.tool.definition.ImageGenerationTool;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.tuple.Pair;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 图片生成工具处理器

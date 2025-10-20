@@ -5,10 +5,10 @@ package com.ke.assistant.mesh;
  */
 public final class EventConstants {
     
-    private EventConstants() {}
-
     /**
      * Run取消事件
      */
     public static final String EVENT_CANCEL_RUN = "cancelAssistantRun";
+
+    private EventConstants() {}
 }

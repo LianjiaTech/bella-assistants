@@ -1,15 +1,16 @@
 package com.ke.assistant.util;
 
-import com.theokanning.openai.assistants.assistant.Tool;
-import com.theokanning.openai.response.tool.definition.FunctionTool;
-import com.theokanning.openai.response.tool.definition.ToolDefinition;
-import org.apache.commons.collections4.CollectionUtils;
-import org.springframework.util.Assert;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
+
+import org.apache.commons.collections4.CollectionUtils;
+import org.springframework.util.Assert;
+
+import com.theokanning.openai.assistants.assistant.Tool;
+import com.theokanning.openai.response.tool.definition.FunctionTool;
+import com.theokanning.openai.response.tool.definition.ToolDefinition;
 
 public class ToolUtils {
 

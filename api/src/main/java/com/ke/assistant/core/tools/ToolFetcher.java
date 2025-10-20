@@ -1,15 +1,17 @@
 package com.ke.assistant.core.tools;
 
-import com.theokanning.openai.assistants.assistant.Tool;
-import com.theokanning.openai.completion.chat.ChatTool;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+import javax.annotation.PostConstruct;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import com.theokanning.openai.assistants.assistant.Tool;
+import com.theokanning.openai.completion.chat.ChatTool;
 
 /**
  * 工具搜索器

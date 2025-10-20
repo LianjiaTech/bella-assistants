@@ -1,5 +1,22 @@
 package com.ke.assistant.core.run;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import javax.annotation.PostConstruct;
+
+import org.apache.commons.collections4.CollectionUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Lists;
@@ -30,21 +47,6 @@ import com.theokanning.openai.assistants.run_step.RunStep;
 import com.theokanning.openai.assistants.run_step.StepDetails;
 import com.theokanning.openai.common.LastError;
 import com.theokanning.openai.completion.chat.ChatToolCall;
-import org.apache.commons.collections4.CollectionUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
-
-import javax.annotation.PostConstruct;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * Run状态管理器
@@ -53,22 +55,17 @@ import java.util.stream.Collectors;
 public class RunStateManager {
     
     private static final Logger logger = LoggerFactory.getLogger(RunStateManager.class);
-    
-    @Autowired
-    private RunRepo runRepo;
-
-    @Autowired
-    private MessageService messageService;
-
-    @Autowired
-    private ServiceMesh serviceMesh;
-
-    @Autowired
-    private RunStepRepo runStepRepo;
-
     private final Cache<String, ExecutionContext> processingCache = CacheBuilder.newBuilder()
             .expireAfterWrite(10, TimeUnit.MINUTES)
             .build();
+    @Autowired
+    private RunRepo runRepo;
+    @Autowired
+    private MessageService messageService;
+    @Autowired
+    private ServiceMesh serviceMesh;
+    @Autowired
+    private RunStepRepo runStepRepo;
     @Autowired
     private RunService runService;
 

@@ -2,6 +2,7 @@ package com.ke.assistant.core.tools;
 
 import com.theokanning.openai.response.stream.BaseStreamEvent;
 import com.theokanning.openai.response.tool.ToolCall;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

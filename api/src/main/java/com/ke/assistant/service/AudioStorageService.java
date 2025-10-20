@@ -1,13 +1,15 @@
 package com.ke.assistant.service;
 
-import com.ke.assistant.db.context.RepoContext;
-import com.ke.bella.openapi.server.OpenAiServiceFactory;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-
 import java.util.Base64;
 import java.util.UUID;
+
+import org.springframework.stereotype.Service;
+
+import com.ke.assistant.db.context.RepoContext;
+import com.ke.bella.openapi.server.OpenAiServiceFactory;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Service for handling audio storage and base64 conversion.

@@ -1,12 +1,12 @@
 package com.ke.assistant.core.plan.template;
 
-import com.ke.assistant.core.file.FileInfo;
-import com.ke.assistant.core.run.ExecutionContext;
-import com.theokanning.openai.assistants.assistant.Tool;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import com.ke.assistant.core.file.FileInfo;
+import com.ke.assistant.core.run.ExecutionContext;
+import com.theokanning.openai.assistants.assistant.Tool;
 
 /**
  * Template context builder service for constructing Jinja template context

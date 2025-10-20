@@ -1,13 +1,7 @@
 package com.ke.assistant.controller;
 
-import com.ke.assistant.model.CommonPage;
-import com.ke.assistant.model.DeleteResponse;
-import com.ke.assistant.service.MessageService;
-import com.ke.bella.openapi.common.exception.BizParamCheckException;
-import com.ke.bella.openapi.common.exception.ResourceNotFoundException;
-import com.theokanning.openai.assistants.message.Message;
-import com.theokanning.openai.assistants.message.MessageRequest;
-import lombok.extern.slf4j.Slf4j;
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,7 +12,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
+import com.ke.assistant.model.CommonPage;
+import com.ke.assistant.model.DeleteResponse;
+import com.ke.assistant.service.MessageService;
+import com.ke.bella.openapi.common.exception.BizParamCheckException;
+import com.ke.bella.openapi.common.exception.ResourceNotFoundException;
+import com.theokanning.openai.assistants.message.Message;
+import com.theokanning.openai.assistants.message.MessageRequest;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Message Controller

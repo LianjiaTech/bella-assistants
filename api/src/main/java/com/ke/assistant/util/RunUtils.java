@@ -1,5 +1,10 @@
 package com.ke.assistant.util;
 
+import java.time.ZoneOffset;
+import java.util.HashMap;
+
+import org.apache.commons.lang3.StringUtils;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.ke.assistant.db.generated.tables.pojos.RunStepDb;
 import com.ke.bella.openapi.utils.JacksonUtils;
@@ -7,10 +12,6 @@ import com.theokanning.openai.Usage;
 import com.theokanning.openai.assistants.run_step.RunStep;
 import com.theokanning.openai.assistants.run_step.StepDetails;
 import com.theokanning.openai.common.LastError;
-import org.apache.commons.lang3.StringUtils;
-
-import java.time.ZoneOffset;
-import java.util.HashMap;
 
 public class RunUtils {
     /**
