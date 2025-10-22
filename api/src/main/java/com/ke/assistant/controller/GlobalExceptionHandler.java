@@ -34,6 +34,7 @@ public class GlobalExceptionHandler implements HandlerExceptionResolver {
     @Override
     public ModelAndView resolveException(HttpServletRequest request, HttpServletResponse response, 
                                        Object handler, Exception ex) {
+        log.error(request.getRequestURI() + " with error: " + ex.getMessage(), ex);
         try {
             if(ex instanceof ChannelException ce) {
                 handleChannelException(response, ce);
