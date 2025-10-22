@@ -133,11 +133,9 @@ public class ToolExecutor implements Runnable {
                                         if(arguments == null) {
                                             arguments = new HashMap<>();
                                         }
-                                        Map<String, Object> log = JacksonUtils.toMap(arguments);
-                                        if(log == null) {
-                                            log = new HashMap<>();
-                                        }
+                                        Map<String, Object> log = new HashMap<>();
                                         log.put("type", tool.getType());
+                                        log.put("args", arguments);
                                         runLogger.log("tool_start", BellaContext.snapshot(), log);
                                         return handler.execute(toolContext, arguments, finalChannel);
                                     }
