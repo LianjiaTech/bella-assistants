@@ -12,8 +12,8 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 @Slf4j
 public class RunLogger {
-    public void log(String event, ExecutionContext context) {
-        RunLog runLog = new RunLog(event, context);
+    public void log(String event, ExecutionContext context, Map<String, Object> bellaContext) {
+        RunLog runLog = new RunLog(event, context, bellaContext);
         log.info(JacksonUtils.serialize(runLog));
     }
 

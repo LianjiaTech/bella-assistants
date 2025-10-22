@@ -8,13 +8,13 @@ import java.util.Optional;
 
 import javax.annotation.PostConstruct;
 
+import com.ke.assistant.core.tools.ToolHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.google.common.collect.Lists;
 import com.ke.assistant.configuration.AssistantProperties;
 import com.ke.assistant.configuration.ToolProperties;
-import com.ke.assistant.core.tools.BellaToolHandler;
 import com.ke.assistant.core.tools.ToolContext;
 import com.ke.assistant.core.tools.ToolOutputChannel;
 import com.ke.assistant.core.tools.ToolResult;
@@ -31,7 +31,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @Component
-public class ImgVisionToolHandler extends BellaToolHandler {
+public class ImgVisionToolHandler implements ToolHandler {
 
     @Autowired
     private OpenAiServiceFactory openAiServiceFactory;
@@ -47,7 +47,7 @@ public class ImgVisionToolHandler extends BellaToolHandler {
     }
     
     @Override
-    public ToolResult doExecute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
+    public ToolResult execute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
 
         String model = visionToolProperties.getModel();
         if(model == null || model.isEmpty()) {

@@ -1,5 +1,6 @@
 package com.ke.assistant.core;
 
+import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -11,6 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import com.ke.assistant.db.context.RepoContext;
+import com.ke.bella.openapi.BellaContext;
 
 public class TaskExecutor {
     static ThreadFactory rtf = new NamedThreadFactory("bella-runner-", false);
@@ -32,59 +34,65 @@ public class TaskExecutor {
     static ExecutorService caller = new ThreadPoolExecutor(100, 1000, 10L, TimeUnit.SECONDS, new ArrayBlockingQueue<>(1000, true), ctf);
 
     public static CompletableFuture<Void> addRunner(Runnable r) {
-        return CompletableFuture.runAsync(wrapWithRepoContext(r), runner);
+        return CompletableFuture.runAsync(wrapWithContext(r), runner);
     }
 
     public static CompletableFuture<Void> addExecutor(Runnable r) {
-        return CompletableFuture.runAsync(wrapWithRepoContext(r), executor);
+        return CompletableFuture.runAsync(wrapWithContext(r), executor);
     }
 
     public static CompletableFuture<Void> addToolSender(Runnable r) {
-        return CompletableFuture.runAsync(wrapWithRepoContext(r), caller);
+        return CompletableFuture.runAsync(wrapWithContext(r), caller);
     }
 
     public static <T> CompletableFuture<T> supplyCaller(Supplier<T> supplier) {
-        return CompletableFuture.supplyAsync(wrapWithRepoContext(supplier), caller);
+        return CompletableFuture.supplyAsync(wrapWithContext(supplier), caller);
     }
 
     /**
-     * 包装 Runnable，处理 RepoContext 的传递和清理
+     * 包装 Runnable，处理 Context 的传递和清理
      */
-    private static Runnable wrapWithRepoContext(Runnable r) {
-        // 在提交任务的线程中获取当前的 RepoContext 快照
+    private static Runnable wrapWithContext(Runnable r) {
+        // 在提交任务的线程中获取当前的 Context 快照
         RepoContext.State repoContextSnapshot = RepoContext.capture();
+        Map<String, Object> bellaContextSnapshot = BellaContext.snapshot();
 
         return () -> {
             try {
-                // 在执行线程中恢复 RepoContext
+                // 在执行线程中恢复 Context
                 if (repoContextSnapshot != null) {
                     RepoContext.attach(repoContextSnapshot);
                 }
+                BellaContext.replace(bellaContextSnapshot);
                 r.run();
             } finally {
-                // 确保在执行线程结束时清理 RepoContext
+                // 确保在执行线程结束时清理 Context
                 RepoContext.detach();
+                BellaContext.clearAll();
             }
         };
     }
 
     /**
-     * 包装 Supplier，处理 RepoContext 的传递和清理
+     * 包装 Supplier，处理 Context 的传递和清理
      */
-    private static <T> Supplier<T> wrapWithRepoContext(Supplier<T> supplier) {
-        // 在提交任务的线程中获取当前的 RepoContext 快照
+    private static <T> Supplier<T> wrapWithContext(Supplier<T> supplier) {
+        // 在提交任务的线程中获取当前的 Context 快照
         RepoContext.State repoContextSnapshot = RepoContext.capture();
+        Map<String, Object> bellaContextSnapshot = BellaContext.snapshot();
 
         return () -> {
             try {
-                // 在执行线程中恢复 RepoContext
+                // 在执行线程中恢复 Context
                 if (repoContextSnapshot != null) {
                     RepoContext.attach(repoContextSnapshot);
                 }
+                BellaContext.replace(bellaContextSnapshot);
                 return supplier.get();
             } finally {
-                // 确保在执行线程结束时清理 RepoContext
+                // 确保在执行线程结束时清理 Context
                 RepoContext.detach();
+                BellaContext.clearAll();
             }
         };
     }

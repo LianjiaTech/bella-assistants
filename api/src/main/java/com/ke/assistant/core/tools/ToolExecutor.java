@@ -8,6 +8,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import com.ke.assistant.core.log.RunLogger;
+import com.ke.bella.openapi.BellaContext;
 import org.apache.commons.collections4.CollectionUtils;
 
 import com.google.common.collect.Lists;
@@ -42,16 +44,18 @@ public class ToolExecutor implements Runnable {
     private final RunStateManager runStateManager;
     private final Map<String, ToolHandler> toolHandlers;
     private final Map<String, Tool> toolDefinite;
+    private final RunLogger runLogger;
 
-    public ToolExecutor(ExecutionContext context, RunStateManager runStateManager) {
+    public ToolExecutor(ExecutionContext context, RunStateManager runStateManager, RunLogger runLogger) {
         this.context = context;
         this.runStateManager = runStateManager;
+        this.runLogger = runLogger;
         this.toolHandlers = new HashMap<>();
         this.toolDefinite = new HashMap<>();
     }
 
-    public static ToolExecutor start(ExecutionContext context, RunStateManager runStateManager, ToolFetcher toolFetcher) {
-        ToolExecutor toolExecutor = new ToolExecutor(context, runStateManager);
+    public static ToolExecutor start(ExecutionContext context, RunStateManager runStateManager, ToolFetcher toolFetcher, RunLogger runLogger) {
+        ToolExecutor toolExecutor = new ToolExecutor(context, runStateManager, runLogger);
         if(CollectionUtils.isNotEmpty(context.getTools())) {
             context.getTools().stream().filter(tool -> !tool.getType().equals("function")).forEach(tool -> {
                         ToolHandler handler;
@@ -129,7 +133,12 @@ public class ToolExecutor implements Runnable {
                                         if(arguments == null) {
                                             arguments = new HashMap<>();
                                         }
-                                        log.info("tool start: {}, arguments:{}", tool.getType(), JacksonUtils.serialize(arguments));
+                                        Map<String, Object> log = JacksonUtils.toMap(arguments);
+                                        if(log == null) {
+                                            log = new HashMap<>();
+                                        }
+                                        log.put("type", tool.getType());
+                                        runLogger.log("tool_start", BellaContext.snapshot(), log);
                                         return handler.execute(toolContext, arguments, finalChannel);
                                     }
                             )
@@ -191,13 +200,13 @@ public class ToolExecutor implements Runnable {
         toolContext.setFiles(context.getFileIds(tool.getType()));
         toolContext.setToolId(toolId);
         toolContext.setUser(context.getUser());
-        toolContext.setBellaContext(context.getBellaContext());
         return toolContext;
     }
 
 
     @SuppressWarnings("unchecked")
     private void processResult(ToolResult result, ToolCall toolCall, ExecutionContext context, List<ToolCall> requiredTools) {
+        runLogger.log("tool_finish", BellaContext.snapshot(), JacksonUtils.toMap(result));
         if(result == null || result.isNull()) {
             if(toolCall.getFunction() != null) {
                 toolCall.getFunction().setOutput("tool call output is null");
@@ -206,7 +215,6 @@ public class ToolExecutor implements Runnable {
             runStateManager.finishToolCall(context, toolCall, "tool call output is null", requiredTools);
             return;
         }
-        log.info("tool end: {}, arguments:{}", toolCall.getType(), JacksonUtils.serialize(result));
         if(result.getError() != null) {
             if(toolCall.getFunction() != null) {
                 toolCall.getFunction().setOutput(result.getError());

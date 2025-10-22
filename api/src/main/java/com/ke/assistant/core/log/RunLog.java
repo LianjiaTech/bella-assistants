@@ -45,11 +45,8 @@ public class RunLog {
     private Map<String, Object> additionalInfo;
     private boolean isMock;
 
-    public RunLog(String event, ExecutionContext context) {
+    public RunLog(String event, ExecutionContext context, Map<String, Object> bellaContextSnapshot) {
         this.event = event;
-        // 从ExecutionContext获取BellaContext快照
-        Map<String, Object> bellaContextSnapshot = context.getBellaContext();
-        
         // 从BellaContext快照中获取headers
         @SuppressWarnings("unchecked")
         Map<String, String> headers = (Map<String, String>) Optional.ofNullable(bellaContextSnapshot.get("headers")).orElse(new HashMap<>());

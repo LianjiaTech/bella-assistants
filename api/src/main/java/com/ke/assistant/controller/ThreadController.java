@@ -190,7 +190,7 @@ public class ThreadController {
             emitter = new SseEmitter(600000L); // 10分钟超时
         }
         // 异步执行不在事务中
-        runExecutor.startRun(result.getRun().getThreadId(), result.getRun().getId(), result.getAssistantMessageId(), result.getAdditionalMessages(),true, emitter, BellaContext.snapshot());
+        runExecutor.startRun(result.getRun().getThreadId(), result.getRun().getId(), result.getAssistantMessageId(), result.getAdditionalMessages(),true, emitter);
         return Boolean.TRUE.equals(request.getStream()) ? emitter : result.getRun();
     }
 }

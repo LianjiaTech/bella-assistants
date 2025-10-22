@@ -9,6 +9,8 @@ import java.util.stream.Collectors;
 
 import javax.annotation.PostConstruct;
 
+import com.ke.assistant.core.tools.ToolHandler;
+import com.ke.bella.openapi.BellaContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -17,7 +19,6 @@ import com.google.common.collect.Lists;
 import com.ke.assistant.configuration.AssistantProperties;
 import com.ke.assistant.configuration.ToolProperties;
 import com.ke.assistant.core.log.RunLogger;
-import com.ke.assistant.core.tools.BellaToolHandler;
 import com.ke.assistant.core.tools.ToolContext;
 import com.ke.assistant.core.tools.ToolOutputChannel;
 import com.ke.assistant.core.tools.ToolResult;
@@ -41,7 +42,7 @@ import okhttp3.RequestBody;
  * 文档检索工具处理器
  */
 @Component
-public class RetrievalToolHandler extends BellaToolHandler {
+public class RetrievalToolHandler implements ToolHandler {
     
     @Autowired
     private AssistantProperties assistantProperties;
@@ -57,7 +58,7 @@ public class RetrievalToolHandler extends BellaToolHandler {
     }
     
     @Override
-    public ToolResult doExecute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
+    public ToolResult execute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
         String query = Optional.ofNullable(arguments.get("query")).map(Object::toString).orElse(null);
         ItemStatus status = ItemStatus.INCOMPLETE;
         List<FileSearchToolCall.SearchResult> results = new ArrayList<>();
@@ -77,7 +78,7 @@ public class RetrievalToolHandler extends BellaToolHandler {
 
             RetrievalRequest requestBody = buildRequestBody(query, context);
 
-            runLogger.log("retrieval_request", context.getBellaContext(), JacksonUtils.toMap(requestBody));
+            runLogger.log("retrieval_request", BellaContext.snapshot(), JacksonUtils.toMap(requestBody));
 
             Request request = new Request.Builder()
                     .url(retrievalProperties.getUrl())

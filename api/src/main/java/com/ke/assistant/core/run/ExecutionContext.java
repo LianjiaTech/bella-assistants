@@ -59,10 +59,6 @@ import lombok.Data;
 @AllArgsConstructor
 @Builder
 public class ExecutionContext {
-
-    // Bella相关的上下文
-    private final Map<String, Object> bellaContext;
-
     // 用于同步executor之间的执行结果
     private final ReentrantLock lock;
     private final Condition runCondition;
@@ -133,8 +129,7 @@ public class ExecutionContext {
 
     private boolean reasoningShutDown;
 
-    public ExecutionContext(Map<String, Object> bellaContext, Supplier<String> toolCallStepIdSupplier) {
-        this.bellaContext = bellaContext;
+    public ExecutionContext(Supplier<String> toolCallStepIdSupplier) {
         this.toolCallStepIdSupplier = toolCallStepIdSupplier;
         this.senderQueue = new LinkedBlockingQueue<>();
         this.sendDone = new AtomicBoolean(true);
@@ -621,9 +616,21 @@ public class ExecutionContext {
         return run.getTruncationStrategy() != null && run.getTruncationStrategy().getType().equals("disable");
     }
 
-    public boolean isSupportReasoningContent() {
+    public boolean isReasoningMode() {
         String reasoningEffort = getRun().getReasoningEffort();
         return getModelFeatures().isReason_content() && reasoningEffort != null && !reasoningEffort.isBlank() && !reasoningShutDown;
+    }
+
+    public boolean isSupportTemperature() {
+        return getModelFeatures().isSupport_temperature();
+    }
+
+    public boolean isSupportTopP() {
+        return getModelFeatures().isSupport_top_P();
+    }
+
+    public boolean isSupportMaxTokens() {
+        return getModelFeatures().isSupport_max_tokens();
     }
 
     public void addAnnotations(List<Annotation> annotations) {

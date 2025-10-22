@@ -27,7 +27,6 @@ import com.ke.assistant.service.RunService;
 import com.ke.assistant.service.ThreadService;
 import com.ke.assistant.util.MessageUtils;
 import com.ke.assistant.util.ToolUtils;
-import com.ke.bella.openapi.BellaContext;
 import com.ke.bella.openapi.common.exception.BizParamCheckException;
 import com.ke.bella.openapi.common.exception.ResourceNotFoundException;
 import com.theokanning.openai.assistants.message.Message;
@@ -85,7 +84,7 @@ public class RunController {
             emitter = new SseEmitter(600000L); // 10分钟超时
             // 启动流式执行
         }
-        runExecutor.startRun(threadId, result.getRun().getId(), result.getAssistantMessageId(), result.getAdditionalMessages(),false, emitter, BellaContext.snapshot());
+        runExecutor.startRun(threadId, result.getRun().getId(), result.getAssistantMessageId(), result.getAdditionalMessages(),false, emitter);
         return Boolean.TRUE.equals(request.getStream()) ? emitter : result.getRun();
     }
 
@@ -143,7 +142,7 @@ public class RunController {
         if(Boolean.TRUE.equals(request.getStream())) {
             emitter = new SseEmitter(300000L); // 5分钟超时
         }
-        runExecutor.resumeRun(threadId, runId, assistantMessageId, additionalMessages, emitter, BellaContext.snapshot());
+        runExecutor.resumeRun(threadId, runId, assistantMessageId, additionalMessages, emitter);
         return Boolean.TRUE.equals(request.getStream()) ? emitter : runService.getRunById(threadId, runId);
     }
 

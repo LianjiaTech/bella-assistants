@@ -20,7 +20,6 @@ import com.ke.assistant.core.tools.ToolContext;
 import com.ke.assistant.core.tools.ToolHandler;
 import com.ke.assistant.core.tools.ToolOutputChannel;
 import com.ke.assistant.core.tools.ToolResult;
-import com.ke.bella.openapi.BellaContext;
 import com.ke.bella.openapi.server.OpenAiServiceFactory;
 import com.ke.bella.openapi.utils.HttpUtils;
 import com.ke.bella.openapi.utils.JacksonUtils;
@@ -70,7 +69,6 @@ public class WebCrawlerToolHandler implements ToolHandler {
             WebExtractResponse response;
 
             if(StringUtils.isNotBlank(crawlerRequest.getModel())) {
-                BellaContext.replace(context.getBellaContext());
                 response = openAiServiceFactory.create().webExtract(crawlerRequest);
             } else {
                 Request request = new Request.Builder()
@@ -105,8 +103,6 @@ public class WebCrawlerToolHandler implements ToolHandler {
         } catch (Exception e) {
             log.warn(e.getMessage(), e);
             return new ToolResult(e.getMessage());
-        } finally {
-            BellaContext.clearAll();
         }
     }
     

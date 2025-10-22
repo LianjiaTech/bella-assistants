@@ -98,24 +98,24 @@ public class RunExecutor {
     /**
      * 开启run
      */
-    public void startRun(String threadId, String runId, String assistantMessageId, List<Message> additionalMessages, boolean withThreadCreation, SseEmitter sseEmitter, Map<String, Object> bellaContext) {
-        ExecutionContext context = buildExecutionContext(threadId, runId, assistantMessageId, withThreadCreation ? RunType.CREATE_THREAD_AND_RUN : RunType.CREATE_RUN, additionalMessages, bellaContext);
+    public void startRun(String threadId, String runId, String assistantMessageId, List<Message> additionalMessages, boolean withThreadCreation, SseEmitter sseEmitter) {
+        ExecutionContext context = buildExecutionContext(threadId, runId, assistantMessageId, withThreadCreation ? RunType.CREATE_THREAD_AND_RUN : RunType.CREATE_RUN, additionalMessages);
         TaskExecutor.addRunner(()->executeRun(context, sseEmitter));
     }
 
     /**
      * 重启run
      */
-    public void resumeRun(String threadId, String runId, String assistantMessageId, List<Message> additionalMessages, SseEmitter sseEmitter, Map<String, Object> bellaContext) {
-        ExecutionContext context = buildExecutionContext(threadId, runId, assistantMessageId, RunType.SUBMIT_TOOL_CALLS, additionalMessages, bellaContext);
+    public void resumeRun(String threadId, String runId, String assistantMessageId, List<Message> additionalMessages, SseEmitter sseEmitter) {
+        ExecutionContext context = buildExecutionContext(threadId, runId, assistantMessageId, RunType.SUBMIT_TOOL_CALLS, additionalMessages);
         TaskExecutor.addRunner(()->executeRun(context, sseEmitter));
     }
 
     /**
      * 开启Response API run
      */
-    public ExecutionContext startResponseRun(String threadId, String runId, String assistantMessageId, List<Message> additionalMessages, boolean withThreadCreation, Response response, SseEmitter sseEmitter, Map<String, Object> bellaContext) {
-        ExecutionContext context = buildExecutionContext(threadId, runId, assistantMessageId, withThreadCreation ? RunType.CREATE_THREAD_AND_RUN : RunType.CREATE_RUN, additionalMessages, bellaContext);
+    public ExecutionContext startResponseRun(String threadId, String runId, String assistantMessageId, List<Message> additionalMessages, boolean withThreadCreation, Response response, SseEmitter sseEmitter) {
+        ExecutionContext context = buildExecutionContext(threadId, runId, assistantMessageId, withThreadCreation ? RunType.CREATE_THREAD_AND_RUN : RunType.CREATE_RUN, additionalMessages);
         context.setResponse(response);
         TaskExecutor.addRunner(()->executeRun(context, sseEmitter));
         return context;
@@ -129,11 +129,8 @@ public class RunExecutor {
         logger.info("Starting execution for run: {}", context.getRunId());
 
         try {
-
-            BellaContext.replace(context.getBellaContext());
-
             // 启动工具执行器
-            ToolExecutor toolExecutor = ToolExecutor.start(context, stateManager, toolFetcher);
+            ToolExecutor toolExecutor = ToolExecutor.start(context, stateManager, toolFetcher, runLogger);
 
             // 启动消息管理器 - 根据是否为Response API选择不同的消息执行器
             if (context.isResponseApi()) {
@@ -171,8 +168,7 @@ public class RunExecutor {
             }
             // 通知所有辅助线程退出
             context.end();
-            BellaContext.clearAll();
-            runLogger.log("end", context);
+            runLogger.log("end", context, BellaContext.snapshot());
         }
     }
     
@@ -237,9 +233,9 @@ public class RunExecutor {
     /**
      * 构建执行上下文
      */
-    private ExecutionContext buildExecutionContext(String threadId, String runId, String assistantMessageId, RunType type, List<Message> additionalMessages, Map<String, Object> bellaContext) {
+    private ExecutionContext buildExecutionContext(String threadId, String runId, String assistantMessageId, RunType type, List<Message> additionalMessages) {
 
-        ExecutionContext context = new ExecutionContext(bellaContext, () -> idGenerator.generateRunStepId());
+        ExecutionContext context = new ExecutionContext(() -> idGenerator.generateRunStepId());
 
         context.setAdditionalMessages(additionalMessages == null ? new ArrayList<>() : additionalMessages);
 

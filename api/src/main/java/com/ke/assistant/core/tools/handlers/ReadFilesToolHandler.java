@@ -8,6 +8,7 @@ import java.util.Optional;
 
 import javax.annotation.PostConstruct;
 
+import com.ke.assistant.core.tools.ToolHandler;
 import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -16,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.Lists;
 import com.ke.assistant.configuration.AssistantProperties;
 import com.ke.assistant.configuration.ToolProperties;
-import com.ke.assistant.core.tools.BellaToolHandler;
 import com.ke.assistant.core.tools.ToolContext;
 import com.ke.assistant.core.tools.ToolOutputChannel;
 import com.ke.assistant.core.tools.ToolResult;
@@ -32,7 +32,7 @@ import okhttp3.Request;
  * 文件读取工具处理器
  */
 @Component
-public class ReadFilesToolHandler extends BellaToolHandler {
+public class ReadFilesToolHandler implements ToolHandler {
     
     @Autowired
     private AssistantProperties assistantProperties;
@@ -46,7 +46,7 @@ public class ReadFilesToolHandler extends BellaToolHandler {
 
     @SuppressWarnings("unchecked")
     @Override
-    public ToolResult doExecute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
+    public ToolResult execute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
 
         // 解析参数
         List<String> fileIds = (List<String>) Optional.ofNullable(arguments.get("file_ids")).orElse(new ArrayList<>());

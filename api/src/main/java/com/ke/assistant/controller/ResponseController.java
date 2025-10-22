@@ -72,8 +72,7 @@ public class ResponseController {
                 result.getAdditionalMessages(),
                 result.isNewThread(),
                 result.getResponse(),
-                emitter,
-                BellaContext.snapshot()
+                emitter
             );
 
             return Boolean.TRUE.equals(request.getStream()) ? emitter :

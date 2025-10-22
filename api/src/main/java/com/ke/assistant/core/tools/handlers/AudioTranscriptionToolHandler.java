@@ -6,13 +6,14 @@ import java.util.Map;
 
 import javax.annotation.PostConstruct;
 
+import com.ke.assistant.core.tools.ToolExecutor;
+import com.ke.assistant.core.tools.ToolHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.google.common.collect.Lists;
 import com.ke.assistant.configuration.AssistantProperties;
 import com.ke.assistant.configuration.ToolProperties;
-import com.ke.assistant.core.tools.BellaToolHandler;
 import com.ke.assistant.core.tools.ToolContext;
 import com.ke.assistant.core.tools.ToolOutputChannel;
 import com.ke.assistant.core.tools.ToolResult;
@@ -25,7 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Component
 @Slf4j
-public class AudioTranscriptionToolHandler extends BellaToolHandler {
+public class AudioTranscriptionToolHandler implements ToolHandler {
     @Autowired
     private AssistantProperties assistantProperties;
     @Autowired
@@ -39,7 +40,7 @@ public class AudioTranscriptionToolHandler extends BellaToolHandler {
     }
 
     @Override
-    public ToolResult doExecute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
+    public ToolResult execute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
         String fileId = arguments.containsKey("file_id") ? arguments.get("file_id").toString() : null;
         String format = arguments.containsKey("format") ? arguments.get("format").toString() : null;
         if(fileId == null) {

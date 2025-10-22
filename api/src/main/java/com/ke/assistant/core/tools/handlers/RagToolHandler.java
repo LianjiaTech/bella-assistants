@@ -7,6 +7,8 @@ import java.util.Optional;
 
 import javax.annotation.PostConstruct;
 
+import com.ke.assistant.core.tools.ToolHandler;
+import com.ke.bella.openapi.BellaContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -15,7 +17,6 @@ import com.google.common.collect.Lists;
 import com.ke.assistant.configuration.AssistantProperties;
 import com.ke.assistant.configuration.ToolProperties;
 import com.ke.assistant.core.log.RunLogger;
-import com.ke.assistant.core.tools.BellaToolHandler;
 import com.ke.assistant.core.tools.SseConverter;
 import com.ke.assistant.core.tools.ToolCallListener;
 import com.ke.assistant.core.tools.ToolContext;
@@ -36,7 +37,7 @@ import okhttp3.RequestBody;
  */
 @Slf4j
 @Component
-public class RagToolHandler extends BellaToolHandler {
+public class RagToolHandler implements ToolHandler {
     
     @Autowired
     private AssistantProperties assistantProperties;
@@ -52,7 +53,7 @@ public class RagToolHandler extends BellaToolHandler {
     }
     
     @Override
-    public ToolResult doExecute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
+    public ToolResult execute(ToolContext context, Map<String, Object> arguments, ToolOutputChannel channel) {
 
         String query = Optional.ofNullable(arguments.get("query")).map(Object::toString).orElse(null);
         // 解析参数
@@ -64,7 +65,7 @@ public class RagToolHandler extends BellaToolHandler {
         // 构建请求体
         RagRequest requestBody = buildRequestBody(query, context);
 
-        runLogger.log("rag_request", context.getBellaContext(), JacksonUtils.toMap(requestBody));
+        runLogger.log("rag_request", BellaContext.snapshot(), JacksonUtils.toMap(requestBody));
 
         // 构建请求
         Request request = new Request.Builder()

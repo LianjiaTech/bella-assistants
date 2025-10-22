@@ -24,7 +24,6 @@ import com.ke.assistant.core.tools.ToolOutputChannel;
 import com.ke.assistant.core.tools.ToolResult;
 import com.ke.assistant.core.tools.ToolStreamEvent;
 import com.ke.assistant.util.AnnotationUtils;
-import com.ke.bella.openapi.BellaContext;
 import com.ke.bella.openapi.server.OpenAiServiceFactory;
 import com.ke.bella.openapi.utils.HttpUtils;
 import com.ke.bella.openapi.utils.JacksonUtils;
@@ -97,7 +96,6 @@ public class WebSearchTavilyToolHandler implements ToolHandler {
 
             WebSearchResponse response;
             if(StringUtils.isNotBlank(searchRequest.getModel())) {
-                BellaContext.replace(context.getBellaContext());
                 response = openAiServiceFactory.create().webSearch(searchRequest);
             } else {
                 Request request = new Request.Builder()
@@ -126,7 +124,6 @@ public class WebSearchTavilyToolHandler implements ToolHandler {
             status = ItemStatus.INCOMPLETE;
             return new ToolResult(ToolResult.ToolResultType.text, e.getMessage(), new ArrayList<>());
         } finally {
-            BellaContext.clearAll();
             toolCall.setStatus(status);
             if(channel != null) {
                 channel.output(context.getToolId(), context.getTool(), ToolStreamEvent.builder().toolCallId(context.getToolId())

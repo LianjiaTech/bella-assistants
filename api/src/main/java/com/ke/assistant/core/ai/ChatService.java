@@ -35,16 +35,27 @@ public class ChatService {
             ChatCompletionRequest request = ChatCompletionRequest.builder()
                     .model(context.getModel())
                     .messages(context.getChatMessages())
-                    .maxTokens(context.getMaxCompletionTokens())
-                    .topP(context.getTopP())
-                    .temperature(context.getTemperature())
                     .build();
             if(context.getChatTools() != null && !context.getChatTools().isEmpty()) {
                 request.setTools(context.getChatTools());
                 request.setToolChoice(context.getToolChoice());
             }
+
+            // 添加支持的参数
+            if(context.isSupportTemperature()) {
+                request.setTemperature(context.getTemperature());
+            }
+
+            if(context.isSupportTopP()) {
+                request.setTopP(context.getTopP());
+            }
+
+            if(context.isSupportMaxTokens()) {
+                request.setMaxTokens(context.getMaxCompletionTokens());
+            }
+
             // 开启深度思考，通常深度思考模型不支持温度参数
-            if(context.isSupportReasoningContent()) {
+            if(context.isReasoningMode()) {
                 request.setReasoningEffort(context.getRun().getReasoningEffort());
                 request.setTemperature(null);
             }
@@ -69,12 +80,7 @@ public class ChatService {
                         if(!retry || finalTime > maxTimes) {
                             context.setError(code, message);
                         } else {
-                            try {
-                                BellaContext.replace(context.getBellaContext());
-                                tryStreamChat(context, finalTime, maxTimes);
-                            } finally {
-                                BellaContext.clearAll();
-                            }
+                            tryStreamChat(context, finalTime, maxTimes);
                         }
                     }, () -> context.publish("[LLM_DONE]"));
 

@@ -19,5 +19,4 @@ public class ToolContext {
     private String toolId;
     private List<String> files;
     private String user;
-    private Map<String, Object> bellaContext;
 }
