@@ -181,13 +181,13 @@ public class ContextTruncator {
                         if(curUserMessage.getContent() instanceof Collection) {
                             curContents = (Collection<MultiMediaContent>) curUserMessage.getContent();
                         } else {
-                            curContents.add(new MultiMediaContent("text", curUserMessage.getTextContent(), null, null, null));
+                            curContents.add(new MultiMediaContent("text", curUserMessage.getTextContent(), null, null, null, null));
                         }
                         if(userMessage.getContent() instanceof Collection) {
                             ((Collection<MultiMediaContent>) userMessage.getContent()).addAll(curContents);
                         } else {
                             List<MultiMediaContent> contents = new ArrayList<>();
-                            contents.add(new MultiMediaContent("text", userMessage.getTextContent(), null, null, null));
+                            contents.add(new MultiMediaContent("text", userMessage.getTextContent(), null, null, null, null));
                             contents.addAll(curContents);
                             userMessage.setContent(contents);
                         }
