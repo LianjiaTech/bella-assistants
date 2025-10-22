@@ -52,7 +52,7 @@ public class TaskExecutor {
     /**
      * 包装 Runnable，处理 Context 的传递和清理
      */
-    private static Runnable wrapWithContext(Runnable r) {
+    public static Runnable wrapWithContext(Runnable r) {
         // 在提交任务的线程中获取当前的 Context 快照
         RepoContext.State repoContextSnapshot = RepoContext.capture();
         Map<String, Object> bellaContextSnapshot = BellaContext.snapshot();

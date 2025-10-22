@@ -1,5 +1,6 @@
 package com.ke.assistant.core.ai;
 
+import com.ke.assistant.core.TaskExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -80,7 +81,7 @@ public class ChatService {
                         if(!retry || finalTime > maxTimes) {
                             context.setError(code, message);
                         } else {
-                            tryStreamChat(context, finalTime, maxTimes);
+                            TaskExecutor.wrapWithContext(()->tryStreamChat(context, finalTime, maxTimes)).run();
                         }
                     }, () -> context.publish("[LLM_DONE]"));
 
