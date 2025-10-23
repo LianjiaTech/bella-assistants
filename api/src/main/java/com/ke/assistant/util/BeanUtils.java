@@ -45,4 +45,7 @@ public class BeanUtils {
         org.springframework.beans.BeanUtils.copyProperties(source, target);
     }
 
+    public static void copyProperties(Object source, Object target, String... ignoreProperties) {
+        org.springframework.beans.BeanUtils.copyProperties(source, target, ignoreProperties);
+    }
 }

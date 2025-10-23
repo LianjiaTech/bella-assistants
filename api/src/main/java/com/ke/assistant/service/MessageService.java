@@ -216,21 +216,10 @@ public class MessageService {
             throw new IllegalArgumentException("Message not found: " + id);
         }
 
-        MessageDb updateData = new MessageDb();
-        BeanUtils.copyProperties(request, updateData);
-
-        // 格式化content内容
-        List<Object> formattedContent = MessageUtils.formatMessageContent(request.getContent());
-        updateData.setContent(JacksonUtils.serialize(formattedContent));
-        //设置消息类型
-        updateData.setMessageType(MessageUtils.recognizeMessageType(request.getContent()));
-
         // 序列化metadata
         if(request.getMetadata() != null) {
-            updateData.setMetadata(JacksonUtils.serialize(request.getMetadata()));
+            existing.setMetadata(JacksonUtils.serialize(request.getMetadata()));
         }
-
-        BeanUtils.copyNonNullProperties(updateData, existing);
 
         messageRepo.update(existing);
         return convertToInfo(existing);
