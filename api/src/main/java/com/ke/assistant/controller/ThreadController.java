@@ -117,6 +117,10 @@ public class ThreadController {
             @PathVariable("thread_id") String threadId,
             @RequestBody ThreadRequest request) {
 
+        if(!threadService.existsById(threadId)) {
+            throw new IllegalArgumentException("Thread not found: " + threadId);
+        }
+
         // transfer请求到数据库对象
         ThreadDb updateData = new ThreadDb();
         BeanUtils.copyProperties(request, updateData);
@@ -148,7 +152,9 @@ public class ThreadController {
      */
     @PostMapping("/{thread_id}/fork")
     public Thread forkThread(@PathVariable("thread_id") String threadId) {
-
+        if(!threadService.existsById(threadId)) {
+            throw new IllegalArgumentException("Thread not found: " + threadId);
+        }
         return threadService.forkThread(threadId);
     }
 
@@ -159,7 +165,12 @@ public class ThreadController {
     public Thread copyThread(
             @PathVariable("from_thread_id") String fromThreadId,
             @PathVariable("to_thread_id") String toThreadId) {
-
+        if(!threadService.existsById(fromThreadId)) {
+            throw new IllegalArgumentException("Source thread not found: " + fromThreadId);
+        }
+        if(!threadService.existsById(toThreadId)) {
+            throw new IllegalArgumentException("Target thread not found: " + toThreadId);
+        }
         return threadService.copyThread(fromThreadId, toThreadId);
     }
 

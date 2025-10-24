@@ -584,6 +584,9 @@ public class RunStateManager {
             incompleteDetails = new IncompleteDetails(reason == null ? "unexpected error" : reason);
         }
         Message message = messageService.updateStatus(context.getThreadId(), context.getAssistantMessageId(), status, hidden, incompleteDetails);
+        if(message == null) {
+            throw new IllegalStateException("message update failed");
+        }
         context.publish(message);
         return message;
     }

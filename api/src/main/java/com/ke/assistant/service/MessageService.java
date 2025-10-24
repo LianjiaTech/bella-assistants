@@ -67,10 +67,6 @@ public class MessageService {
 
     @Transactional
     public Message createMessage(String threadId, MessageRequest request, String status, boolean hidden, Message pre) {
-        // 验证Thread是否存在
-        if (!threadService.existsById(threadId)) {
-            throw new ResourceNotFoundException("Thread not found: " + threadId);
-        }
 
         MessageDb message = new MessageDb();
         BeanUtils.copyProperties(request, message);
@@ -112,11 +108,6 @@ public class MessageService {
 
     @Transactional
     public Message createMessage(String threadId, Message message, boolean hidden) {
-        // 验证Thread是否存在
-        if (!threadService.existsById(threadId)) {
-            throw new ResourceNotFoundException("Thread not found: " + threadId);
-        }
-
         MessageDb db = convertToDb(message);
         db.setThreadId(threadId);
         db.setMessageStatus(hidden ? "hidden" : "original");
@@ -213,7 +204,12 @@ public class MessageService {
     public Message updateMessage(String threadId, String id, MessageRequest request) {
         MessageDb existing = messageRepo.findById(threadId, id);
         if(existing == null) {
-            throw new IllegalArgumentException("Message not found: " + id);
+            return null;
+        }
+
+        if(request.getContent() != null) {
+            List<Object> formattedContent = MessageUtils.formatMessageContent(request.getContent());
+            existing.setContent(JacksonUtils.serialize(formattedContent));
         }
 
         // 序列化metadata
@@ -232,7 +228,7 @@ public class MessageService {
     public Message addContent(String threadId, String id, MessageContent content, String reasoning, Map<String, String> metaData) {
         MessageDb existing = messageRepo.findByIdForUpdate(threadId, id);
         if(existing == null) {
-            throw new IllegalArgumentException("Message not found: " + id);
+            return null;
         }
 
         List<MessageContent> contents = JacksonUtils.deserialize(existing.getContent(), new TypeReference<>() {});
@@ -279,7 +275,7 @@ public class MessageService {
     public Message updateStatus(String threadId, String id, String status, boolean hidden, IncompleteDetails details) {
         MessageDb existing = messageRepo.findByIdForUpdate(threadId, id);
         if(existing == null) {
-            throw new IllegalArgumentException("Message not found: " + id);
+            return null;
         }
 
         if(existing.getStatus().equals("incomplete")) {

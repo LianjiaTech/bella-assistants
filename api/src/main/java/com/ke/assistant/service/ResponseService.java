@@ -379,6 +379,9 @@ public class ResponseService {
                     throw new BizParamCheckException("previous response not found");
                 }
                 String newThreadId = threadService.forkThreadBeforeTargetRun(prev.getThreadId(), prev.getRunId()).getId();
+                if(newThreadId == null) {
+                    throw new BizParamCheckException("thread fork failed");
+                }
                 return store(responseId, newThreadId, runId, previousResponseId, user);
             }
             return store(responseId, threadId, runId, previousResponseId, user);

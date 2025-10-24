@@ -210,6 +210,8 @@ public class RunService {
         // 保存run
         runDb = runRepo.insert(runDb);
 
+        runId = runDb.getId();
+
         // 保存tools
         if(request.getTools() != null && !request.getTools().isEmpty()) {
             createRunTool(request.getTools(), runDb.getId());
@@ -250,6 +252,10 @@ public class RunService {
 
         // 使用MessageService创建消息
         Message assistantMessage = messageService.createRunStepMessage(threadId, messageRequest);
+
+        if(assistantMessage == null) {
+            throw new IllegalStateException("assistant message not created");
+        }
 
         RunStepDb runStep = new RunStepDb();
         runStep.setRunId(runDb.getId());
@@ -308,7 +314,7 @@ public class RunService {
     public Run updateRun(String threadId, String id, Map<String, String> metaData) {
         RunDb existing = runRepo.findById(threadId, id);
         if(existing == null) {
-            throw new ResourceNotFoundException("Run not found: " + id);
+            return null;
         }
 
         if(metaData == null) {
@@ -373,7 +379,6 @@ public class RunService {
     /**
      * 将RunDb转换为RunInfo
      */
-    @SuppressWarnings("unchecked")
     public Run convertToInfo(RunDb runDb) {
         if(runDb == null) {
             return null;

@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.ke.assistant.model.CommonPage;
 import com.ke.assistant.model.DeleteResponse;
 import com.ke.assistant.service.MessageService;
+import com.ke.assistant.service.ThreadService;
 import com.ke.bella.openapi.common.exception.BizParamCheckException;
 import com.ke.bella.openapi.common.exception.ResourceNotFoundException;
 import com.theokanning.openai.assistants.message.Message;
@@ -31,6 +32,9 @@ import lombok.extern.slf4j.Slf4j;
 public class MessageController {
 
     @Autowired
+    private ThreadService threadService;
+
+    @Autowired
     private MessageService messageService;
 
     /**
@@ -40,7 +44,13 @@ public class MessageController {
     public Message createMessage(
             @PathVariable("thread_id") String threadId,
             @RequestBody MessageRequest request) {
-
+        // 验证Thread是否存在
+        if (!threadService.existsById(threadId)) {
+            throw new ResourceNotFoundException("Thread not found: " + threadId);
+        }
+        if (request.getContent() == null) {
+            throw new BizParamCheckException("Content is null");
+        }
         return messageService.createMessage(threadId, request);
     }
 
@@ -106,6 +116,11 @@ public class MessageController {
 
         if(!threadId.equals(existing.getThreadId())) {
             throw new BizParamCheckException("Message does not belong to this thread");
+        }
+
+        // run产生的消息不支持修改
+        if(existing.getRunId() != null && !existing.getRunId().isEmpty() && request.getContent() != null) {
+            throw new BizParamCheckException("Message does not support to change ");
         }
 
         return messageService.updateMessage(threadId, messageId, request);

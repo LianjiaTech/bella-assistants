@@ -95,6 +95,9 @@ public class ThreadService {
                     MessageUtils.checkFirst(messageOp);
                 }
                 pre = messageService.createMessage(savedThread.getId(), messageOp, pre);
+                if(pre == null) {
+                    throw new IllegalStateException("message creation failed");
+                }
             }
         }
 
@@ -140,7 +143,7 @@ public class ThreadService {
     public Thread updateThread(String id, ThreadDb updateData, List<Map<String, String>> toolResources) {
         ThreadDb existing = threadRepo.findById(id);
         if(existing == null) {
-            throw new IllegalArgumentException("Thread not found: " + id);
+            return null;
         }
 
         existing.setObject("thread");
@@ -167,12 +170,7 @@ public class ThreadService {
      * 删除Thread
      */
     @Transactional
-    public boolean deleteThread(String id, String owner) {
-        // 权限检查在Service中进行
-        if(!checkOwnership(id, owner)) {
-            throw new IllegalArgumentException("Permission denied");
-        }
-
+    public boolean deleteThread(String id) {
         // 删除关联的文件
         threadFileRepo.deleteByThreadId(id);
         // 删除关联的消息
@@ -202,7 +200,7 @@ public class ThreadService {
     public Thread forkThread(String threadId) {
         ThreadDb originalThread = threadRepo.findById(threadId);
         if(originalThread == null) {
-            throw new IllegalArgumentException("Thread not found: " + threadId);
+            return null;
         }
 
         // 创建新的Thread
@@ -244,9 +242,8 @@ public class ThreadService {
 
         ThreadDb originalThread = threadRepo.findById(sourceThreadId);
         if(originalThread == null) {
-            throw new IllegalArgumentException("Thread not found: " + sourceThreadId);
+            return null;
         }
-
         // Create new thread
         ThreadDb newThread = new ThreadDb();
         BeanUtils.copyProperties(originalThread, newThread);
@@ -367,10 +364,10 @@ public class ThreadService {
         ThreadDb toThread = threadRepo.findById(toThreadId);
 
         if(fromThread == null) {
-            throw new IllegalArgumentException("Source thread not found: " + fromThreadId);
+            return null;
         }
         if(toThread == null) {
-            throw new IllegalArgumentException("Target thread not found: " + toThreadId);
+            return null;
         }
 
         // 删除目标线程现有消息
