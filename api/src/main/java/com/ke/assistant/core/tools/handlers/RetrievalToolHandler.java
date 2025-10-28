@@ -200,7 +200,7 @@ public class RetrievalToolHandler implements ToolHandler {
     @Data
     public static class RetrievalRequest {
         private String query;
-        @JsonProperty("file_ids")
+        @JsonProperty("resource_ids")
         private List<String> fileIds;
         @JsonProperty("top_k")
         private int topK;

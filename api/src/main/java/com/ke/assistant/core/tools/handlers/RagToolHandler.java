@@ -7,8 +7,6 @@ import java.util.Optional;
 
 import javax.annotation.PostConstruct;
 
-import com.ke.assistant.core.tools.ToolHandler;
-import com.ke.bella.openapi.BellaContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -20,8 +18,10 @@ import com.ke.assistant.core.log.RunLogger;
 import com.ke.assistant.core.tools.SseConverter;
 import com.ke.assistant.core.tools.ToolCallListener;
 import com.ke.assistant.core.tools.ToolContext;
+import com.ke.assistant.core.tools.ToolHandler;
 import com.ke.assistant.core.tools.ToolOutputChannel;
 import com.ke.assistant.core.tools.ToolResult;
+import com.ke.bella.openapi.BellaContext;
 import com.ke.bella.openapi.utils.HttpUtils;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.assistants.assistant.Tool;
@@ -255,7 +255,7 @@ public class RagToolHandler implements ToolHandler {
     
     @Data
     public static class RetrievalParam {
-        @JsonProperty("file_ids")
+        @JsonProperty("resource_ids")
         private List<String> fileIds;
         @JsonProperty("top_k")
         private int topK;
