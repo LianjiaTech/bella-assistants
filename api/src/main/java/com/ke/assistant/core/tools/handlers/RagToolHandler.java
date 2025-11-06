@@ -74,7 +74,7 @@ public class RagToolHandler implements ToolHandler {
                 .addHeader("Cache-Control", "no-cache")
                 .post(RequestBody.create(JacksonUtils.serialize(requestBody), MediaType.parse("application/json")))
                 .build();
-        
+
         // 创建SSE事件监听器，用于处理流式响应
         ToolCallListener listener = new ToolCallListener(
             context.getToolId(),
@@ -183,7 +183,7 @@ public class RagToolHandler implements ToolHandler {
                     case "retrieval.completed":
                         // 检索完成事件，不输出内容，只做数据处理
                         // todo: 保存file_annotations_metadata，用于显示文档的引用
-                        return null;
+                        return "[DONE]";
 
                     case "message.delta":
                         // 消息增量事件，这是主要的内容输出

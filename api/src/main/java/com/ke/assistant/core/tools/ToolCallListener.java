@@ -6,9 +6,11 @@ import org.jetbrains.annotations.NotNull;
 
 import com.ke.bella.openapi.protocol.BellaEventSourceListener;
 
+import lombok.extern.slf4j.Slf4j;
 import okhttp3.Response;
 import okhttp3.sse.EventSource;
 
+@Slf4j
 public class ToolCallListener extends BellaEventSourceListener {
 
     final String toolCallId;
@@ -17,7 +19,6 @@ public class ToolCallListener extends BellaEventSourceListener {
     final CompletableFuture<String> finishFuture;
     final StringBuilder output;
     final boolean send;
-    boolean finish;
 
     public ToolCallListener(String toolCallId, ToolOutputChannel toolOutputChannel, SseConverter converter, boolean send) {
         super();
@@ -35,45 +36,65 @@ public class ToolCallListener extends BellaEventSourceListener {
         if(chunk == null) {
             return;
         }
-        send(chunk);
+        if(chunk.equals("[DONE]")) {
+            finishFuture.complete(output.toString());
+            return;
+        }
         output.append(chunk);
+        send(chunk);
     }
 
     @Override
     public void onClosed(@NotNull EventSource eventSource) {
-        if(!finish) {
+        if(!finishFuture.isDone()) {
             send("[TOOL_DONE]");
-            finish = true;
             finishFuture.complete(output.toString());
         }
     }
 
     @Override
     public void onFailure(@NotNull EventSource eventSource, Throwable t, Response response) {
-        if(finish) {
+        if(finishFuture.isDone()) {
             return;
         }
 
-        if(t != null) {
-            send(t.getMessage());
-            finishFuture.completeExceptionally(t);
-        } else if(response != null) {
-            try {
-                if(response.body() != null) {
-                    String body = response.body().string();
-                    send(body);
-                    finishFuture.completeExceptionally(new RuntimeException(body));
-                } else {
-                    send(response.message());
-                    finishFuture.completeExceptionally(new RuntimeException(response.message()));
+        try {
+            if(t != null) {
+                send(t.getMessage());
+                finishFuture.completeExceptionally(t);
+            } else if(response != null) {
+                try {
+                    String errorMsg;
+                    if(response.body() != null) {
+                        errorMsg = response.body().string();
+                    } else {
+                        errorMsg = response.message();
+                    }
+                    send(errorMsg);
+                    finishFuture.completeExceptionally(new RuntimeException(errorMsg));
+                } catch (Exception e) {
+                    String msg = "Failed to read error response: " + e.getMessage();
+                    log.error("Error reading response body", e);
+                    send(msg);
+                    finishFuture.completeExceptionally(new RuntimeException(msg));
                 }
-            } catch (Exception e) {
-                send(response.message());
-                finishFuture.completeExceptionally(new RuntimeException(response.message()));
+            } else {
+                String msg = "SSE connection failed with unknown error";
+                log.error(msg);
+                send(msg);
+                finishFuture.completeExceptionally(new RuntimeException(msg));
             }
+        } catch (Exception ex) {
+            log.error("Error in onFailure handler", ex);
+            if (!finishFuture.isDone()) {
+                finishFuture.completeExceptionally(new RuntimeException("onFailure handler error: " + ex.getMessage()));
+            }
+        } finally {
+            if (!finishFuture.isDone()) {
+                finishFuture.completeExceptionally(new RuntimeException("onFailure handler error"));
+            }
+            send("[TOOL_DONE]");
         }
-        send("[TOOL_DONE]");
-        finish = true;
     }
 
     public String getOutput() {
