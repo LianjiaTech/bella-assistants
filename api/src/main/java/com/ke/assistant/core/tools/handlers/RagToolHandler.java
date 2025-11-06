@@ -80,7 +80,8 @@ public class RagToolHandler implements ToolHandler {
             context.getToolId(),
             channel,
             new RagSseConverter(),
-            ragProperties.isFinal()
+            ragProperties.isFinal(),
+            "[DONE]"::equals
         );
         
         try {

@@ -1,6 +1,7 @@
 package com.ke.assistant.core.tools;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -19,13 +20,15 @@ public class ToolCallListener extends BellaEventSourceListener {
     final CompletableFuture<String> finishFuture;
     final StringBuilder output;
     final boolean send;
+    final Function<String, Boolean> finishChecker;
 
-    public ToolCallListener(String toolCallId, ToolOutputChannel toolOutputChannel, SseConverter converter, boolean send) {
+    public ToolCallListener(String toolCallId, ToolOutputChannel toolOutputChannel, SseConverter converter, boolean send, Function<String, Boolean> finishChecker) {
         super();
         this.toolCallId = toolCallId;
         this.toolOutputChannel = toolOutputChannel;
         this.converter = converter;
         this.send = send;
+        this.finishChecker = finishChecker;
         finishFuture = new CompletableFuture<>();
         output = new StringBuilder();
     }
@@ -36,7 +39,7 @@ public class ToolCallListener extends BellaEventSourceListener {
         if(chunk == null) {
             return;
         }
-        if(chunk.equals("[DONE]")) {
+        if(finishChecker.apply(chunk)) {
             finishFuture.complete(output.toString());
             return;
         }
