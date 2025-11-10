@@ -1,9 +1,11 @@
 package com.ke.assistant.core.tools.handlers;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import javax.annotation.PostConstruct;
 
@@ -21,10 +23,12 @@ import com.ke.assistant.core.tools.ToolContext;
 import com.ke.assistant.core.tools.ToolHandler;
 import com.ke.assistant.core.tools.ToolOutputChannel;
 import com.ke.assistant.core.tools.ToolResult;
+import com.ke.assistant.util.AnnotationUtils;
 import com.ke.bella.openapi.BellaContext;
 import com.ke.bella.openapi.utils.HttpUtils;
 import com.ke.bella.openapi.utils.JacksonUtils;
 import com.theokanning.openai.assistants.assistant.Tool;
+import com.theokanning.openai.assistants.message.content.Annotation;
 
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -76,23 +80,27 @@ public class RagToolHandler implements ToolHandler {
                 .build();
 
         // 创建SSE事件监听器，用于处理流式响应
+        RagSseConverter converter = new RagSseConverter();
         ToolCallListener listener = new ToolCallListener(
             context.getToolId(),
             channel,
-            new RagSseConverter(),
+            converter,
             ragProperties.isFinal(),
             "[DONE]"::equals
         );
-        
+
         try {
             // 使用HttpUtils发送SSE流式请求
             HttpUtils.streamRequest(request, listener);
-            
+
             // 获取完整输出
             String output = listener.getOutput();
-            
-            return new ToolResult(ToolResult.ToolResultType.text, output);
-                
+
+            // 获取从retrieval.completed事件中解析的annotations
+            List<Annotation> annotations = converter.getAnnotations();
+
+            return new ToolResult(ToolResult.ToolResultType.text, output, annotations);
+
         } catch (Exception e) {
             log.error("RAG tool execution failed", e);
             throw new RuntimeException("RAG tool execution failed: " + e.getMessage(), e);
@@ -171,6 +179,8 @@ public class RagToolHandler implements ToolHandler {
      * RAG SSE消息转换器，按照Python RAG工具的处理逻辑
      */
     private static class RagSseConverter implements SseConverter {
+        // 用于存储检索到的文档annotations
+        private List<Annotation> annotations = new ArrayList<>();
 
         @Override
         public String convert(String eventType, String msg) {
@@ -183,8 +193,9 @@ public class RagToolHandler implements ToolHandler {
 
                     case "retrieval.completed":
                         // 检索完成事件，不输出内容，只做数据处理
-                        // todo: 保存file_annotations_metadata，用于显示文档的引用
-                        return "[DONE]";
+                        // 保存file_annotations_metadata，用于显示文档的引用
+                        parseRetrievalCompleted(msg);
+                        return null;
 
                     case "message.delta":
                         // 消息增量事件，这是主要的内容输出
@@ -206,6 +217,62 @@ public class RagToolHandler implements ToolHandler {
                 log.warn("Failed to parse RAG SSE message, eventType: {}, msg: {}", eventType, msg, e);
                 throw new RuntimeException(e.getMessage());
             }
+        }
+
+        /**
+         * 解析retrieval.completed事件，提取文档引用信息
+         * 事件格式:
+         * {
+         *   "id": "session_id",
+         *   "object": "retrieval.doc",
+         *   "doc": [
+         *     {
+         *       "type": "text",
+         *       "text": "检索到的文档内容...",
+         *       "annotation": {
+         *         "file_id": "file-123",
+         *         "file_name": "document.pdf",
+         *         "paths": [1, 2, 3]
+         *       },
+         *       "score": 0.85
+         *     }
+         *   ]
+         * }
+         */
+        private void parseRetrievalCompleted(String msg) {
+            try {
+                RetrievalCompletedEvent event = JacksonUtils.deserialize(msg, RetrievalCompletedEvent.class);
+                if (event.getDoc() == null || event.getDoc().isEmpty()) {
+                    return;
+                }
+
+                // 将检索到的文档信息转换为annotations
+                for (DocItem docItem : event.getDoc()) {
+                    if (docItem.getAnnotation() != null) {
+                        DocAnnotation docAnnotation = docItem.getAnnotation();
+                        // 使用AnnotationUtils构建file_citation类型的annotation
+                        Annotation annotation = AnnotationUtils.buildFileSearch(
+                            docAnnotation.getFileId(),
+                            docAnnotation.getFileName(),
+                            docAnnotation.getPaths() != null ? docAnnotation.getPaths().toString() : null, // 将paths作为chunkId
+                            docItem.getScore(),
+                            null // fileTag
+                        );
+                        annotations.add(annotation);
+                    }
+                }
+
+                log.debug("Parsed {} annotations from retrieval.completed event", annotations.size());
+            } catch (Exception e) {
+                log.warn("Failed to parse retrieval.completed: {}", msg, e);
+            }
+        }
+
+        /**
+         * 获取收集到的annotations
+         */
+        public List<Annotation> getAnnotations() {
+            return annotations;
         }
 
         /**
@@ -279,15 +346,40 @@ public class RagToolHandler implements ToolHandler {
     public static class MessageDeltaEvent {
         private List<DeltaItem> delta;
     }
-    
+
     @Data
     public static class DeltaItem {
         private String value;
         private TextContent text;
     }
-    
+
     @Data
     public static class TextContent {
         private String value;
+    }
+
+    // retrieval.completed事件相关实体类
+    @Data
+    public static class RetrievalCompletedEvent {
+        private String id;
+        private String object;
+        private List<DocItem> doc;
+    }
+
+    @Data
+    public static class DocItem {
+        private String type;
+        private String text;
+        private DocAnnotation annotation;
+        private Double score;
+    }
+
+    @Data
+    public static class DocAnnotation {
+        @JsonProperty("file_id")
+        private String fileId;
+        @JsonProperty("file_name")
+        private String fileName;
+        private List<Integer> paths;
     }
 }
