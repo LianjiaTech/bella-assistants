@@ -168,7 +168,7 @@ public class ResponseMessageExecutor implements Runnable {
             finishPreviousItem();
             // Update final response
             currentResponse.setOutput(outputItems);
-            currentResponse.setUsage(Response.Usage.fromChatUsage(usage));
+            currentResponse.setUsage(Response.Usage.fromChatUsage(context.getUsage()));
 
             if(status == RunStatus.FAILED) {
                 currentResponse.setStatus(ResponseStatus.FAILED);

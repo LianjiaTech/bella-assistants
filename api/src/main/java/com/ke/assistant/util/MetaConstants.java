@@ -15,4 +15,5 @@ public class MetaConstants {
     public static final String BACKGROUND = "background";
     public static final String PARALLEL_TOOL_CALLS = "parallel_tool_calls";
     public static final String STORE = "store";
+    public static final String PROMPT_CACHE_KEY = "prompt_cache_key";
 }

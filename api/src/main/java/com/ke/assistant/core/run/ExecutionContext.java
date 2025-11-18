@@ -522,6 +522,11 @@ public class ExecutionContext {
         publish("[END]");
     }
 
+    public void setRun(Run run) {
+        this.run = run;
+        this.usage = run.getUsage();
+    }
+
     /**
      * 获取当前正在输出的工具ID
      */
@@ -606,6 +611,10 @@ public class ExecutionContext {
 
     public boolean isStore() {
         return !Boolean.FALSE.toString().equals(run.getMetadata().get(MetaConstants.STORE));
+    }
+
+    public String getPromptCacheKey() {
+        return run.getMetadata().get(MetaConstants.PROMPT_CACHE_KEY);
     }
 
     public boolean isHidden() {

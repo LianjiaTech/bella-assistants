@@ -35,6 +35,7 @@ public class ChatService {
             ChatCompletionRequest request = ChatCompletionRequest.builder()
                     .model(context.getModel())
                     .messages(context.getChatMessages())
+                    .promptCacheKey(context.getPromptCacheKey())
                     .build();
             if(context.getChatTools() != null && !context.getChatTools().isEmpty()) {
                 request.setTools(context.getChatTools());

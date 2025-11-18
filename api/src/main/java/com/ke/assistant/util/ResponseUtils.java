@@ -127,6 +127,9 @@ public class ResponseUtils {
         metadata.put(MetaConstants.STORE, String.valueOf(Boolean.FALSE != request.getStore()));
         // 默认为false
         metadata.put(MetaConstants.BACKGROUND, String.valueOf(Boolean.TRUE == request.getBackground()));
+        if(request.getPromptCacheKey() != null) {
+            metadata.put(MetaConstants.PROMPT_CACHE_KEY, request.getPromptCacheKey());
+        }
         if(previousRunId != null) {
             metadata.put(MetaConstants.PREVIOUS_RES_ID, request.getPreviousResponseId());
             metadata.put(MetaConstants.PREVIOUS_RUN_ID, previousRunId);
