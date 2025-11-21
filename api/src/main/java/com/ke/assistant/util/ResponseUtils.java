@@ -53,6 +53,7 @@ import com.theokanning.openai.response.MessageRole;
 import com.theokanning.openai.response.Response;
 import com.theokanning.openai.response.ResponseStatus;
 import com.theokanning.openai.response.ToolChoiceValue;
+import com.theokanning.openai.response.ConversationReference;
 import com.theokanning.openai.response.content.Annotation;
 import com.theokanning.openai.response.content.InputAudio;
 import com.theokanning.openai.response.content.InputContent;
@@ -199,8 +200,10 @@ public class ResponseUtils {
                 .truncation(run.getTruncationStrategy() != null ? run.getTruncationStrategy().getType() : "auto");
 
         if(Boolean.parseBoolean(run.getMetadata().get(MetaConstants.STORE))) {
-            // Add conversation reference
-            ConversationValue conversationValue = ConversationValue.of(run.getThreadId());
+            // Add conversation reference as object (not string) per API spec
+            ConversationReference conversationRef = new ConversationReference();
+            conversationRef.setId(run.getThreadId());
+            ConversationValue conversationValue = ConversationValue.of(conversationRef);
             builder.conversation(conversationValue);
         }
 
