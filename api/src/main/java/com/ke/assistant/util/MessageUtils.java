@@ -585,7 +585,7 @@ public class MessageUtils {
             return;
         }
         if(cur.getRole().equals("system") || cur.getRole().equals("developer")) {
-            throw new BizParamCheckException("system or developer message must be the first message");
+            return;
         }
         if(cur.getRole().equals("user")) {
             if(!pre.getRole().equals("user")) {
