@@ -9,6 +9,7 @@ import java.util.Optional;
 import javax.annotation.PostConstruct;
 
 import com.ke.assistant.core.tools.ToolHandler;
+import com.ke.bella.openapi.BellaContext;
 import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -81,6 +82,7 @@ public class ReadFilesToolHandler implements ToolHandler {
 
         Request request = new Request.Builder()
                 .url(url)
+                .header("Authorization", BellaContext.getApikey().getApikey())
                 .get()
                 .build();
 
