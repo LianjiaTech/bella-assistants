@@ -301,12 +301,20 @@ public class ResponseUtils {
                                             List<Message> messages,
                                             ImageUrlProcessor imageProcessor,
                                             AudioUploader audioUploader) {
+        InputContentValue content = inputMessage.getContent();
+        if(content == null) {
+            throw new BizParamCheckException("input message content can not be null");
+        }
+        if(!content.isString() && content.getArrayValue() == null) {
+            throw new BizParamCheckException("input message content must be a string or an array");
+        }
+
         String role = inputMessage.getRole().getValue();
         Message message = setRoleOrNewMessage(last, role, messages);
-        if(inputMessage.getContent().isString()) {
-            message.getContent().add(textContent(inputMessage.getContent().getStringValue()));
+        if(content.isString()) {
+            message.getContent().add(textContent(content.getStringValue()));
         } else {
-            for(InputContent inputContent : inputMessage.getContent().getArrayValue()) {
+            for(InputContent inputContent : content.getArrayValue()) {
                 if(inputContent instanceof InputText inputText) {
                     message.getContent().add(textContent(inputText.getText()));
                 } else if(inputContent instanceof InputImage inputImage) {
