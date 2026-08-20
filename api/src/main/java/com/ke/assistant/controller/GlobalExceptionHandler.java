@@ -34,10 +34,9 @@ public class GlobalExceptionHandler implements HandlerExceptionResolver {
     @Override
     public ModelAndView resolveException(HttpServletRequest request, HttpServletResponse response, 
                                        Object handler, Exception ex) {
-        log.error(request.getRequestURI() + " with error: " + ex.getMessage(), ex);
         try {
             if(ex instanceof ChannelException ce) {
-                handleChannelException(response, ce);
+                handleChannelException(request, response, ce);
             } else if(ex instanceof MethodArgumentNotValidException manve) {
                 handleValidationException(response, manve);
             } else if(ex instanceof ConstraintViolationException cve) {
@@ -55,8 +54,14 @@ public class GlobalExceptionHandler implements HandlerExceptionResolver {
         return new ModelAndView();
     }
 
-    private void handleChannelException(HttpServletResponse response, ChannelException e) {
-        log.error("ChannelException: {}", e.getMessage(), e);
+    private void handleChannelException(HttpServletRequest request, HttpServletResponse response, ChannelException e) {
+        if(e.getHttpCode() >= 400 && e.getHttpCode() < 500) {
+            log.warn("ChannelException: method={}, uri={}, status={}, message={}",
+                    request.getMethod(), request.getRequestURI(), e.getHttpCode(), e.getMessage());
+        } else {
+            log.error("ChannelException: method={}, uri={}, status={}, message={}",
+                    request.getMethod(), request.getRequestURI(), e.getHttpCode(), e.getMessage(), e);
+        }
         OpenapiResponse.OpenapiError error = e.convertToOpenapiError();
         writeErrorResponse(response, error, e.getHttpCode());
     }
